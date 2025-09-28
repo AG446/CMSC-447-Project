@@ -195,7 +195,7 @@ void clear_map(map_t * map_ref);
 /*
  * filter locations from map and return a list of map_node_t, fuzzy search
  */
-map_node_t ** filter_locations(const char * location_name,const map_t * map_ref,size_t * n_results_out);
+map_node_t ** filter_locations(const char * location_name,const map_t * map_ref,size_t max_results);
 
 
 
@@ -333,5 +333,8 @@ map_edge_t * create_map_edge_from_text(const char * text);
 map_path_t * create_map_path_from_text(const char * text);
 
 //---------------------------------------------------------- FUNCTIONS END ------------------------------------------------------------
+
+
+void do_thing();
 
 #endif
