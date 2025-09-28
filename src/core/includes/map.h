@@ -68,7 +68,8 @@ struct Map_Polygon_Object{
  */
 struct Map_Node{
 	coord_t coordinate;//location of node
-	char * name;//Notable locations have names, if not this should be NULL.
+	char ** possible_name;//Notable locations have names, if not this should be NULL. This is an array of strigs because there are alias names
+	size_t n_possible_names;//defualt 0
 	map_edge_t * outgoing_edges;//all the edges connected to this node
 	size_t n_outgoing_edges;//number of outgoing edges connected to this node
 	size_t outgoing_edges_capacity;//the memory capacity of outgoing edges (defualt should be 2)
