@@ -50,7 +50,6 @@ struct Map_Rect{
 struct Map_Polygon_Object{
 	coord_t * cords;//array
 	size_t n_cords;
-	
 	uint8_t type;
 };
 //---------------------------------------------------------- GEOMETRY PRIMITIVES END --------------------------------------------------
@@ -70,6 +69,9 @@ struct Map_Polygon_Object{
 struct Map_Node{
 	coord_t coordinate;//location of node
 	char * name;//Notable locations have names, if not this should be NULL.
+	map_edge_t * outgoing_edges;//all the edges connected to this node
+	size_t n_outgoing_edges;//number of outgoing edges connected to this node
+	size_t outgoing_edges_capacity;//the memory capacity of outgoing edges (defualt should be 2)
 	uint8_t type;//the node type
 };
 //---------------------------------------------------------- NODES END ----------------------------------------------------------------
@@ -88,6 +90,9 @@ struct Map_Node{
 
 //Is the edge type a ramp
 #define EDGE_TYPE_RAMP 4
+
+//Is the edge type a hallway
+#define EDGE_TYPE_HALLWAY 5
 
 struct Map_Edge{
 	map_node_t * a;
