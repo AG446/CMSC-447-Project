@@ -15,7 +15,7 @@ EXE_BUILD_PATH := $(BUILD_PATH)/bin
 
 CORE_PATH := $(SRC_PATH)/core
 CORE_INCLUDES := -I$(CORE_PATH)/includes
-CORE_CODE := $(CORE_PATH)/core
+CORE_CODE := $(CORE_PATH)/code
 CORE_CXX_FILES := $(wildcard $(CORE_CODE)/*.cpp)
 CORE_OBJS_BUILD_PATH := $(OBJS_BUILD_PATH)/core
 CORE_OBJS := $(addprefix $(CORE_OBJS_BUILD_PATH)/,$(patsubst %.cpp,%.o,$(notdir $(CORE_CXX_FILES))))
