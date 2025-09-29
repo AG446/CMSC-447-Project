@@ -61,18 +61,18 @@ struct Map_Polygon_Object{
 #define NODE_TYPE_NOTABLE_LOCATION 1
 
 //This is not a notable location, merely a way of joining EDGES. This is useful for defining curves and sidewalk intersection.
-#define NODE_TYPE_JOIN 2
+#define NODE_TYPE_BASIC 2
 
 /*
  * A node/location on the map with some details
  */
 struct Map_Node{
 	coord_t coordinate;//location of node
-	char ** possible_name;//Notable locations have names, if not this should be NULL. This is an array of strigs because there are alias names
+	char ** possible_names;//Notable locations have names, if not this should be NULL. This is an array of strigs because there are alias names
 	size_t n_possible_names;//defualt 0
-	map_edge_t * outgoing_edges;//all the edges connected to this node
+	char * picture_file_path;
+	map_edge_t ** outgoing_edges;//all the edges connected to this node
 	size_t n_outgoing_edges;//number of outgoing edges connected to this node
-	size_t outgoing_edges_capacity;//the memory capacity of outgoing edges (defualt should be 2)
 	uint8_t type;//the node type
 };
 //---------------------------------------------------------- NODES END ----------------------------------------------------------------
@@ -111,10 +111,13 @@ struct Map_Edge{
 struct Map{
 	map_node_t ** all_nodes;//array of map_node_t pointers
 	size_t n_nodes;
+	size_t node_capacity;
 	map_edge_t ** all_edges;//array of map_edge_t pointers
 	size_t n_edges;
+	size_t edge_capacity;
 	mpo_t ** mpos;//array of mpo_t pointers (these are map polygon objects)
 	size_t n_mpos;
+	size_t mpo_capacity;
 	
 	map_node_t * active_start;
 	map_node_t * active_end;
@@ -160,8 +163,10 @@ void delete_map_node(map_node_t * node);
 void set_map_node_name(map_node_t * node_ref,const char * name_ref);
 
 
-
-
+/*
+ * Convert the node into an easily readable string
+ */
+void map_node_to_string(const map_edge_t * node_ref,FILE * stream);
 
 
 /*
@@ -175,6 +180,18 @@ map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b);
  */
 void delete_map_edge(map_edge_t * edge);
 
+
+
+
+/*
+ * Convert a map polygon object into an easily readable string
+ */
+void mpo_to_string(const mpo_t * mpo_ref,FILE * stream);
+
+/*
+ * Convert a coordinate object into an easily readable string
+ */
+void coordinate_to_string(coord_t coordinate,FILE * stream);
 
 
 /*

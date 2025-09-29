@@ -170,11 +170,12 @@ float phrase_similarity_score(const char * phrase_1,const char * phrase_2){
 /*
  * convert a map polygon object into a stream of bytes
  */
-static uint8_t * convert_mpo_to_binary(mpo_t * mpo,size_t * buffer_size){
+static uint8_t * convert_mpo_to_binary(const mpo_t * mpo,size_t * buffer_size){
 	*buffer_size = sizeof(uint8_t)+sizeof(size_t)+sizeof(coord_t)*mpo->n_cords;
 	uint8_t * buffer = (uint8_t *) malloc(*buffer_size);
 	
 	size_t current_offset = 0;
+	
 	memcpy(buffer+current_offset,&(mpo->type),sizeof(uint8_t));
 	current_offset += sizeof(uint8_t);
 	
@@ -189,10 +190,11 @@ static uint8_t * convert_mpo_to_binary(mpo_t * mpo,size_t * buffer_size){
 /*
  * convert a stream of bytes into a map polygon object
  */
-static mpo_t * convert_binary_to_mpo(uint8_t * buffer){
+static mpo_t * convert_binary_to_mpo(const uint8_t * buffer){
 	mpo_t * out = (mpo_t*) malloc(sizeof(mpo_t));
 	
 	size_t current_offset = 0;
+	
 	memcpy(&(out->type),buffer+current_offset,sizeof(uint8_t));
 	current_offset += sizeof(uint8_t);
 	
@@ -206,11 +208,224 @@ static mpo_t * convert_binary_to_mpo(uint8_t * buffer){
 	return out;
 }
 
+
+/*
+ * get index of node
+ */
+size_t get_node_index(map_node_t * node,map_node_t ** all_nodes){
+	return ((size_t)node-((size_t)&(all_nodes[0])))/sizeof(map_node_t);
+}
+
+/*
+ * convert a map edge object into a stream of bytes
+ */
+static uint8_t * convert_map_edge_to_binary(const map_edge_t * edge,map_node_t ** all_nodes,size_t * buffer_size){
+	*buffer_size = sizeof(uint8_t)+sizeof(size_t)+sizeof(size_t);
+	uint8_t * buffer = (uint8_t *) malloc(*buffer_size);
+	
+	size_t current_offset = 0;
+	
+	memcpy(buffer+current_offset,&(edge->type),sizeof(uint8_t));
+	current_offset += sizeof(uint8_t);
+	
+	size_t node_a_index = get_node_index(edge->a,all_nodes);
+	memcpy(buffer+current_offset,&(node_a_index),sizeof(size_t));
+	current_offset += sizeof(size_t);
+	
+	size_t node_b_index = get_node_index(edge->b,all_nodes);
+	memcpy(buffer+current_offset,&(node_b_index),sizeof(size_t));
+	
+	return buffer;
+}
+
+/*
+ * convert a stream of bytes into an edge object
+ */
+static map_edge_t * convert_binary_to_map_edge(const uint8_t * buffer,map_node_t ** all_nodes){
+	map_edge_t * out = (map_edge_t*) malloc(sizeof(map_edge_t));
+	
+	size_t current_offset = 0;
+	
+	memcpy(&(out->type),buffer+current_offset,sizeof(uint8_t));
+	current_offset += sizeof(uint8_t);
+	
+	size_t index;
+	memcpy(&(index),buffer+current_offset,sizeof(size_t));
+	out->a = all_nodes[index];
+	current_offset += sizeof(size_t);
+	
+	memcpy(&(index),buffer+current_offset,sizeof(size_t));
+	out->b = all_nodes[index];
+	
+	return out;
+}
+
+/*
+ * convert a map node object into a stream of bytes
+ */
+static uint8_t * convert_map_node_to_binary(const map_node_t * node,size_t * buffer_size){
+	size_t total_alias_name_length = 0;
+	for(size_t i = 0;i < node->n_possible_names;i++){
+		char * string = node->possible_names[i];
+		size_t string_len = strlen(string);
+		total_alias_name_length += string_len+1;
+	}
+	
+	size_t picture_file_path_len = 0;
+	if(node->picture_file_path != NULL) picture_file_path_len = strlen(node->picture_file_path);
+	
+	*buffer_size = 
+		sizeof(uint8_t) + //type
+		sizeof(coord_t) + //coordinate
+		sizeof(size_t) + //n_possible_names
+		total_alias_name_length + //array of strings
+		picture_file_path_len+1 + //picture file path name
+		sizeof(size_t);//n_outgoing_edges
+	
+	uint8_t * buffer = (uint8_t *) malloc(*buffer_size);
+	
+	size_t current_offset = 0;
+	
+	memcpy(buffer+current_offset,&(node->type),sizeof(uint8_t));
+	current_offset += sizeof(uint8_t);
+	
+	memcpy(buffer+current_offset,&(node->coordinate),sizeof(coord_t));
+	current_offset += sizeof(coord_t);
+	
+	memcpy(buffer+current_offset,&(node->n_possible_names),sizeof(size_t));
+	current_offset += sizeof(size_t);
+	
+	
+	for(size_t i = 0;i < node->n_possible_names;i++){
+		char * string = node->possible_names[i];
+		size_t string_len = strlen(string);
+		memcpy(buffer+current_offset,string,string_len+1);
+		current_offset += string_len+1;
+	}
+	
+	if(node->picture_file_path != NULL){
+		memcpy(buffer+current_offset,node->picture_file_path,picture_file_path_len+1);
+		current_offset += picture_file_path_len+1;
+	}else{
+		memcpy(buffer+current_offset,"\0",1);
+		current_offset++;
+	}
+	
+	memcpy(buffer+current_offset,&(node->n_outgoing_edges),sizeof(size_t));
+	
+	return buffer;
+}
+
+/*
+ * convert a stream of bytes into an node object
+ */
+static map_node_t * convert_binary_to_map_node(const uint8_t * buffer){
+	map_node_t * out = (map_node_t*) malloc(sizeof(map_node_t));
+	
+	size_t current_offset = 0;
+	
+	memcpy(&(out->type),buffer+current_offset,sizeof(uint8_t));
+	current_offset += sizeof(uint8_t);
+	
+	memcpy(&(out->coordinate),buffer+current_offset,sizeof(coord_t));
+	current_offset += sizeof(coord_t);
+	
+	memcpy(&(out->n_possible_names),buffer+current_offset,sizeof(size_t));
+	current_offset += sizeof(size_t);
+	
+	out->possible_names = (char**) malloc(sizeof(char*)*out->n_possible_names);
+	
+	size_t next_null_char_index;
+	for(size_t i = 0; i < out->n_possible_names;i++){
+		next_null_char_index = 0;
+		while((char)buffer[current_offset+next_null_char_index] != '\0'){
+			next_null_char_index++;
+		}
+		char * possible_name = (char*) malloc(next_null_char_index+1);
+		memcpy(possible_name,buffer+current_offset,next_null_char_index+1);
+		current_offset+=next_null_char_index+1;
+		out->possible_names[i] = possible_name;
+	}
+	next_null_char_index = 0;
+	while((char)buffer[current_offset+next_null_char_index] != '\0'){
+		next_null_char_index++;
+	}
+	if(next_null_char_index == 0){
+		out->picture_file_path = NULL;
+		current_offset++;
+	}else{
+		out->picture_file_path = (char*) malloc(next_null_char_index+1);
+		memcpy(out->picture_file_path,buffer+current_offset,next_null_char_index+1);
+		current_offset += next_null_char_index+1;
+	}
+	
+	memcpy(&(out->n_outgoing_edges),buffer+current_offset,sizeof(size_t));
+	
+	out->outgoing_edges = (map_edge_t**) malloc(sizeof(map_edge_t*)*out->n_outgoing_edges);
+	for(size_t i = 0;i < out->n_outgoing_edges;i++) out->outgoing_edges[i] = NULL;
+	
+	return out;
+}
+
+void coordinate_to_string(coord_t coordinate,FILE * stream){
+	fprintf(stream,"lon = %lf, lat = %lf",coordinate.longitude,coordinate.latitude);
+}
+
+void mpo_to_string(const mpo_t * mpo_ref,FILE * stream){
+	fprintf(stream,"Map-Polygon-Object: %p\n",mpo_ref);
+	fprintf(stream,"\tpoints:\n");
+	for(size_t i = 0;i < mpo_ref->n_cords;i++){
+		fputs("\t\t",stream);
+		coordinate_to_string(mpo_ref->cords[i],stream);
+		fputc('\n',stream);
+	}
+	fprintf(stream,"\ttype:\n\t\t");
+	if(mpo_ref->type == 1){
+		fputs("WATER",stream);
+	}else if(mpo_ref->type == 2){
+		fputs("TREE",stream);
+	}else if(mpo_ref->type == 3){
+		fputs("BUILDING",stream);
+	}
+	fputc('\n',stream);
+}
+
+void map_node_to_string(const map_node_t * node_ref,FILE * stream){
+	fprintf(stream,"Map-Node: %p\n",node_ref);
+	fputs("\tlocation:\n",stream);
+	fputs("\t\t",stream);
+	coordinate_to_string(node_ref->coordinate,stream);
+	fprintf(stream,"\n\tnames:\n");
+	for(size_t i = 0;i < node_ref->n_possible_names;i++){
+		fputs("\t\t",stream);
+		fputs(node_ref->possible_names[i],stream);
+		fputc('\n',stream);
+	}
+	fputs("\tpicture file path:\n",stream);
+	if(node_ref->picture_file_path == NULL){
+		fputs("\t\tNULL\n",stream);
+	}else{
+		fprintf(stream,"\t\t%s\n",node_ref->picture_file_path);
+	}
+	fputs("\ttype:\n\t\t",stream);
+	if(node_ref->type == 1){
+		fputs("NOTABLE LOCATION",stream);
+	}else if(node_ref->type == 2){
+		fputs("BASIC",stream);
+	}
+	fputc('\n',stream);
+	fprintf(stream,"\tn outgoing edges:\n\t\t%ld\n",node_ref->n_outgoing_edges);
+	fprintf(stream,"\toutgoing edges:\n");
+	for(size_t i = 0;i < node_ref->n_outgoing_edges;i++){
+		fprintf(stream,"\t\t%p\n",node_ref->outgoing_edges[i]);
+	}
+}
+
 void file_save_test(){
 	FILE *write_ptr;
 	
 	mpo_t mpo_test;
-	mpo_test.type = 4;
+	mpo_test.type = MPO_TYPE_TREE;
 	mpo_test.n_cords = 4;
 	mpo_test.cords = (coord_t*) malloc(sizeof(coord_t)*mpo_test.n_cords);
 	mpo_test.cords[0] = {0.0,0.0};
@@ -250,10 +465,13 @@ void file_open_test(){
 	
 	mpo_test = convert_binary_to_mpo(buffer);
 	
-	printf("%d %d\n",mpo_test->type,mpo_test->n_cords);
+	/*
+	printf("%d %ld\n",mpo_test->type,mpo_test->n_cords);
 	for(size_t i = 0;i < mpo_test->n_cords;i++){
 		printf("(%lf %lf),\n",mpo_test->cords[i].longitude,mpo_test->cords[i].latitude);
 	}
+	*/
+	mpo_to_string(mpo_test, stdout);
 	
 	fclose(read_ptr);
 }
@@ -282,16 +500,54 @@ void best_match_test(){
 			best = loc;
 		}
 	}
-		
+	
 	printf("Best Guess is : %s\n",best);
 }
 
 void do_thing(){
-	file_save_test();
+	map_node_t * node = (map_node_t *) malloc(sizeof(map_node_t));
+	node->coordinate.longitude = 2.5;
+	node->coordinate.latitude = -3.1;
+	node->n_possible_names = 3;
+	
+	char * temp;
+	
+	node->possible_names = (char**) malloc(sizeof(char*)*3);
+	temp = (char*) malloc(5);
+	strcpy(temp,"UMBC");
+	node->possible_names[0] = temp;
+	temp = (char*) malloc(3);
+	strcpy(temp,"hi");
+	node->possible_names[1] = temp;
+	temp = (char*) malloc(4);
+	strcpy(temp,"mum");
+	node->possible_names[2] = temp;
+	temp = (char*) malloc(9);
+	strcpy(temp,"test.png");
+	node->picture_file_path = temp;
+	node->type = NODE_TYPE_NOTABLE_LOCATION;
+	node->n_outgoing_edges = 2;
+	node->outgoing_edges = (map_edge_t**)malloc(sizeof(map_edge_t*)*node->n_outgoing_edges);
+	for(size_t i = 0;i < 2;i++) node->outgoing_edges[i] = NULL;
+	map_node_to_string(node,stdout);
+	
+	size_t buffer_size;
+	uint8_t * buffer = convert_map_node_to_binary(node,&buffer_size);
+	for(size_t i = 0;i < buffer_size;i++){
+		printf("%x ",buffer[i]);
+	}
+	printf("\n");
+	
+	map_node_t * regen = convert_binary_to_map_node(buffer);
+	map_node_to_string(regen,stdout);
+	
+	//file_save_test();
 	file_open_test();
-	best_match_test();
+	//best_match_test();
 }
 
+/*
 map_node_t ** filter_locations(const char * location_name,const map_t * map_ref,size_t max_results){
 	
 }
+*/
