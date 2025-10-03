@@ -4,6 +4,186 @@
 #include <math.h>
 #include <ctype.h>
 
+map_node_t * create_map_node(uint8_t type,cord_t coordinate) {
+	map_node_t * output = (map_node_t *) malloc(sizeof(map_node_t));
+	output->coordinate = coordinate;
+	output->possible_names = NULL;
+	output->n_possible_names = 0;
+	output->possible_names_capacity = 0;
+	output->picture_file_path = NULL;
+	output->outgoing_edges = NULL;
+	output->n_outgoing_edges = 0;
+	output->type = NODE_TYPE_BASIC;
+	output->floor_number = NODE_FLOOR_NUMBER_NONE;
+	return output;
+}
+
+void add_map_node_name(map_node_t * node_ref,const char * name_ref){
+	size_t ref_length = strlen(name_ref);
+	char * string_cpy = (char*) malloc(ref_length+1);
+	strcpy(string_cpy,name_ref);
+
+	if(node_ref->possible_names == NULL){
+		node_ref->possible_names_capacity = 1;
+		node_ref->possible_names = (char**) malloc(sizeof(char*)*node_ref->possible_names_capacity);
+	}else if(node_ref->possible_names_capacity == node_ref->n_possible_names){
+		node_ref->possible_names_capacity *= 2;
+		node_ref->possible_names = (char**) realloc(node_ref->possible_names
+		,sizeof(char*)*node_ref->possible_names_capacity);
+	}
+	node_ref->possible_names[node_ref->n_possible_names] = string_cpy;
+	node_ref->n_possible_names++;
+}
+
+void delete_map_node(map_node_t * node){
+	if(node == NULL) return;
+	if(node->picture_file_path != NULL) {
+		free(node->picture_file_path);
+	}
+	if(node->possible_names != NULL) {
+		for(size_t i=0; i< node->n_possible_names; i++) {
+			free(node->possible_names[i]);
+		}
+		free(node->possible_names);
+	}
+	free(node->outgoing_edges);
+	free(node);
+}
+
+map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b) {
+	map_edge_t * output = (map_edge_t *)malloc(sizeof(map_edge_t));
+	output->a = a;
+	output->b = b;
+	output->type = type;
+	return output;
+}
+
+void delete_map_edge(map_edge_t * edge){
+	if(edge == NULL) return;
+	free(edge);
+}
+
+map_t init_map(void){
+	map_t map;
+	map.node_capacity = 0;
+	//makes an array of size node_capacity
+	map.all_nodes= NULL;
+	map.n_nodes = 0;
+	map.edge_capacity = 0;
+	map.all_edges = NULL;
+	map.n_edges = 0;
+	map.mpo_capacity = 0;
+	map.mpos = NULL;
+	map.n_mpos = 0;
+	map.active_start = NULL;
+	map.active_end = NULL;
+	map.active_path = NULL;
+	map.active_edge_cost_function = NULL;
+	return map;
+}
+
+mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type){
+	mpo_t * output =  (mpo_t*)malloc(sizeof(mpo_t));
+	output->cords = (cord_t*)malloc(sizeof(cord_t)*n_cords);
+	output->n_cords = n_cords;
+	for(size_t i =0; i<n_cords; i++) {
+		output->cords[i] = cord_arry[i];
+	}
+	output->type = type;
+	return output;
+}
+
+void delete_map_mpo(mpo_t * mpo_ref){
+	if(mpo_ref == NULL) return;
+	free(mpo_ref->cords);
+	free(mpo_ref);
+}
+
+void clear_map(map_t * map_ref){
+	if(map_ref->all_nodes != NULL) {
+		for(size_t i=0; i < map_ref->n_nodes; i++) {
+			delete_map_node(map_ref->all_nodes[i]);
+		}
+		free(map_ref->all_nodes);
+	}
+
+	if(map_ref->all_edges != NULL) {
+		for(size_t i=0; i < map_ref->n_edges; i++) {
+			delete_map_edge(map_ref->all_edges[i]);
+		}
+		free(map_ref->all_edges);
+	}
+	if(map_ref->mpos != NULL) {
+		for(size_t i=0; i < map_ref->n_mpos; i++) {
+			delete_map_mpo(map_ref->mpos[i]);
+		}
+		free(map_ref->mpos);
+	}
+	if(map_ref->active_path != NULL) {
+		delete_map_path(map_ref->active_path);
+	}
+}
+
+void delete_map_path(map_path_t * map_path_ref) {
+	if(map_path_ref == NULL) return;
+	free(map_path_ref->nodes);
+	free(map_path_ref->name);
+}
+
+map_path_t * copy_map_path(const map_path_t * map_path_ref){
+	map_path_t * out = (map_path_t*) malloc(sizeof(map_path_t));
+
+	if(map_path_ref == NULL){
+		out->nodes = NULL;
+		out->n_nodes = 0;
+		out->name = NULL;
+		return out;
+	}
+
+	if(map_path_ref->nodes != NULL){
+		out->nodes = (map_node_t**) malloc(sizeof(map_node_t*)*map_path_ref->n_nodes);
+		for(size_t i = 0;i < map_path_ref->n_nodes;i++){
+			out->nodes[i] = map_path_ref->nodes[i];
+		}
+		out->n_nodes = map_path_ref->n_nodes;
+	}else{
+		out->nodes = NULL;
+		out->n_nodes = 0;
+	}
+
+	if(map_path_ref->name != NULL){
+		size_t ref_name_length = strlen(map_path_ref->name);
+		char * new_string = (char*) malloc(ref_name_length+1);
+		strcpy(new_string,map_path_ref->name);
+
+		out->name = new_string;
+	}else{
+		out->name = NULL;
+	}
+
+	return out;
+}
+
+saved_paths_t init_saved_paths(){
+	saved_paths_t out;
+
+	out.paths = NULL;
+	out.n_paths = 0;
+	out.paths_capacity = 0;
+
+	return out;
+}
+
+void clear_saved_paths(saved_paths_t * saved_paths){
+	if(saved_paths == NULL) return;
+
+	if(saved_paths->paths != NULL){
+		for(size_t i = 0;i < saved_paths->n_paths;i++){
+			delete_map_path(saved_paths->paths[i]);
+		}
+		free(saved_paths->paths);
+	}
+}
 /*
  * returns a number between 0 and 1 which corresponds to how similar to tokens are
  * 0.0 means the two tokens are not similar
@@ -171,7 +351,7 @@ float phrase_similarity_score(const char * phrase_1,const char * phrase_2){
  * convert a map polygon object into a stream of bytes
  */
 static uint8_t * convert_mpo_to_binary(const mpo_t * mpo,size_t * buffer_size){
-	*buffer_size = sizeof(uint8_t)+sizeof(size_t)+sizeof(coord_t)*mpo->n_cords;
+	*buffer_size = sizeof(uint8_t)+sizeof(size_t)+sizeof(cord_t)*mpo->n_cords;
 	uint8_t * buffer = (uint8_t *) malloc(*buffer_size);
 	
 	size_t current_offset = 0;
@@ -182,7 +362,7 @@ static uint8_t * convert_mpo_to_binary(const mpo_t * mpo,size_t * buffer_size){
 	memcpy(buffer+current_offset,&(mpo->n_cords),sizeof(size_t));
 	current_offset += sizeof(size_t);
 	
-	memcpy(buffer+current_offset,mpo->cords,sizeof(coord_t)*mpo->n_cords);
+	memcpy(buffer+current_offset,mpo->cords,sizeof(cord_t)*mpo->n_cords);
 	
 	return buffer;
 }
@@ -201,9 +381,9 @@ static mpo_t * convert_binary_to_mpo(const uint8_t * buffer){
 	memcpy(&(out->n_cords),buffer+current_offset,sizeof(size_t));
 	current_offset += sizeof(size_t);
 	
-	out->cords = (coord_t*) malloc(sizeof(coord_t)*out->n_cords);
+	out->cords = (cord_t*) malloc(sizeof(cord_t)*out->n_cords);
 	
-	memcpy(out->cords,buffer+current_offset,sizeof(coord_t)*out->n_cords);
+	memcpy(out->cords,buffer+current_offset,sizeof(cord_t)*out->n_cords);
 	
 	return out;
 }
@@ -276,7 +456,7 @@ static uint8_t * convert_map_node_to_binary(const map_node_t * node,size_t * buf
 	
 	*buffer_size = 
 		sizeof(uint8_t) + //type
-		sizeof(coord_t) + //coordinate
+		sizeof(cord_t) + //coordinate
 		sizeof(size_t) + //n_possible_names
 		total_alias_name_length + //array of strings
 		picture_file_path_len+1 + //picture file path name
@@ -289,8 +469,8 @@ static uint8_t * convert_map_node_to_binary(const map_node_t * node,size_t * buf
 	memcpy(buffer+current_offset,&(node->type),sizeof(uint8_t));
 	current_offset += sizeof(uint8_t);
 	
-	memcpy(buffer+current_offset,&(node->coordinate),sizeof(coord_t));
-	current_offset += sizeof(coord_t);
+	memcpy(buffer+current_offset,&(node->coordinate),sizeof(cord_t));
+	current_offset += sizeof(cord_t);
 	
 	memcpy(buffer+current_offset,&(node->n_possible_names),sizeof(size_t));
 	current_offset += sizeof(size_t);
@@ -327,8 +507,8 @@ static map_node_t * convert_binary_to_map_node(const uint8_t * buffer){
 	memcpy(&(out->type),buffer+current_offset,sizeof(uint8_t));
 	current_offset += sizeof(uint8_t);
 	
-	memcpy(&(out->coordinate),buffer+current_offset,sizeof(coord_t));
-	current_offset += sizeof(coord_t);
+	memcpy(&(out->coordinate),buffer+current_offset,sizeof(cord_t));
+	current_offset += sizeof(cord_t);
 	
 	memcpy(&(out->n_possible_names),buffer+current_offset,sizeof(size_t));
 	current_offset += sizeof(size_t);
@@ -367,7 +547,7 @@ static map_node_t * convert_binary_to_map_node(const uint8_t * buffer){
 	return out;
 }
 
-void coordinate_to_string(coord_t coordinate,FILE * stream){
+void coordinate_to_string(cord_t coordinate,FILE * stream){
 	fprintf(stream,"lon = %lf, lat = %lf",coordinate.longitude,coordinate.latitude);
 }
 
@@ -427,7 +607,7 @@ void file_save_test(){
 	mpo_t mpo_test;
 	mpo_test.type = MPO_TYPE_TREE;
 	mpo_test.n_cords = 4;
-	mpo_test.cords = (coord_t*) malloc(sizeof(coord_t)*mpo_test.n_cords);
+	mpo_test.cords = (cord_t*) malloc(sizeof(cord_t)*mpo_test.n_cords);
 	mpo_test.cords[0] = {0.0,0.0};
 	mpo_test.cords[1] = {0.0,1.0};
 	mpo_test.cords[2] = {1.0,1.0};
@@ -505,11 +685,26 @@ void best_match_test(){
 }
 
 void do_thing(){
-	map_node_t * node = (map_node_t *) malloc(sizeof(map_node_t));
+	cord_t cord;
+	cord.longitude = 2.5;
+	cord.latitude = -3.1;
+
+	cord_t c;
+	c.longitude = 1.5;
+	c.latitude = -4.1;
+
+	map_node_t * node = create_map_node(NODE_TYPE_NOTABLE_LOCATION, cord);
+	map_node_t * t = create_map_node(NODE_TYPE_NOTABLE_LOCATION, c);
+	map_edge_t * edge = create_map_edge(EDGE_TYPE_SIDEWALK, node, t);
+	node->n_outgoing_edges = 1;
+	t->n_outgoing_edges = 1;
+
+	/*
 	node->coordinate.longitude = 2.5;
 	node->coordinate.latitude = -3.1;
+	*/
 	node->n_possible_names = 3;
-	
+
 	char * temp;
 	
 	node->possible_names = (char**) malloc(sizeof(char*)*3);
@@ -525,12 +720,20 @@ void do_thing(){
 	temp = (char*) malloc(9);
 	strcpy(temp,"test.png");
 	node->picture_file_path = temp;
-	node->type = NODE_TYPE_NOTABLE_LOCATION;
-	node->n_outgoing_edges = 2;
+
+	node->n_outgoing_edges = 1;
+	t->n_outgoing_edges = 1;
 	node->outgoing_edges = (map_edge_t**)malloc(sizeof(map_edge_t*)*node->n_outgoing_edges);
-	for(size_t i = 0;i < 2;i++) node->outgoing_edges[i] = NULL;
+	t->outgoing_edges = (map_edge_t**)malloc(sizeof(map_edge_t*)*t->n_outgoing_edges);
+	node->outgoing_edges[0] = edge;
+	t->outgoing_edges[0]= edge;
+	//for(size_t i = 0;i < 2;i++) node->outgoing_edges[i] = NULL;
 	map_node_to_string(node,stdout);
-	
+	map_node_to_string(t, stdout);
+	delete_map_node(node);
+	delete_map_node(t);
+	delete_map_edge(edge);
+	/*
 	size_t buffer_size;
 	uint8_t * buffer = convert_map_node_to_binary(node,&buffer_size);
 	for(size_t i = 0;i < buffer_size;i++){
@@ -544,6 +747,7 @@ void do_thing(){
 	//file_save_test();
 	file_open_test();
 	//best_match_test();
+	*/
 }
 
 /*
