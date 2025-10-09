@@ -7,7 +7,7 @@
 
 typedef struct Map_Node map_node_t;
 typedef struct Map_Edge map_edge_t;
-typedef struct Coordinate coord_t;
+typedef struct Coordinate cord_t;
 typedef struct Map map_t;
 typedef struct Map_Rect map_rect_t;
 typedef struct Map_Polygon_Object mpo_t;
@@ -28,8 +28,8 @@ struct Coordinate{
  * A Rectangle formed by two coordinates
  */
 struct Map_Rect{
-	coord_t bottom_left;
-	coord_t top_right;
+	cord_t bottom_left;
+	cord_t top_right;
 };
 
 
@@ -48,7 +48,7 @@ struct Map_Rect{
  * A closed polygon formed by a list of coordinates. This will be used to draw buildings, lakes etc.
  */
 struct Map_Polygon_Object{
-	coord_t * cords;//array
+	cord_t * cords;//array
 	size_t n_cords;
 	uint8_t type;
 };
@@ -64,15 +64,21 @@ struct Map_Polygon_Object{
 #define NODE_TYPE_BASIC 2
 
 /*
+ * If your outside it does not make sense to assign a floor number to a node.
+ */
+#define NODE_FLOOR_NUMBER_NONE -128
+/*
  * A node/location on the map with some details
  */
 struct Map_Node{
-	coord_t coordinate;//location of node
+	cord_t coordinate;//location of node
 	char ** possible_names;//Notable locations have names, if not this should be NULL. This is an array of strigs because there are alias names
 	size_t n_possible_names;//defualt 0
+	size_t possible_names_capacity;
 	char * picture_file_path;
 	map_edge_t ** outgoing_edges;//all the edges connected to this node
 	size_t n_outgoing_edges;//number of outgoing edges connected to this node
+	int8_t floor_number;
 	uint8_t type;//the node type
 };
 //---------------------------------------------------------- NODES END ----------------------------------------------------------------
@@ -94,6 +100,9 @@ struct Map_Node{
 
 //Is the edge type a hallway
 #define EDGE_TYPE_HALLWAY 5
+
+//Is the edge an elevator shaft
+#define EDGE_TYPE_ELEVATOR_SHAFT
 
 struct Map_Edge{
 	map_node_t * a;
@@ -132,9 +141,9 @@ struct Map_Path{
 };
 
 struct Saved_Paths{
-	map_path_t * paths;
+	map_path_t ** paths;
 	size_t n_paths;
-	size_t n_paths_capacity;
+	size_t paths_capacity;
 };
 //---------------------------------------------------------- MAP END ------------------------------------------------------------------
 
@@ -148,7 +157,7 @@ struct Saved_Paths{
  * Create a map_node_t object in the heap.
  * This will need to be freed.
  */
-map_node_t * create_map_node(uint8_t type,coord_t coordinate);
+map_node_t * create_map_node(uint8_t type,cord_t coordinate);
 
 /*
  * Delete a map_node_t object.
@@ -160,10 +169,11 @@ void delete_map_node(map_node_t * node);
  * Set the name of a node.
  * dev-note: The node will store its own string copy
  */
-void set_map_node_name(map_node_t * node_ref,const char * name_ref);
+void add_map_node_name(map_node_t * node_ref,const char * name_ref);
 
 
 /*
+ *
  * Convert the node into an easily readable string
  */
 void map_node_to_string(const map_edge_t * node_ref,FILE * stream);
@@ -191,7 +201,7 @@ void mpo_to_string(const mpo_t * mpo_ref,FILE * stream);
 /*
  * Convert a coordinate object into an easily readable string
  */
-void coordinate_to_string(coord_t coordinate,FILE * stream);
+void coordinate_to_string(cord_t coordinate,FILE * stream);
 
 
 /*
@@ -288,7 +298,7 @@ map_rect_t get_map_bounding_rect(const map_t * map_ref);
 /*
  * create a saved_paths_t object
  */
-saved_paths_t init_saved_paths(void);
+saved_paths_t init_saved_paths();
 
 /*
  * free all data in saved_paths_t and reset it
@@ -327,27 +337,10 @@ void save_map_to_file(const map_t * map_ref,FILE * file);
 
 
 
+mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type);
 
-/*
- * format
- * n:node_index, longitude_double, latitude_double, name_string, type_name
- * Example "n:15, 89.1, -20.3, "commons east entrance", NOTABLE_LOCATION" will return a node with those properties
- */
-map_node_t * create_map_node_from_text(const char * text);
+void delete_map_mpo(mpo_t * mpo_ref);
 
-/*
- * format
- * e: node_index_1, node_index_2, type_name
- * Example "e: 25, 30, ROAD" will return a node with those properties
- */
-map_edge_t * create_map_edge_from_text(const char * text);
-
-/*
- * format
- * p: name_string, node_index_1, node_index_2, node_index_3, ...
- * Example "p: getting to class, 25, 37, 12, 15"
- */
-map_path_t * create_map_path_from_text(const char * text);
 
 //---------------------------------------------------------- FUNCTIONS END ------------------------------------------------------------
 
