@@ -1,0 +1,59 @@
+/*
+ * information technology building
+ */
+#define NODE_BUILDING_ITE 1
+
+/*
+ * engineering building
+ */
+#define NODE_BUILDING_ENG 2
+
+/*
+ * interdiciplinary life sciences building
+ */
+#define NODE_BUILDING_ILSB 3
+
+/*
+ * recreation activity center
+ */
+#define NODE_BUILDING_RAC 4
+
+/*
+ * performance arts and humanities
+ */
+#define NODE_BUILDING_FARTS 5
+
+/*
+ * chemistry building
+ */
+#define NODE_BUILDING_CHEM 6
+
+/*
+ * university center building
+ */
+#define NODE_BUILDING_CENTER 7
+
+/*
+ * library
+ */
+#define NODE_BUILDING_LIB 8
+
+/*
+ * sherman hall
+ */
+#define NODE_BUILDING_SHER 9
+
+/*
+ * math and psychology building
+ */
+#define NODE_BUILDING_MATH_PSYCH 10
+
+/*
+ * lecture hall 1
+ */
+#define NODE_BUILDING_LH_1 11
+
+/*
+ * the commons
+ */
+#define NODE_BUILDING_COMMONS 12

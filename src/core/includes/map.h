@@ -13,16 +13,25 @@ typedef struct Map_Rect map_rect_t;
 typedef struct Map_Polygon_Object mpo_t;
 typedef struct Map_Path map_path_t;
 typedef struct Saved_Paths saved_paths_t;
-
+typedef struct Building building_t;
 
 //---------------------------------------------------------- GEOMETRY PRIMITIVES BEGIN ------------------------------------------------
 /*
  * Real world coordinate of something.
  */
 struct Coordinate{
-	double longitude;//like x-coord
-	double latitude;//like y-coord
+	//like x-coord
+	double longitude;
+	
+	//like y-coord
+	double latitude;
 };
+
+//Create a new coordinate instance. Not on heap.
+cord_t create_cord(double lon,double lat);
+
+//Print out a coordinate with its longitude and latitude. Tabs value lets you add tabs to every line of output.
+void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream);
 
 /*
  * A Rectangle formed by two coordinates
@@ -31,6 +40,14 @@ struct Map_Rect{
 	cord_t bottom_left;
 	cord_t top_right;
 };
+
+//create an instance of a map rectangle. Not on heap.
+map_rect_t create_map_rect(cord_t bottom_left,cord_t top_right);
+
+//Print out a map rectangle and all of its member data. Tabs value lets you add tabs to every line of output.
+void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream);
+
+
 
 
 //MPO stands for Map-Polygon-Object
@@ -52,17 +69,70 @@ struct Map_Polygon_Object{
 	size_t n_cords;
 	uint8_t type;
 };
+
+//create a new map polygon object instance on the heap.
+mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type);
+
+//delete a map polygon object from the heap.
+void delete_map_mpo(mpo_t * mpo_ref);
+
+//edit a misplaced coordinate
+void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord);
+
+//edit type
+void set_mpo_type(mpo_t * mpo,uint8_t new_type);
+
+//Print out a map rectangle and all of its member data. Tabs value lets you add tabs to every line of output.
+void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream);
 //---------------------------------------------------------- GEOMETRY PRIMITIVES END --------------------------------------------------
 
 
+//--------------------------------------------------------------- BUILDING BEGIN ------------------------------------------------------
+/*
+ * An object that holds generic information about a building.
+ */
+struct Building{
+	//An overall box that covers an entire building. This will be used to figure out if your mouse is on a building.
+	map_rect_t building_bounding_box;
+	
+	//The list of all the name alias strings of a building. The zero-th element is the primary name.
+	char ** possible_names;
+	size_t n_possible_names;
+	size_t possible_names_capacity;
+	
+	//The number of floors in that building.
+	uint8_t n_floors;
+};
+
+//Creating a new building instance in the heap. It will need to be deleted.
+building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors);
+
+//Delete the building instance on the heap
+void delete_building(building_t * building);
+
+//Add an alternative name to a building to make search more effective.
+void add_building_alias_name(building_t * building,const char * alias_name);
+
+//Remove an alias name from the alias list. This might be used to removed misspelled text.
+void remove_building_alias_name(building_t * building,const char * alias_name);
+
+//Take an existing name from the alias list and swap it with the primary name
+void change_primary_building_name(building_t * building,const char * primary_name);
+
+//Fix an incorrect floor count assignment to a building
+void set_building_floor_count(building_t * building,size_t new_floor_count);
+
+//change the bounding box of a building if it was incorrect
+void set_building_bounding_box(building_t * building,map_rect_t building_bounding_box);
+
+//Get the main name of a building. (Warning) Might return NULL
+const char * get_primary_building_name(const building_t * building);
+
+//Print out the building object and all of its member data. Tabs value lets you add tabs to every line of output.
+void building_to_output_stream(const building_t * building,size_t tabs,FILE * stream);
+//--------------------------------------------------------------- BUILDING END --------------------------------------------------------
 
 //---------------------------------------------------------- NODES BEGIN --------------------------------------------------------------
-//This is a "notable" location because it is some kind of location that can be selected/clicked on the map.
-#define NODE_TYPE_NOTABLE_LOCATION 1
-
-//This is not a notable location, merely a way of joining EDGES. This is useful for defining curves and sidewalk intersection.
-#define NODE_TYPE_BASIC 2
-
 /*
  * If your outside it does not make sense to assign a floor number to a node.
  */
@@ -71,16 +141,68 @@ struct Map_Polygon_Object{
  * A node/location on the map with some details
  */
 struct Map_Node{
-	cord_t coordinate;//location of node
-	char ** possible_names;//Notable locations have names, if not this should be NULL. This is an array of strigs because there are alias names
-	size_t n_possible_names;//defualt 0
-	size_t possible_names_capacity;
+	//location of node
+	cord_t coordinate;
+	
+	//name of node if applicable
+	char * name;
+	
+	//file path of node if applicable
 	char * picture_file_path;
-	map_edge_t ** outgoing_edges;//all the edges connected to this node
-	size_t n_outgoing_edges;//number of outgoing edges connected to this node
+	
+	//list of outgoing edges
+	map_edge_t ** outgoing_edges;
+	size_t n_outgoing_edges;
+	size_t outgoing_edges_capacity;
+	
+	//associated building if applicable
+	building_t * associated_building;
+	
+	//floor number of node if applicable
 	int8_t floor_number;
-	uint8_t type;//the node type
+	
+	//whether or not the node is selectable with the mouse
+	bool selectable;
+	
+	//use for intermediate calculation during A* search
+	double cost_temp;
+	
+	//a temporary index which is used for file saving purposes
+	size_t index_temp;
 };
+
+//Create a map_node_t object in the heap. This will need to be freed.
+map_node_t * create_map_node(cord_t coordinate);
+
+//Delete a map_node_t object.
+void delete_map_node(map_node_t * node);
+
+//Give a node a name.
+void set_map_node_name(map_node_t * node,const char * name);
+
+//Set an image for node based on a file path.
+void set_map_node_picture(map_node_t * node,const char * file_path);
+
+//Set a nodes floor number if applicable
+void set_map_node_floor_number(map_node_t * node,int8_t floor_number);
+
+//If a node doesn't have a floor number, like those outside then clear it
+void clear_map_node_floor_number(map_node_t * node);
+
+//Make a node selectable with the mouse or not.
+void set_map_node_selectable(map_node_t * node,bool selectable);
+
+//Set the building in which the node resides.
+void set_map_node_building(map_node_t * node,building_t * building);
+
+//If you accidently assigned a building to a node you can clear it.
+void clear_map_node_building(map_node_t * node);
+
+//edit a misplaced coordinate
+void set_map_node_cord(map_node_t * node,cord_t new_cord);
+
+//Print out a map node and show all of its member data. Tabs value lets you add tabs to every line of output.
+void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream);
 //---------------------------------------------------------- NODES END ----------------------------------------------------------------
 
 
@@ -102,13 +224,37 @@ struct Map_Node{
 #define EDGE_TYPE_HALLWAY 5
 
 //Is the edge an elevator shaft
-#define EDGE_TYPE_ELEVATOR_SHAFT
+#define EDGE_TYPE_ELEVATOR_SHAFT 6
+
+//Is the edge an overpass
+#define EDGE_TYPE_OVERPASS 7
+
+//Does the edge cross through door
+#define EDGE_TYPE_DOOR 8
+
+//Does the edge cross an automatic door
+#define EDGE_TYPE_AUTO_DOOR 9
+
+//Does the edge use a crosswalk
+#define EDGE_TYPE_CROSSWALK 10
 
 struct Map_Edge{
 	map_node_t * a;
 	map_node_t * b;
 	uint8_t type;
 };
+
+//Create a map_edge_t object in the heap. This will need to be freed.
+map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b);
+
+//Delete a map_edge_t object.
+void delete_map_edge(map_edge_t * edge);
+
+//change the type of the edge
+void set_map_edge_type(map_edge_t * edge,uint8_t type);
+
+//Print out a map edge and show all of its member data. Tabs value lets you add tabs to every line of output.
+void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream);
 //---------------------------------------------------------- EDGES END ----------------------------------------------------------------
 
 
@@ -153,55 +299,6 @@ struct Saved_Paths{
 
 
 //---------------------------------------------------------- FUNCTIONS BEGIN ----------------------------------------------------------
-/*
- * Create a map_node_t object in the heap.
- * This will need to be freed.
- */
-map_node_t * create_map_node(uint8_t type,cord_t coordinate);
-
-/*
- * Delete a map_node_t object.
- * dev-note: Ensure that the name is freed.
- */
-void delete_map_node(map_node_t * node);
-
-/*
- * Set the name of a node.
- * dev-note: The node will store its own string copy
- */
-void add_map_node_name(map_node_t * node_ref,const char * name_ref);
-
-
-/*
- *
- * Convert the node into an easily readable string
- */
-void map_node_to_string(const map_edge_t * node_ref,FILE * stream);
-
-
-/*
- * Create a map_edge_t object in the heap.
- * This will need to be freed.
- */
-map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b);
-
-/*
- * Delete a map_edge_t object.
- */
-void delete_map_edge(map_edge_t * edge);
-
-
-
-
-/*
- * Convert a map polygon object into an easily readable string
- */
-void mpo_to_string(const mpo_t * mpo_ref,FILE * stream);
-
-/*
- * Convert a coordinate object into an easily readable string
- */
-void coordinate_to_string(cord_t coordinate,FILE * stream);
 
 
 /*
@@ -334,12 +431,6 @@ void init_map_from_file(map_t * map_ref,FILE * file);
  * Save a map to a file
  */
 void save_map_to_file(const map_t * map_ref,FILE * file);
-
-
-
-mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type);
-
-void delete_map_mpo(mpo_t * mpo_ref);
 
 
 //---------------------------------------------------------- FUNCTIONS END ------------------------------------------------------------

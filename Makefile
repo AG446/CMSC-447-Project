@@ -75,4 +75,5 @@ run_ui: $(EXE_BUILD_PATH)/$(UI_PROGRAM_NAME)
 clean:
 	rm -rf $(BUILD_PATH)
 
--include $(OBJS:.o=.d)
+-include $(CORE_OBJS:.o=.d)
+-include $(TESTS_OBJS:.o=.d)
