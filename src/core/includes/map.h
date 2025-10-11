@@ -341,22 +341,40 @@ void add_building_to_map(map_t * map,building_t * building);
 void remove_building_from_map(map_t * map,building_t * building);
 
 //remove building by name
-void remove_building_by_name(map_t * map,const char * name);
+void remove_building_by_name_from_map(map_t * map,const char * name);
+
+//remove building from the map by index
+void remove_building_from_map_by_index(map_t * map,size_t index);
 
 //add node to map
-void add_node_to_map(map_t * map,map_node_t * node);//TODO
+void add_node_to_map(map_t * map,map_node_t * node);
 
 //remove node from map
-void remove_node_from_map(map_t * map,map_node_t * node);//TODO
+void remove_node_from_map(map_t * map,map_node_t * node);
 
 //remove node from map by name
-void remove_node_by_name(map_t * map,const char * node_name);//TODO
+void remove_node_by_name_from_map(map_t * map,const char * node_name);
+
+//remove node from map by index
+void remove_node_from_map_by_index(map_t * map,size_t index);
 
 //connect two nodes in a map
-void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type);//TODO
+void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type);
+
+//connect two nodes in a map by their index
+void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type);
+
+//connect two nodes in a map by their names
+void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type);
 
 //disconnect two nodes in a map
 void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b);//TODO
+
+//disconnect two nodes in a map by their index
+void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b);//TODO
+
+//disconnect two nodes in map by their names
+void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b);//TODO
 
 //change the connection edge type
 void set_connection_type(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type);//TODO

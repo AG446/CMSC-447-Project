@@ -671,7 +671,7 @@ void add_building_to_map(map_t * map,building_t * building){
 	map->n_buildings++;
 }
 
-static void remove_building_from_map_by_index(map_t * map,size_t index){
+void remove_building_from_map_by_index(map_t * map,size_t index){
 	if(map == NULL) return;//invalid parameter
 	if(map->n_buildings == 0) return;//list is empty
 	if(!(index < map->n_buildings)) return;//out of bounds
@@ -719,7 +719,7 @@ void remove_building_from_map(map_t * map,building_t * building){
 	remove_building_from_map_by_index(map,matching_index);
 }
 
-void remove_building_by_name(map_t * map,const char * name){
+void remove_building_by_name_from_map(map_t * map,const char * name){
 	if(map == NULL || name == NULL) return;//invalid parameters
 	if(map->n_buildings == 0) return;//array is empty
 	
@@ -746,6 +746,201 @@ void remove_building_by_name(map_t * map,const char * name){
 	if(!found) return;
 	
 	remove_building_from_map_by_index(map,matching_index);
+}
+
+#define DEFAULT_NODES_CAPACITY 8
+
+void add_node_to_map(map_t * map,map_node_t * node){
+	if(map == NULL || node == NULL) return;
+	
+	if(map->all_nodes == NULL){
+		map->node_capacity = DEFAULT_NODES_CAPACITY;
+		map->all_nodes = (map_node_t**) malloc(sizeof(map_node_t*)*map->node_capacity);
+	}
+	
+	if(map->node_capacity == map->n_nodes){
+		map->node_capacity *= 2;
+		map->all_nodes = (map_node_t**) realloc(map->all_nodes,sizeof(map_node_t*)*map->node_capacity);
+	}
+	
+	map->all_nodes[map->n_nodes] = node;
+	map->n_nodes++;
+}
+
+static void remove_edge_from_map_by_index(map_t * map,size_t index){
+	if(map == NULL) return;
+	if(map->n_nodes == 0) return;
+	if(!(index < map->n_edges)) return;
+	
+	delete_map_edge(map->all_edges[index]);
+	
+	//shift over data
+	for(size_t i = index;i < map->n_edges-1;i++){
+		map->all_edges[i] = map->all_edges[i+1];
+	}
+	map->n_edges--;//shrink array
+}
+
+#define DEFAULT_EDGES_CAPACITY 8
+
+static void add_edge_to_map(map_t * map,map_edge_t * edge){
+	if(map == NULL || edge == NULL) return;
+	
+	if(map->all_edges == NULL){
+		map->edge_capacity = DEFAULT_EDGES_CAPACITY;
+		map->all_edges = (map_edge_t**) malloc(sizeof(map_edge_t*)*map->edge_capacity);
+	}
+	
+	if(map->edge_capacity == map->n_edges){
+		map->edge_capacity *= 2;
+		map->all_edges = (map_edge_t**) realloc(map->all_edges,sizeof(map_edge_t*)*map->edge_capacity);
+	}
+	
+	map->all_edges[map->n_edges] = edge;
+	map->n_edges++;
+}
+
+static void remove_edge_from_map(map_t * map,map_edge_t * edge){
+	if(map == NULL || edge == NULL) return;
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_edges;i++){
+		map_edge_t * current_edge = map->all_edges[i];
+		
+		if(current_edge == edge){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	remove_edge_from_map_by_index(map,matching_index);
+}
+
+void remove_node_from_map_by_index(map_t * map,size_t index){
+	if(map == NULL) return;//invalid parameter
+	if(map->n_nodes == 0) return;//list is empty
+	if(!(index < map->n_nodes)) return;;//out of bounds
+	
+	map_node_t * node_in_question = map->all_nodes[index];
+	
+	//remove all connections to the node
+	for(size_t i = 0;i < node_in_question->n_outgoing_edges;i++){
+		map_edge_t * outgoing_edge = node_in_question->outgoing_edges[i];
+		
+		if(outgoing_edge->a == node_in_question){
+			remove_outgoing_edge_from_node(outgoing_edge->b,outgoing_edge);
+		}else if(outgoing_edge->b == node_in_question){
+			remove_outgoing_edge_from_node(outgoing_edge->a,outgoing_edge);
+		}
+		
+		remove_edge_from_map(map,outgoing_edge);
+	}
+	
+	//delete the node
+	delete_map_node(node_in_question);
+	
+	//shift over data
+	for(size_t i = index;i < map->n_nodes-1;i++){
+		map->all_nodes[i] = map->all_nodes[i+1];
+	}
+	map->n_nodes--;//shrink array
+}
+
+static size_t find_node_in_map_by_pointer(map_t * map,map_node_t * node){
+	if(map == NULL || node == NULL) return 0;
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_nodes;i++){
+		map_node_t * current_node = map->all_nodes[i];
+		
+		if(current_node == node){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return 0;
+	
+	return matching_index;
+}
+
+void remove_node_from_map(map_t * map,map_node_t * node){
+	if(map == NULL || node == NULL) return;
+	
+	size_t matching_index = find_node_in_map_by_pointer(map,node);
+	
+	remove_node_from_map_by_index(map,matching_index);
+}
+
+static size_t find_node_in_map_by_name(map_t * map,const char * node_name){
+	if(map == NULL || node_name == NULL) return 0;
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_nodes;i++){
+		map_node_t * current_node = map->all_nodes[i];
+		
+		if(strcmp(node_name,current_node->name) == 0){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return 0;
+	
+	return matching_index;
+}
+
+void remove_node_by_name_from_map(map_t * map,const char * node_name){
+	if(map == NULL || node_name == NULL) return;//invalid parameters
+	if(map->n_nodes == 0) return;//array is empty
+	
+	size_t matching_index = find_node_in_map_by_name(map,node_name);
+	
+	remove_node_from_map_by_index(map,matching_index);
+}
+
+void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type){
+	if(map == NULL) return;
+	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))) return;
+	
+	map_node_t * node_a = map->all_nodes[index_a];
+	map_node_t * node_b = map->all_nodes[index_b];
+	
+	map_edge_t * new_edge = create_map_edge(edge_type,node_a,node_b);
+	
+	add_edge_to_map(map,new_edge);
+}
+
+void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type){
+	if(map == NULL || node_a == NULL || node_b == NULL) return;
+	
+	size_t node_a_index = find_node_in_map_by_pointer(map,node_a);
+	size_t node_b_index = find_node_in_map_by_pointer(map,node_b);
+	
+	connect_nodes_in_map_by_indices(map,node_a_index,node_b_index,edge_type);
+}
+
+void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type){
+	if(map == NULL || node_a == NULL || node_b == NULL) return;
+	
+	size_t node_a_index = find_node_in_map_by_name(map,node_a);
+	size_t node_b_index = find_node_in_map_by_name(map,node_b);
+	
+	connect_nodes_in_map_by_indices(map,node_a_index,node_b_index,edge_type);
 }
 
 void delete_map_path(map_path_t * map_path_ref) {
