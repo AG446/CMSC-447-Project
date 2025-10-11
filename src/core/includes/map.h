@@ -68,6 +68,7 @@ struct Map_Polygon_Object{
 	cord_t * cords;//array
 	size_t n_cords;
 	uint8_t type;
+	char * name;//TODO
 };
 
 //create a new map polygon object instance on the heap.
@@ -180,8 +181,14 @@ void delete_map_node(map_node_t * node);
 //Give a node a name.
 void set_map_node_name(map_node_t * node,const char * name);
 
+//clear the name field from a node
+void clear_map_node_name(map_node_t * node);//TODO
+
 //Set an image for node based on a file path.
 void set_map_node_picture(map_node_t * node,const char * file_path);
+
+//clear the file name field from a node
+void clear_map_node_picture(map_node_t * node);//TODO
 
 //Set a nodes floor number if applicable
 void set_map_node_floor_number(map_node_t * node,int8_t floor_number);
@@ -200,6 +207,9 @@ void clear_map_node_building(map_node_t * node);
 
 //edit a misplaced coordinate
 void set_map_node_cord(map_node_t * node,cord_t new_cord);
+
+//is the node next to an automatic door?
+void node_adjacent_to_auto_door(map_node_t * node);//TODO
 
 //Print out a map node and show all of its member data. Tabs value lets you add tabs to every line of output.
 void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream);
@@ -260,17 +270,37 @@ void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream
 
 
 //---------------------------------------------------------- MAP BEGIN ----------------------------------------------------------------
+struct Search_Filter_Options{
+	char * start_position_text;
+	char * end_position_text;
+	bool exclude_stairs;
+	bool exclude_non_auto_doors;
+	bool exclude_interiors;
+};
+
+
+
 /*
  * The map is all the nodes, all the edges and all the map-polygon-objects
  */
 struct Map{
-	map_node_t ** all_nodes;//array of map_node_t pointers
+	//array of nodes
+	map_node_t ** all_nodes;
 	size_t n_nodes;
 	size_t node_capacity;
-	map_edge_t ** all_edges;//array of map_edge_t pointers
+	
+	//array of edges (these are not manipulated directly)
+	map_edge_t ** all_edges;
 	size_t n_edges;
 	size_t edge_capacity;
-	mpo_t ** mpos;//array of mpo_t pointers (these are map polygon objects)
+	
+	//array of buildings //TODO
+	building_t ** all_buildings;
+	size_t n_buildings;
+	size_t buildings_capacity;
+	
+	//array of map polygon objects
+	mpo_t ** mpos;
 	size_t n_mpos;
 	size_t mpo_capacity;
 	
@@ -279,6 +309,48 @@ struct Map{
 	map_path_t * active_path;
 	double (*active_edge_cost_function)(const map_edge_t * edge_ref);
 };
+
+//Create a map object. Not on heap.
+map_t init_map(void);//TODO
+
+//Clear heap data from within the map.
+void clear_map(map_t * map);//TODO
+
+//add building to map
+void add_building_to_map(map_t * map,building_t * building);//TODO
+
+//remove building from map
+void remove_building_from_map(map_t * map,building_t * building);//TODO
+
+//remove building by name
+void remove_building_by_name(map_t * map,const char * name);//TODO
+
+//add node to map
+void add_node_to_map(map_t * map,map_node_t * node);//TODO
+
+//remove node from map
+void remove_node_from_map(map_t * map,map_node_t * node);//TODO
+
+//remove node from map by name
+void remove_node_by_name(map_t * map,const char * node_name);//TODO
+
+//connect two nodes in a map
+void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type);//TODO
+
+//disconnect two nodes in a map
+void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b);//TODO
+
+//change the connection edge type
+void set_connection_type(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type);//TODO
+
+//add a map polygon object to the map
+void add_mpo_to_map(map_t * map,mpo_t * mpo);//TODO
+
+//remove a map polygon object from the map
+void remove_mpo_from_map(map_t * map,mpo_t * mpo);//TODO
+
+//Print out a map and all its member data. Tabs value lets you add tabs to every line of output.
+void map_to_output_stream(map_t map,size_t tabs,FILE * stream);//TODO
 
 struct Map_Path{
 	map_node_t ** nodes;//ordered list that defines a path, does not own nodes
@@ -299,27 +371,6 @@ struct Saved_Paths{
 
 
 //---------------------------------------------------------- FUNCTIONS BEGIN ----------------------------------------------------------
-
-
-/*
- * Create a map object
- */
-map_t init_map(void);
-
-/*
- * initialize the map with some test setup of your choosing. For debugging and devlopement purposes
- */
-void init_map_for_testing(map_t * map_ref);
-
-/*
- * free all data in map_t and reset it
- */
-void clear_map(map_t * map_ref);
-
-/*
- * filter locations from map and return a list of map_node_t, fuzzy search
- */
-map_node_t ** filter_locations(const char * location_name,const map_t * map_ref,size_t max_results);
 
 
 
