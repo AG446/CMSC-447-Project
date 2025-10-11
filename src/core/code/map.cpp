@@ -261,6 +261,14 @@ void set_map_node_name(map_node_t * node,const char * name){
 	node->name = name_cpy;
 }
 
+void clear_map_node_name(map_node_t * node){
+	if(node == NULL) return;
+	if(node->name == NULL) return;
+	
+	free(node->name);
+	node->name = NULL;
+}
+
 void set_map_node_picture(map_node_t * node,const char * file_path){
 	if(node == NULL) return;
 	
@@ -271,6 +279,29 @@ void set_map_node_picture(map_node_t * node,const char * file_path){
 	strcpy(path_cpy,file_path);
 	
 	node->picture_file_path = path_cpy;
+}
+
+void clear_map_node_picture(map_node_t * node){
+	if(node == NULL) return;
+	if(node->picture_file_path == NULL) return;
+	
+	free(node->picture_file_path);
+	node->picture_file_path = NULL;
+}
+
+bool node_adjacent_to_auto_door(map_node_t * node){
+	if(node == NULL) return false;
+	if(node->n_outgoing_edges == 0) return false;
+	
+	for(size_t i = 0;i < node->n_outgoing_edges;i++){
+		map_edge_t * connected_edge = node->outgoing_edges[i];
+		
+		if(connected_edge->type == EDGE_TYPE_AUTO_DOOR){
+			return true;
+		}
+	}
+	
+	return false;
 }
 
 void set_map_node_floor_number(map_node_t * node,int8_t floor_number){
@@ -478,7 +509,29 @@ mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type){
 		output->cords[i] = cord_arry[i];
 	}
 	output->type = type;
+	output->name = NULL;
+	
 	return output;
+}
+
+void set_mpo_name(mpo_t * mpo,const char * name){
+	if(mpo == NULL || name == NULL) return;
+	
+	if(mpo->name != NULL) free(mpo->name);
+	
+	size_t name_length = strlen(name);
+	char * name_cpy = (char*) malloc(name_length+1);
+	strcpy(name_cpy,name);
+	
+	mpo->name = name_cpy;
+}
+
+void clear_mpo_name(mpo_t * mpo){
+	if(mpo == NULL) return;
+	if(mpo->name == NULL) return;
+	
+	free(mpo->name);
+	mpo->name = NULL;
 }
 
 void delete_map_mpo(mpo_t * mpo_ref){
@@ -538,46 +591,161 @@ void do_thing(){
 
 map_t init_map(void){
 	map_t map;
-	map.node_capacity = 0;
-	//makes an array of size node_capacity
 	map.all_nodes= NULL;
 	map.n_nodes = 0;
-	map.edge_capacity = 0;
+	map.node_capacity = 0;
+	
 	map.all_edges = NULL;
 	map.n_edges = 0;
-	map.mpo_capacity = 0;
+	map.edge_capacity = 0;
+	
+	map.all_buildings = NULL;
+	map.n_buildings = 0;
+	map.buildings_capacity = 0;
+	
 	map.mpos = NULL;
 	map.n_mpos = 0;
+	map.mpo_capacity = 0;
+	
 	map.active_start = NULL;
 	map.active_end = NULL;
 	map.active_path = NULL;
+	
 	map.active_edge_cost_function = NULL;
+	
 	return map;
 }
 
-void clear_map(map_t * map_ref){
-	if(map_ref->all_nodes != NULL) {
-		for(size_t i=0; i < map_ref->n_nodes; i++) {
-			delete_map_node(map_ref->all_nodes[i]);
+void clear_map(map_t * map){
+	if(map == NULL) return;
+	
+	if(map->all_nodes != NULL) {
+		for(size_t i = 0; i < map->n_nodes;i++) {
+			delete_map_node(map->all_nodes[i]);
 		}
-		free(map_ref->all_nodes);
+		free(map->all_nodes);
 	}
 
-	if(map_ref->all_edges != NULL) {
-		for(size_t i=0; i < map_ref->n_edges; i++) {
-			delete_map_edge(map_ref->all_edges[i]);
+	if(map->all_edges != NULL) {
+		for(size_t i = 0; i < map->n_edges;i++) {
+			delete_map_edge(map->all_edges[i]);
 		}
-		free(map_ref->all_edges);
+		free(map->all_edges);
 	}
-	if(map_ref->mpos != NULL) {
-		for(size_t i=0; i < map_ref->n_mpos; i++) {
-			delete_map_mpo(map_ref->mpos[i]);
+	
+	if(map->all_buildings != NULL){
+		for(size_t i = 0;i < map->n_buildings;i++){
+			delete_building(map->all_buildings[i]);
 		}
-		free(map_ref->mpos);
+		free(map->all_buildings);
 	}
-	if(map_ref->active_path != NULL) {
-		delete_map_path(map_ref->active_path);
+	
+	if(map->mpos != NULL) {
+		for(size_t i = 0; i < map->n_mpos;i++) {
+			delete_map_mpo(map->mpos[i]);
+		}
+		free(map->mpos);
 	}
+	
+	if(map->active_path != NULL) {
+		delete_map_path(map->active_path);
+	}
+}
+
+#define DEFAULT_BUILDINGS_CAPACITY 8
+
+void add_building_to_map(map_t * map,building_t * building){
+	if(map == NULL || building == NULL) return;
+	
+	if(map->all_buildings == NULL){
+		map->buildings_capacity = DEFAULT_BUILDINGS_CAPACITY;
+		map->all_buildings = (building_t**) malloc(sizeof(building_t*)*map->buildings_capacity);
+	}
+	
+	if(map->buildings_capacity == map->n_buildings){
+		map->buildings_capacity *= 2;
+		map->all_buildings = (building_t**) realloc(map->all_buildings,sizeof(building_t*)*map->buildings_capacity);
+	}
+	
+	map->all_buildings[map->n_buildings] = building;
+	map->n_buildings++;
+}
+
+static void remove_building_from_map_by_index(map_t * map,size_t index){
+	if(map == NULL) return;//invalid parameter
+	if(map->n_buildings == 0) return;//list is empty
+	if(!(index < map->n_buildings)) return;//out of bounds
+	
+	building_t * building_in_question = map->all_buildings[index];
+	
+	//remove all references to that building within the map
+	for(size_t i = 0;i < map->n_nodes;i++){
+		map_node_t * current_node = map->all_nodes[i];
+		if(current_node->associated_building == building_in_question){
+			clear_map_node_building(current_node);
+		}
+	}
+	
+	//delete the building
+	delete_building(building_in_question);
+	
+	//shift over data
+	for(size_t i = index;i < map->n_buildings-1;i++){
+		map->all_buildings[i] = map->all_buildings[i+1];
+	}
+	map->n_buildings--;//shrink array
+}
+
+void remove_building_from_map(map_t * map,building_t * building){
+	if(map == NULL || building == NULL) return;//invalid parameters
+	if(map->n_buildings == 0) return;//array is empty
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_buildings;i++){
+		building_t * current_building = map->all_buildings[i];
+		
+		if(current_building == building){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	remove_building_from_map_by_index(map,matching_index);
+}
+
+void remove_building_by_name(map_t * map,const char * name){
+	if(map == NULL || name == NULL) return;//invalid parameters
+	if(map->n_buildings == 0) return;//array is empty
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_buildings;i++){
+		building_t * current_building = map->all_buildings[i];
+		
+		for(size_t j = 0;j < current_building->n_possible_names;j++){
+			const char * possible_name = current_building->possible_names[j];
+			
+			if(strcmp(possible_name,name) == 0){
+				found = true;
+				matching_index = i;
+				break;
+			}
+		}
+		
+		if(found) break;
+	}
+	
+	if(!found) return;
+	
+	remove_building_from_map_by_index(map,matching_index);
 }
 
 void delete_map_path(map_path_t * map_path_ref) {

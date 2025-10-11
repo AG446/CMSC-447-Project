@@ -1,3 +1,15 @@
+/*
+ * CMSC-447-Project
+ * 
+ * UMBC Student Accessibility Map Program.
+ * Copyright 2025.
+ * This program is property of University of Maryland Baltimore County (UMBC).
+ * 
+ * Program Devloped By:
+ * - Benjamin Currie 
+ * - Jack Xu
+ */
+
 #ifndef MAP_H
 #define MAP_H
 
@@ -68,7 +80,7 @@ struct Map_Polygon_Object{
 	cord_t * cords;//array
 	size_t n_cords;
 	uint8_t type;
-	char * name;//TODO
+	char * name;
 };
 
 //create a new map polygon object instance on the heap.
@@ -82,6 +94,12 @@ void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord);
 
 //edit type
 void set_mpo_type(mpo_t * mpo,uint8_t new_type);
+
+//Give an MPO a name
+void set_mpo_name(mpo_t * mpo,const char * name);
+
+//clear the name from an mpo
+void clear_mpo_name(mpo_t * mpo);
 
 //Print out a map rectangle and all of its member data. Tabs value lets you add tabs to every line of output.
 void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream);
@@ -182,13 +200,13 @@ void delete_map_node(map_node_t * node);
 void set_map_node_name(map_node_t * node,const char * name);
 
 //clear the name field from a node
-void clear_map_node_name(map_node_t * node);//TODO
+void clear_map_node_name(map_node_t * node);
 
 //Set an image for node based on a file path.
 void set_map_node_picture(map_node_t * node,const char * file_path);
 
 //clear the file name field from a node
-void clear_map_node_picture(map_node_t * node);//TODO
+void clear_map_node_picture(map_node_t * node);
 
 //Set a nodes floor number if applicable
 void set_map_node_floor_number(map_node_t * node,int8_t floor_number);
@@ -209,7 +227,7 @@ void clear_map_node_building(map_node_t * node);
 void set_map_node_cord(map_node_t * node,cord_t new_cord);
 
 //is the node next to an automatic door?
-void node_adjacent_to_auto_door(map_node_t * node);//TODO
+bool node_adjacent_to_auto_door(map_node_t * node);
 
 //Print out a map node and show all of its member data. Tabs value lets you add tabs to every line of output.
 void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream);
@@ -294,7 +312,7 @@ struct Map{
 	size_t n_edges;
 	size_t edge_capacity;
 	
-	//array of buildings //TODO
+	//array of buildings
 	building_t ** all_buildings;
 	size_t n_buildings;
 	size_t buildings_capacity;
@@ -311,19 +329,19 @@ struct Map{
 };
 
 //Create a map object. Not on heap.
-map_t init_map(void);//TODO
+map_t init_map(void);
 
 //Clear heap data from within the map.
-void clear_map(map_t * map);//TODO
+void clear_map(map_t * map);
 
 //add building to map
-void add_building_to_map(map_t * map,building_t * building);//TODO
+void add_building_to_map(map_t * map,building_t * building);
 
 //remove building from map
-void remove_building_from_map(map_t * map,building_t * building);//TODO
+void remove_building_from_map(map_t * map,building_t * building);
 
 //remove building by name
-void remove_building_by_name(map_t * map,const char * name);//TODO
+void remove_building_by_name(map_t * map,const char * name);
 
 //add node to map
 void add_node_to_map(map_t * map,map_node_t * node);//TODO
