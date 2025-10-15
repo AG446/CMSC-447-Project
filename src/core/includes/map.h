@@ -183,11 +183,14 @@ struct Map_Node{
 	//whether or not the node is selectable with the mouse
 	bool selectable;
 	
-	//use for intermediate calculation during A* search
+	//used for intermediate calculation during A* search
 	double cost_temp;
 	
 	//a temporary index which is used for file saving purposes
 	size_t index_temp;
+	
+	//used to reconstruct shortest path after A* has finished
+	map_node_t * previous;
 };
 
 //Create a map_node_t object in the heap. This will need to be freed.
@@ -318,7 +321,7 @@ struct Map{
 	size_t buildings_capacity;
 	
 	//array of map polygon objects
-	mpo_t ** mpos;
+	mpo_t ** all_mpos;
 	size_t n_mpos;
 	size_t mpo_capacity;
 	
@@ -368,22 +371,34 @@ void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,u
 void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type);
 
 //disconnect two nodes in a map
-void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b);//TODO
+void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b);
 
 //disconnect two nodes in a map by their index
-void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b);//TODO
+void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b);
 
 //disconnect two nodes in map by their names
-void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b);//TODO
+void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b);
+
+//change the connection edge type by their index
+void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t new_edge_type);
 
 //change the connection edge type
-void set_connection_type(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type);//TODO
+void set_connection_type_for_nodes(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type);
+
+//change the connection edge type by name
+void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const char * node_b,uint8_t new_edge_type);
 
 //add a map polygon object to the map
-void add_mpo_to_map(map_t * map,mpo_t * mpo);//TODO
+void add_mpo_to_map(map_t * map,mpo_t * mpo);
 
 //remove a map polygon object from the map
-void remove_mpo_from_map(map_t * map,mpo_t * mpo);//TODO
+void remove_mpo_from_map(map_t * map,mpo_t * mpo);
+
+//remove a map polygon object from the map by name
+void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name);
+
+//remove a map polygon object from map by index
+void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index);
 
 //Print out a map and all its member data. Tabs value lets you add tabs to every line of output.
 void map_to_output_stream(map_t map,size_t tabs,FILE * stream);//TODO

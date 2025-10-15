@@ -5,10 +5,16 @@
 int main(){
 	//building_data_structure_test();
 	//node_edge_data_structure_test();
-	mpo_data_structure_test();
+	//mpo_data_structure_test();
+	
+	map_construction_test();
 	
 	do_thing();
 	fputs("End of program\n",stdout);
+}
+
+void map_construction_test(){
+	fputs("hello\n",stdout);
 }
 
 void mpo_data_structure_test(){
