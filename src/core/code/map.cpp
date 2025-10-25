@@ -5,6 +5,38 @@
 #include <ctype.h>
 
 
+err_ctx_t create_err_ctx(){
+	err_ctx_t out;
+	out.flags = 0;
+	return out;
+}
+
+void reset_err_ctx(err_ctx_t * ctx){
+	ctx->flags = 0;
+}
+
+void errs_to_output_stream(const err_ctx_t * ctx,FILE * stream){
+	if(ctx->flags == 0){
+		fputs("No errors encountered!\n",stream);
+		return;
+	}
+	
+	fputs("Errors Collected:\n",stream);
+	if((ctx->flags & ERROR_INVALID_PARAM) != 0){
+		fputs("\tError: Invalid parameter!\n",stream);
+	}else if((ctx->flags & ERROR_DUPLICATE_PARAMETER) != 0){
+		fputs("\tError: Duplicate parameters received!\n",stream);
+	}else if((ctx->flags & ERROR_OUT_OF_BOUNDS_INDEX) != 0){
+		fputs("\tError: Index passed is out of bounds!\n",stream);
+	}else if((ctx->flags & ERROR_OBJECT_NOT_FOUND) != 0){
+		fputs("\tError: Object not found!\n",stream);
+	}
+}
+
+bool err_encountered(const err_ctx_t * ctx){
+	return ctx->flags != 0;
+}
+
 //MEMORY PARAMETERS
 
 #define DEFAULT_POSSIBLE_NAMES_CAPACITY 1
@@ -61,7 +93,12 @@ void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream){
 	cord_to_output_stream(rect.top_right,tabs+2,stream);
 }
 
-building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors){
+building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors,err_ctx_t * ctx){
+	if(primary_name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
 	building_t * out = (building_t*) malloc(sizeof(building_t));
 	
 	out->n_floors = n_floors;
@@ -70,13 +107,16 @@ building_t * create_building(const char * primary_name,map_rect_t building_bound
 	out->possible_names = NULL;
 	out->building_bounding_box = building_bounding_box;
 	
-	add_building_alias_name(out,primary_name);
+	add_building_alias_name(out,primary_name,ctx);
 	
 	return out;
 }
 
-void delete_building(building_t * building){
-	if(building == NULL) return;
+void delete_building(building_t * building,err_ctx_t * ctx){
+	if(building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	if(building->possible_names != NULL){
 		for(size_t i = 0;i < building->n_possible_names;i++){
@@ -88,8 +128,11 @@ void delete_building(building_t * building){
 	free(building);
 }
 
-void add_building_alias_name(building_t * building,const char * alias_name){
-	if(building == NULL || alias_name == NULL) return;//invalid parameters
+void add_building_alias_name(building_t * building,const char * alias_name,err_ctx_t * ctx){
+	if(building == NULL || alias_name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;//invalid parameters
+	}
 	
 	//ensure an array of strings exists
 	if(building->possible_names == NULL){
@@ -112,9 +155,15 @@ void add_building_alias_name(building_t * building,const char * alias_name){
 	building->n_possible_names++;
 }
 
-void remove_building_alias_name(building_t * building,const char * alias_name){
-	if(building == NULL || alias_name == NULL) return;//invalid parameters
-	if(building->n_possible_names == 0) return;//array is empty
+void remove_building_alias_name(building_t * building,const char * alias_name,err_ctx_t * ctx){
+	if(building == NULL || alias_name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;//invalid parameters
+	}
+	if(building->n_possible_names == 0){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;//array is empty
+	}
 	
 	bool found = false;
 	size_t matching_index = 0;
@@ -130,7 +179,10 @@ void remove_building_alias_name(building_t * building,const char * alias_name){
 		}
 	}
 	
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	//delete the string
 	free(building->possible_names[matching_index]);
@@ -142,9 +194,15 @@ void remove_building_alias_name(building_t * building,const char * alias_name){
 	building->n_possible_names--;//shrink array
 }
 
-void change_primary_building_name(building_t * building,const char * primary_name){
-	if(building == NULL || primary_name == NULL) return;//invalid parameters
-	if(building->n_possible_names == 0) return;
+void change_primary_building_name(building_t * building,const char * primary_name,err_ctx_t * ctx){
+	if(building == NULL || primary_name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;//invalid parameters
+	}
+	if(building->n_possible_names == 0){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
 	bool found = false;
 	size_t matching_index = 0;
@@ -160,33 +218,47 @@ void change_primary_building_name(building_t * building,const char * primary_nam
 		}
 	}
 	
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
 	char * temp = building->possible_names[0];
 	building->possible_names[0] = building->possible_names[matching_index];
 	building->possible_names[matching_index] = temp;
 }
 
-void set_building_floor_count(building_t * building,size_t new_floor_count){
-	if(building == NULL) return;
+void set_building_floor_count(building_t * building,size_t new_floor_count,err_ctx_t * ctx){
+	if(building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	building->n_floors = new_floor_count;
 }
 
-void set_building_bounding_box(building_t * building,map_rect_t building_bounding_box){
-	if(building == NULL) return;
-	
+void set_building_bounding_box(building_t * building,map_rect_t building_bounding_box,err_ctx_t * ctx){
+	if(building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	building->building_bounding_box = building_bounding_box;
 }
 
-const char * get_primary_building_name(const building_t * building){
-	if(building == NULL) return NULL;
-	if(building->n_possible_names == 0) return NULL;
+const char * get_primary_building_name(const building_t * building,err_ctx_t * ctx){
+	if(building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
 	
+	if(building->n_possible_names == 0) return NULL;//I dont throw error here because this is perfectly valid possibility
 	return building->possible_names[0];
 }
 
-void building_to_output_stream(const building_t * building,size_t tabs,FILE * stream){
-	if(building == NULL || stream == NULL) return;
+void building_to_output_stream(const building_t * building,size_t tabs,FILE * stream,err_ctx_t * ctx){
+	if(building == NULL || stream == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	put_multitab(tabs,stream);
 	fprintf(stream,"Building %p:\n",building);
@@ -240,8 +312,11 @@ map_node_t * create_map_node(cord_t coordinate) {
 	return output;
 }
 
-void delete_map_node(map_node_t * node){
-	if(node == NULL) return;
+void delete_map_node(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	if(node->picture_file_path != NULL) {
 		free(node->picture_file_path);
 	}
@@ -431,7 +506,7 @@ void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream
 		put_multitab(tabs,stream);
 		fputs("\tAssociated Building:\n",stream);
 		put_multitab(tabs,stream);
-		fprintf(stream,"\t\t%s\n",get_primary_building_name(node->associated_building));
+		fprintf(stream,"\t\t%s\n",get_primary_building_name(node->associated_building,NULL));//TODO add error context
 	}
 	
 	if(node->n_outgoing_edges > 0){
@@ -515,7 +590,12 @@ void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream
 	fprintf(stream,"\t\t%p %s\n",edge->b,(edge->b->name == NULL) ? "" : edge->b->name);
 }
 
-mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type){
+mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type,err_ctx_t * ctx){
+	if(cord_arry == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
 	mpo_t * output =  (mpo_t*)malloc(sizeof(mpo_t));
 	output->cords = (cord_t*)malloc(sizeof(cord_t)*n_cords);
 	output->n_cords = n_cords;
@@ -528,8 +608,11 @@ mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type){
 	return output;
 }
 
-void set_mpo_name(mpo_t * mpo,const char * name){
-	if(mpo == NULL || name == NULL) return;
+void set_mpo_name(mpo_t * mpo,const char * name,err_ctx_t * ctx){
+	if(mpo == NULL || name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	if(mpo->name != NULL) free(mpo->name);
 	
@@ -540,22 +623,43 @@ void set_mpo_name(mpo_t * mpo,const char * name){
 	mpo->name = name_cpy;
 }
 
-void clear_mpo_name(mpo_t * mpo){
-	if(mpo == NULL) return;
-	if(mpo->name == NULL) return;
+const char * get_mpo_name(const mpo_t * mpo,err_ctx_t * ctx){
+	if(mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	return mpo->name;
+}
+
+void clear_mpo_name(mpo_t * mpo,err_ctx_t * ctx){
+	if(mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(mpo->name == NULL) return;//dont throw error here because perfectly valid case
 	
 	free(mpo->name);
 	mpo->name = NULL;
 }
 
-void delete_map_mpo(mpo_t * mpo_ref){
-	if(mpo_ref == NULL) return;
-	free(mpo_ref->cords);
-	free(mpo_ref);
+void delete_mpo(mpo_t * mpo,err_ctx_t * ctx){
+	if(mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	if(mpo->name != NULL) free(mpo->name);
+	
+	free(mpo->cords);
+	free(mpo);
 }
 
-void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream){
-	if(mpo == NULL || stream == NULL) return;
+void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream,err_ctx_t * ctx){
+	if(mpo == NULL || stream == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	put_multitab(tabs,stream);
 	fprintf(stream,"Map-Polygon-Object %p:\n",mpo);
@@ -573,6 +677,13 @@ void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream){
 	}
 	fputc('\n',stream);
 	
+	if(mpo->name != NULL){
+		put_multitab(tabs,stream);
+		fputs("\tName:\n",stream);
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%s\n",mpo->name);
+	}
+	
 	put_multitab(tabs,stream);
 	fputs("\tN Coordinates:\n",stream);
 	put_multitab(tabs,stream);
@@ -587,15 +698,24 @@ void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream){
 	}
 }
 
-void set_mpo_type(mpo_t * mpo,uint8_t new_type){
-	if(mpo == NULL) return;
+void set_mpo_type(mpo_t * mpo,uint8_t new_type,err_ctx_t * ctx){
+	if(mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	mpo->type = new_type;
 }
 
-void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord){
-	if(mpo == NULL) return;
-	if(!(index < mpo->n_cords)) return;//out of bounds
+void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord,err_ctx_t * ctx){
+	if(mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(!(index < mpo->n_cords)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;
+	}
 	
 	mpo->cords[index] = new_cord;
 }
@@ -618,21 +738,18 @@ map_t init_map(void){
 	map.n_mpos = 0;
 	map.mpo_capacity = 0;
 	
-	map.active_start = NULL;
-	map.active_end = NULL;
-	map.active_path = NULL;
-	
-	map.active_edge_cost_function = NULL;
-	
 	return map;
 }
 
-void clear_map(map_t * map){
-	if(map == NULL) return;
+void clear_map(map_t * map,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	if(map->all_nodes != NULL) {
 		for(size_t i = 0; i < map->n_nodes;i++) {
-			delete_map_node(map->all_nodes[i]);
+			delete_map_node(map->all_nodes[i],ctx);
 		}
 		free(map->all_nodes);
 	}
@@ -646,20 +763,16 @@ void clear_map(map_t * map){
 	
 	if(map->all_buildings != NULL){
 		for(size_t i = 0;i < map->n_buildings;i++){
-			delete_building(map->all_buildings[i]);
+			delete_building(map->all_buildings[i],ctx);
 		}
 		free(map->all_buildings);
 	}
 	
 	if(map->all_mpos != NULL) {
 		for(size_t i = 0; i < map->n_mpos;i++) {
-			delete_map_mpo(map->all_mpos[i]);
+			delete_mpo(map->all_mpos[i],ctx);
 		}
 		free(map->all_mpos);
-	}
-	
-	if(map->active_path != NULL) {
-		delete_map_path(map->active_path);
 	}
 }
 
@@ -680,6 +793,31 @@ void add_building_to_map(map_t * map,building_t * building){
 	map->n_buildings++;
 }
 
+building_t * get_building_by_index(map_t * map,size_t index){
+	if(map == NULL) return NULL;
+	if(!(index < map->n_buildings)) return NULL;//out of bounds
+	
+	return map->all_buildings[index];
+}
+
+building_t * get_building_by_name(map_t * map, const char * name){
+	if(map == NULL || name == NULL) return NULL;//invalid parameters
+	
+	for(size_t i = 0;i < map->n_buildings;i++){
+		building_t * current_building = map->all_buildings[i];
+		
+		for(size_t j = 0;j < current_building->n_possible_names;j++){
+			const char * possible_name = current_building->possible_names[j];
+			
+			if(strcmp(possible_name,name) == 0){
+				return current_building;
+			}
+		}
+	}
+	
+	return NULL;
+}
+
 void remove_building_from_map_by_index(map_t * map,size_t index){
 	if(map == NULL) return;//invalid parameter
 	if(!(index < map->n_buildings)) return;//out of bounds
@@ -695,7 +833,7 @@ void remove_building_from_map_by_index(map_t * map,size_t index){
 	}
 	
 	//delete the building
-	delete_building(building_in_question);
+	delete_building(building_in_question,NULL);//TODO add error context
 	
 	//shift over data
 	for(size_t i = index;i < map->n_buildings-1;i++){
@@ -846,7 +984,7 @@ void remove_node_from_map_by_index(map_t * map,size_t index){
 	}
 	
 	//delete the node
-	delete_map_node(node_in_question);
+	delete_map_node(node_in_question,NULL);//TODO add error context
 	
 	//shift over data
 	for(size_t i = index;i < map->n_nodes-1;i++){
@@ -1067,14 +1205,20 @@ void add_mpo_to_map(map_t * map,mpo_t * mpo){
 	map->n_mpos++;
 }
 
-void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index){
-	if(map == NULL) return;//invalid parameter
-	if(!(mpo_index < map->n_mpos)) return;//out of bounds
+void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;//invalid parameter
+	}
+	if(!(mpo_index < map->n_mpos)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;//out of bounds
+	}
 	
 	mpo_t * mpo_in_question = map->all_mpos[mpo_index];
 	
 	//delete the mpo
-	delete_map_mpo(mpo_in_question);
+	delete_mpo(mpo_in_question,ctx);
 	
 	//shift over data
 	for(size_t i = mpo_index;i < map->n_mpos-1;i++){
@@ -1083,8 +1227,11 @@ void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index){
 	map->n_mpos--;//shrink array
 }
 
-void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name){
-	if(map == NULL || mpo_name == NULL) return;
+void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name,err_ctx_t * ctx){
+	if(map == NULL || mpo_name == NULL) {
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	bool found = false;
 	size_t matching_index = 0;
@@ -1101,13 +1248,19 @@ void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name){
 		}
 	}
 	
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	remove_mpo_from_map_by_index(map,matching_index);
+	remove_mpo_from_map_by_index(map,matching_index,ctx);
 }
 
-void remove_mpo_from_map(map_t * map,mpo_t * mpo){
-	if(map == NULL || mpo == NULL) return;
+void remove_mpo_from_map(map_t * map,mpo_t * mpo,err_ctx_t * ctx){
+	if(map == NULL || mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	bool found = false;
 	size_t matching_index = 0;
@@ -1123,9 +1276,12 @@ void remove_mpo_from_map(map_t * map,mpo_t * mpo){
 		}
 	}
 	
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	remove_mpo_from_map_by_index(map,matching_index);
+	remove_mpo_from_map_by_index(map,matching_index,ctx);
 }
 
 void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
@@ -1160,17 +1316,51 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
 		fprintf(stream,"\t\t%lu\n",i);
 		map_edge_to_output_stream(map.all_edges[i],tabs+2,stream);
 	}
+	
+	put_multitab(tabs,stream);
+	fputs("\tN Buildings:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%lu\n",map.n_buildings);
+	
+	put_multitab(tabs,stream);
+	fputs("\tBuildings Array:\n",stream);
+	for(size_t i = 0;i < map.n_buildings;i++){
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%lu\n",i);
+		building_to_output_stream(map.all_buildings[i],tabs+2,stream,NULL);//TODO add error context
+	}
+	
+	put_multitab(tabs,stream);
+	fputs("\tN Map Polygon Objects:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%lu\n",map.n_mpos);
+	
+	put_multitab(tabs,stream);
+	fputs("\tMap Polygon Object Array:\n",stream);
+	for(size_t i = 0;i < map.n_mpos;i++){
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%lu\n",i);
+		mpo_to_output_stream(map.all_mpos[i],tabs+2,stream,NULL);//TODO add error context
+	}
 }
 
 void do_thing(){
+	err_ctx_t ctx = create_err_ctx();
+	
 	map_t map = init_map();
 	
 	building_t * building_a = create_building(
 		"Building A",//primary building name
 		create_map_rect(create_cord(-5,-5),create_cord(5,5)),//bounding box of building
-		5//n floors
+		5,//n floors
+		&ctx
 	);
-	add_building_alias_name(building_a,"Build B");
+	add_building_alias_name(building_a,"Build B",&ctx);
+	
+	cord_t cord_arr[4] = {create_cord(0,0), create_cord(0,1), create_cord(1,1), create_cord(1,0) };
+	mpo_t * square_mpo = create_mpo(cord_arr,4,MPO_TYPE_WATER,&ctx);
+	set_mpo_name(square_mpo,"Square Lake",&ctx);
+	add_mpo_to_map(&map,square_mpo);
 	
 	add_building_to_map(&map,building_a);
 	
@@ -1196,7 +1386,7 @@ void do_thing(){
 	remove_node_from_map(&map,a);
 	
 	map_to_output_stream(map,0,stdout);
-	clear_map(&map);
+	clear_map(&map,&ctx);
 }
 
 void delete_map_path(map_path_t * map_path_ref) {

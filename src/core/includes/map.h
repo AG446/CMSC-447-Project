@@ -26,6 +26,21 @@ typedef struct Map_Polygon_Object mpo_t;
 typedef struct Map_Path map_path_t;
 typedef struct Saved_Paths saved_paths_t;
 typedef struct Building building_t;
+typedef struct Error_Context err_ctx_t;
+
+#define ERROR_INVALID_PARAM 1
+#define ERROR_DUPLICATE_PARAMETER 2
+#define ERROR_OUT_OF_BOUNDS_INDEX 4
+#define ERROR_OBJECT_NOT_FOUND 8
+
+struct Error_Context{
+	uint8_t flags;
+};
+
+err_ctx_t create_err_ctx();
+bool err_encountered(const err_ctx_t * ctx);
+void reset_err_ctx(err_ctx_t * ctx);
+void errs_to_output_stream(const err_ctx_t * ctx,FILE * stream);
 
 //---------------------------------------------------------- GEOMETRY PRIMITIVES BEGIN ------------------------------------------------
 /*
@@ -84,25 +99,28 @@ struct Map_Polygon_Object{
 };
 
 //create a new map polygon object instance on the heap.
-mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type);
+mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type,err_ctx_t * ctx);
 
 //delete a map polygon object from the heap.
-void delete_map_mpo(mpo_t * mpo_ref);
+void delete_mpo(mpo_t * mpo,err_ctx_t * ctx);
 
 //edit a misplaced coordinate
-void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord);
+void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord,err_ctx_t * ctx);
 
 //edit type
-void set_mpo_type(mpo_t * mpo,uint8_t new_type);
+void set_mpo_type(mpo_t * mpo,uint8_t new_type,err_ctx_t * ctx);
 
 //Give an MPO a name
-void set_mpo_name(mpo_t * mpo,const char * name);
+void set_mpo_name(mpo_t * mpo,const char * name,err_ctx_t * ctx);
+
+//Get the name of an MPO
+const char * get_mpo_name(const mpo_t * mpo,err_ctx_t * ctx);
 
 //clear the name from an mpo
-void clear_mpo_name(mpo_t * mpo);
+void clear_mpo_name(mpo_t * mpo,err_ctx_t * ctx);
 
 //Print out a map rectangle and all of its member data. Tabs value lets you add tabs to every line of output.
-void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream);
+void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream,err_ctx_t * ctx);
 //---------------------------------------------------------- GEOMETRY PRIMITIVES END --------------------------------------------------
 
 
@@ -124,31 +142,31 @@ struct Building{
 };
 
 //Creating a new building instance in the heap. It will need to be deleted.
-building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors);
+building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors,err_ctx_t * ctx);
 
 //Delete the building instance on the heap
-void delete_building(building_t * building);
+void delete_building(building_t * building,err_ctx_t * ctx);
 
 //Add an alternative name to a building to make search more effective.
-void add_building_alias_name(building_t * building,const char * alias_name);
+void add_building_alias_name(building_t * building,const char * alias_name,err_ctx_t * ctx);
 
 //Remove an alias name from the alias list. This might be used to removed misspelled text.
-void remove_building_alias_name(building_t * building,const char * alias_name);
+void remove_building_alias_name(building_t * building,const char * alias_name,err_ctx_t * ctx);
 
 //Take an existing name from the alias list and swap it with the primary name
-void change_primary_building_name(building_t * building,const char * primary_name);
+void change_primary_building_name(building_t * building,const char * primary_name,err_ctx_t * ctx);
 
 //Fix an incorrect floor count assignment to a building
-void set_building_floor_count(building_t * building,size_t new_floor_count);
+void set_building_floor_count(building_t * building,size_t new_floor_count,err_ctx_t * ctx);
 
 //change the bounding box of a building if it was incorrect
-void set_building_bounding_box(building_t * building,map_rect_t building_bounding_box);
+void set_building_bounding_box(building_t * building,map_rect_t building_bounding_box,err_ctx_t * ctx);
 
 //Get the main name of a building. (Warning) Might return NULL
-const char * get_primary_building_name(const building_t * building);
+const char * get_primary_building_name(const building_t * building,err_ctx_t * ctx);
 
 //Print out the building object and all of its member data. Tabs value lets you add tabs to every line of output.
-void building_to_output_stream(const building_t * building,size_t tabs,FILE * stream);
+void building_to_output_stream(const building_t * building,size_t tabs,FILE * stream,err_ctx_t * ctx);
 //--------------------------------------------------------------- BUILDING END --------------------------------------------------------
 
 //---------------------------------------------------------- NODES BEGIN --------------------------------------------------------------
@@ -197,7 +215,7 @@ struct Map_Node{
 map_node_t * create_map_node(cord_t coordinate);
 
 //Delete a map_node_t object.
-void delete_map_node(map_node_t * node);
+void delete_map_node(map_node_t * node,err_ctx_t * ctx);
 
 //Give a node a name.
 void set_map_node_name(map_node_t * node,const char * name);
@@ -291,15 +309,6 @@ void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream
 
 
 //---------------------------------------------------------- MAP BEGIN ----------------------------------------------------------------
-struct Search_Filter_Options{
-	char * start_position_text;
-	char * end_position_text;
-	bool exclude_stairs;
-	bool exclude_non_auto_doors;
-	bool exclude_interiors;
-};
-
-
 
 /*
  * The map is all the nodes, all the edges and all the map-polygon-objects
@@ -324,18 +333,13 @@ struct Map{
 	mpo_t ** all_mpos;
 	size_t n_mpos;
 	size_t mpo_capacity;
-	
-	map_node_t * active_start;
-	map_node_t * active_end;
-	map_path_t * active_path;
-	double (*active_edge_cost_function)(const map_edge_t * edge_ref);
 };
 
 //Create a map object. Not on heap.
 map_t init_map(void);
 
 //Clear heap data from within the map.
-void clear_map(map_t * map);
+void clear_map(map_t * map,err_ctx_t * ctx);
 
 //add building to map
 void add_building_to_map(map_t * map,building_t * building);
@@ -348,6 +352,12 @@ void remove_building_by_name_from_map(map_t * map,const char * name);
 
 //remove building from the map by index
 void remove_building_from_map_by_index(map_t * map,size_t index);
+
+//get building by index
+building_t * get_building_by_index(map_t * map,size_t index);
+
+//get building by name
+building_t * get_building_by_name(map_t * map, const char * name);
 
 //add node to map
 void add_node_to_map(map_t * map,map_node_t * node);
@@ -392,16 +402,16 @@ void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const
 void add_mpo_to_map(map_t * map,mpo_t * mpo);
 
 //remove a map polygon object from the map
-void remove_mpo_from_map(map_t * map,mpo_t * mpo);
+void remove_mpo_from_map(map_t * map,mpo_t * mpo,err_ctx_t * ctx);
 
 //remove a map polygon object from the map by name
-void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name);
+void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name,err_ctx_t * ctx);
 
 //remove a map polygon object from map by index
-void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index);
+void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index,err_ctx_t * ctx);
 
 //Print out a map and all its member data. Tabs value lets you add tabs to every line of output.
-void map_to_output_stream(map_t map,size_t tabs,FILE * stream);//TODO
+void map_to_output_stream(map_t map,size_t tabs,FILE * stream);
 
 struct Map_Path{
 	map_node_t ** nodes;//ordered list that defines a path, does not own nodes
@@ -416,12 +426,31 @@ struct Saved_Paths{
 };
 //---------------------------------------------------------- MAP END ------------------------------------------------------------------
 
+//---------------------------------------------------------- SYSTEM BEGIN -------------------------------------------------------------
 
+struct Search_Filter_Options{
+	char * fuzzy_name;
+	uint8_t floor_number;
+	bool exclude_stairs;
+	bool exclude_non_auto_doors;
+	bool exclude_interiors;
+};
 
+struct Search_Results{
+	map_node_t ** results;
+	size_t n_results;
+};
 
+struct Map_System{
+	map_t map;
+	
+	map_node_t * active_start;
+	map_node_t * active_end;
+	map_path_t * active_path;
+	double (*active_edge_cost_function)(const map_edge_t * edge_ref);
+};
 
-
-//---------------------------------------------------------- FUNCTIONS BEGIN ----------------------------------------------------------
+//---------------------------------------------------------- SYSTEM END ---------------------------------------------------------------
 
 
 
