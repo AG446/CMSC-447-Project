@@ -1,12 +1,18 @@
 #include "tester.h"
 #include "map.h"
+#include "cl_tool.h"
+#include "text_proc.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
-#define N_TESTS 2
-test_func_t func_table[N_TESTS] = { 
+#define N_TESTS 5
+test_func_t func_table[N_TESTS] = {
+	{token_matching_test,"token matching test",SILENT},
+	{phrase_matching_test,"phrase matching test",SILENT},
 	{building_data_structure_test,"building data structure test",SILENT},
-	{mpo_data_structure_test,"map polygon object data structure test",SILENT}
+	{mpo_data_structure_test,"map polygon object data structure test",SILENT},
+	{map_node_data_structure_test,"map node data structure test",SILENT}
 };
 
 int main(){
@@ -18,43 +24,217 @@ int main(){
 		if(!testable_func.silent) fputc('\n',stdout);
 		bool function_passes = testable_func.function(testable_func.silent);
 		if(function_passes){
-			fputs("PASS\n",stdout);
+			fputs("\033[32mPASS\033[0m\n",stdout);
 		}else{
-			fputs("FAIL\n",stdout);
+			fputs("\033[31mFAIL\033[0m\n",stdout);
 		}
 	}
+	
+	start_cli();
 }
 
-void map_construction_test(){
-	fputs("hello\n",stdout);
+bool token_matching_test(bool silent){
+	const char * token_1 = "Computing";
+	const char * token_2 = "Comting";
+	const char * token_3 = "Staples";
+	const char * token_4 = "Computing";
+	
+	float comparison_1 = token_similarity_score(token_1,token_2);
+	if(!silent) printf("%s %s %f\n",token_1,token_2,comparison_1);
+	
+	if(comparison_1 == 0.0f || comparison_1 == 1.0f) return FAIL;
+	
+	float comparison_2 = token_similarity_score(token_1,token_3);
+	if(!silent) printf("%s %s %f\n",token_1,token_3,comparison_2);
+	
+	if(comparison_2 > 0.5f) return FAIL;
+	if(comparison_2 > comparison_1) return FAIL;
+	
+	float comparison_3 = token_similarity_score(token_1,token_4);
+	if(!silent) printf("%s %s %f\n",token_1,token_4,comparison_3);
+	
+	if(comparison_3 != 1.0f) return FAIL;
+	if(comparison_1 > comparison_3) return FAIL;
+	
+	return PASS;
 }
 
-void node_edge_data_structure_test(){
+bool phrase_matching_test(bool silent){
+	
+	const char * locations[6] = {
+		"Information Technology Computing ITE",
+		"Library",
+		"Engineering ENG",
+		"Interdisciplinary Life Sciences ILS",
+		"Mathematics MATH",
+		"Janet and Walter Sondheim"
+	};
+	
+	const char * mistypes[6] = {
+		"sondhime janet",
+		"Info Tech",
+		"libaryy",
+		"inter sience",
+		"eng",
+		"maths bulding"
+	};
+	
+	const int correct_solution[6] = {
+		5,
+		0,
+		1,
+		3,
+		2,
+		4
+	};
+	
+	for(size_t i = 0;i < 6;i++){
+		const char * mistyped = mistypes[i];
+		
+		size_t best_index = 0;
+		float best_score = -1.0f;
+		
+		for(size_t j = 0;j < 6;j++){
+			const char * location = locations[j];
+			float score = phrase_similarity_score(location,mistyped);
+			if(score > best_score){
+				best_score = score;
+				best_index = j;
+			}
+			if(!silent) printf("\"%s\" \"%s\" %f\n",mistyped,location,score);
+		}
+		
+		if(correct_solution[i] != best_index) return FAIL;
+		if(!silent) fputs("\n\n",stdout);
+	}
+	
+	return PASS;
+}
+
+bool map_node_data_structure_test(bool silent){
 	err_ctx_t err_ctx = create_err_ctx();
 	
-	building_t * build = create_building("ILSB",create_map_rect(create_cord(0,1),create_cord(2,3)),3,&err_ctx);
+	map_node_t * node = create_map_node(create_cord(2.0,3.0));
+	if(node == NULL) return FAIL;
 	
-	map_node_t * node_a = create_map_node(create_cord(2.0,3.0));
-	map_node_t * node_b = create_map_node(create_cord(5.0,7.0));
+	set_map_node_name(NULL,"Node A",&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_node_name(node,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_node_name(node,"Node A",&err_ctx);
+	set_map_node_name(node,"Node B",&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
 	
-	map_edge_t * edge = create_map_edge(EDGE_TYPE_SIDEWALK,node_a,node_b);
-	set_map_edge_type(edge,EDGE_TYPE_RAMP);
+	if(strcmp(get_map_node_name(node,&err_ctx),"Node B") != 0) return FAIL;
+	get_map_node_name(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
 	
-	set_map_node_name(node_a,"Alpha Dog");
-	set_map_node_picture(node_a,"Jacked_Dude.jpeg");
-	set_map_node_floor_number(node_a,3);
-	set_map_node_building(node_a,build);
-	set_map_node_selectable(node_a,true);
+	set_map_node_picture(NULL,"image2.jpeg",&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_node_picture(node,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_node_picture(node,"image.jpeg",&err_ctx);
+	set_map_node_picture(node,"image2.jpeg",&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
 	
-	map_node_to_output_stream(node_a,0,stdout);
-	map_node_to_output_stream(node_b,0,stdout);
+	if(strcmp(get_map_node_picture(node,&err_ctx),"image2.jpeg") != 0) return FAIL;
+	get_map_node_picture(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
 	
-	map_edge_to_output_stream(edge,0,stdout);
+	set_map_node_floor_number(NULL,5,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_node_floor_number(node,5,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
 	
-	delete_map_edge(edge);
-	delete_map_node(node_a,&err_ctx);
-	delete_map_node(node_b,&err_ctx);
-	delete_building(build,&err_ctx);
+	if(get_map_node_floor_number(node,&err_ctx) != 5) return FAIL;
+	get_map_node_floor_number(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	
+	set_map_node_selectable(NULL,true,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_node_selectable(node,true,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	if(get_map_node_selectable(node,&err_ctx) != true) return FAIL;
+	
+	set_map_node_building(node,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	building_t * building = create_building("Random building",create_map_rect(create_cord(-1.0,-1.0),create_cord(1.0,1.0)),3,&err_ctx);
+	set_map_node_building(NULL,building,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_node_building(node,building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(!silent) map_node_to_output_stream(node,0,stdout,&err_ctx);
+	
+	clear_map_node_building(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	clear_map_node_building(node,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	set_map_node_selectable(node,false,&err_ctx);
+	if(get_map_node_selectable(node,&err_ctx) != false) return FAIL;
+	get_map_node_selectable(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	
+	clear_map_node_floor_number(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	clear_map_node_floor_number(node,&err_ctx);
+	if(get_map_node_floor_number(node,&err_ctx) != NODE_FLOOR_NUMBER_NONE) return FAIL;
+	
+	clear_map_node_picture(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	clear_map_node_picture(node,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	clear_map_node_name(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	clear_map_node_name(node,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	set_map_node_cord(NULL,create_cord(5.0,8.0),&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_node_cord(node,create_cord(5.0,8.0),&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	if(!are_cords_equal(get_map_node_cord(node,&err_ctx),create_cord(5.0,8.0))) return FAIL;
+	if(err_encountered(&err_ctx)) return FAIL;
+	get_map_node_cord(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	
+	if(!silent) map_node_to_output_stream(node,0,stdout,&err_ctx);
+	
+	map_node_to_output_stream(node,0,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	map_node_to_output_stream(NULL,0,stdout,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	
+	delete_map_node(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	delete_map_node(node,&err_ctx);
+	delete_building(building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	return PASS;
 }
 
 bool mpo_data_structure_test(bool silent){
@@ -80,10 +260,16 @@ bool mpo_data_structure_test(bool silent){
 	
 	if(!silent) mpo_to_output_stream(mpo,0,stdout,&err_ctx);
 	
-	set_mpo_cord(NULL,3,create_cord(5,5),&err_ctx);
+	set_mpo_cord(NULL,3,create_cord(5,6),&err_ctx);
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
-	set_mpo_cord(mpo,3,create_cord(5,5),&err_ctx);
+	set_mpo_cord(mpo,3,create_cord(5,6),&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	get_mpo_cord(NULL,3,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	if(!are_cords_equal(get_mpo_cord(mpo,3,&err_ctx),create_cord(5,6))) return FAIL;
 	if(err_encountered(&err_ctx)) return FAIL;
 	
 	set_mpo_type(NULL,MPO_TYPE_TREE,&err_ctx);
@@ -91,6 +277,12 @@ bool mpo_data_structure_test(bool silent){
 	reset_err_ctx(&err_ctx);
 	set_mpo_type(mpo,MPO_TYPE_TREE,&err_ctx);
 	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(get_mpo_type(mpo,&err_ctx) != MPO_TYPE_TREE) return FAIL;
+	if(err_encountered(&err_ctx)) return FAIL;
+	get_mpo_type(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
 	
 	set_mpo_name(mpo,"squid",&err_ctx);
 	if(strcmp(get_mpo_name(mpo,&err_ctx),"squid") != 0) return FAIL;

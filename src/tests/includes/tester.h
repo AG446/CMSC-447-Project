@@ -17,8 +17,8 @@ struct Testable_Func{//dont re-order this please
 
 bool building_data_structure_test(bool silent);
 bool mpo_data_structure_test(bool silent);
-
-void node_edge_data_structure_test();
-void map_construction_test();
+bool map_node_data_structure_test(bool silent);
+bool token_matching_test(bool silent);
+bool phrase_matching_test(bool silent);
 
 #endif

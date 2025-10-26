@@ -1,8 +1,8 @@
 #include "map.h"
 #include <string.h>
 #include <stdio.h>
-#include <math.h>
 #include <ctype.h>
+#include "text_proc.h"
 
 
 err_ctx_t create_err_ctx(){
@@ -58,7 +58,16 @@ cord_t create_cord(double lon,double lat){
 	return out;
 }
 
-void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream){
+bool are_cords_equal(cord_t a,cord_t b){
+	return (a.longitude == b.longitude) && (a.latitude == b.latitude);
+}
+
+void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream,err_ctx_t * ctx){
+	if(stream == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
 	put_multitab(tabs,stream);
 	fputs("Coordinate:\n",stream);
 	
@@ -80,17 +89,22 @@ map_rect_t create_map_rect(cord_t bottom_left,cord_t top_right){
 	return out;
 }
 
-void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream){
+void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream,err_ctx_t * ctx){
+	if(stream == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
 	put_multitab(tabs,stream);
 	fputs("Map-Rect:\n",stream);
 	
 	put_multitab(tabs,stream);
 	fputs("\tBottom left:\n",stream);
-	cord_to_output_stream(rect.bottom_left,tabs+2,stream);
+	cord_to_output_stream(rect.bottom_left,tabs+2,stream,ctx);
 	
 	put_multitab(tabs,stream);
 	fputs("\tTop Right:\n",stream);
-	cord_to_output_stream(rect.top_right,tabs+2,stream);
+	cord_to_output_stream(rect.top_right,tabs+2,stream,ctx);
 }
 
 building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors,err_ctx_t * ctx){
@@ -290,7 +304,7 @@ void building_to_output_stream(const building_t * building,size_t tabs,FILE * st
 	
 	put_multitab(tabs,stream);
 	fputs("\tBounding Box:\n",stream);
-	map_rect_to_output_stream(building->building_bounding_box,tabs+2,stream);
+	map_rect_to_output_stream(building->building_bounding_box,tabs+2,stream,ctx);
 }
 
 map_node_t * create_map_node(cord_t coordinate) {
@@ -327,14 +341,29 @@ void delete_map_node(map_node_t * node,err_ctx_t * ctx){
 	free(node);
 }
 
-void set_map_node_cord(map_node_t * node,cord_t new_cord){
-	if(node == NULL) return;
+void set_map_node_cord(map_node_t * node,cord_t new_cord,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	node->coordinate = new_cord;
 }
 
-void set_map_node_name(map_node_t * node,const char * name){
-	if(node == NULL) return;
+cord_t get_map_node_cord(const map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return create_cord(0.0,0.0);
+	}
+	
+	return node->coordinate;
+}
+
+void set_map_node_name(map_node_t * node,const char * name,err_ctx_t * ctx){
+	if(node == NULL || name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	if(node->name != NULL) free(node->name);
 	
@@ -345,16 +374,31 @@ void set_map_node_name(map_node_t * node,const char * name){
 	node->name = name_cpy;
 }
 
-void clear_map_node_name(map_node_t * node){
-	if(node == NULL) return;
+void clear_map_node_name(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	if(node->name == NULL) return;
 	
 	free(node->name);
 	node->name = NULL;
 }
 
-void set_map_node_picture(map_node_t * node,const char * file_path){
-	if(node == NULL) return;
+const char * get_map_node_name(const map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	return node->name;
+}
+
+void set_map_node_picture(map_node_t * node,const char * file_path,err_ctx_t * ctx){
+	if(node == NULL || file_path == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	if(node->picture_file_path != NULL) free(node->picture_file_path);
 	
@@ -365,16 +409,31 @@ void set_map_node_picture(map_node_t * node,const char * file_path){
 	node->picture_file_path = path_cpy;
 }
 
-void clear_map_node_picture(map_node_t * node){
-	if(node == NULL) return;
+void clear_map_node_picture(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	if(node->picture_file_path == NULL) return;
 	
 	free(node->picture_file_path);
 	node->picture_file_path = NULL;
 }
 
-bool node_adjacent_to_auto_door(map_node_t * node){
-	if(node == NULL) return false;
+const char * get_map_node_picture(const map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	return node->picture_file_path;
+}
+
+bool node_adjacent_to_auto_door(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return false;
+	}
 	if(node->n_outgoing_edges == 0) return false;
 	
 	for(size_t i = 0;i < node->n_outgoing_edges;i++){
@@ -388,32 +447,65 @@ bool node_adjacent_to_auto_door(map_node_t * node){
 	return false;
 }
 
-void set_map_node_floor_number(map_node_t * node,int8_t floor_number){
-	if(node == NULL) return;
+void set_map_node_floor_number(map_node_t * node,int8_t floor_number,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	node->floor_number = floor_number;
 }
 
-void clear_map_node_floor_number(map_node_t * node){
-	if(node == NULL) return;
+int8_t get_map_node_floor_number(const map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NODE_FLOOR_NUMBER_NONE;
+	}
+	
+	return node->floor_number;
+}
+
+void clear_map_node_floor_number(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	node->floor_number = NODE_FLOOR_NUMBER_NONE;
 }
 
-void set_map_node_selectable(map_node_t * node,bool selectable){
-	if(node == NULL) return;
+void set_map_node_selectable(map_node_t * node,bool selectable,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	node->selectable = selectable;
 }
 
-void set_map_node_building(map_node_t * node,building_t * building){
-	if(node == NULL || building == NULL) return;
+bool get_map_node_selectable(const map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return false;
+	}
+	
+	return node->selectable;
+}
+
+void set_map_node_building(map_node_t * node,building_t * building,err_ctx_t * ctx){
+	if(node == NULL || building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	node->associated_building = building;
 }
 
-void clear_map_node_building(map_node_t * node){
-	if(node == NULL) return;
+void clear_map_node_building(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	node->associated_building = NULL;
 }
@@ -469,12 +561,15 @@ static void remove_outgoing_edge_from_node(map_node_t * node,map_edge_t * edge){
 	remove_outgoing_edge_from_node_by_index(node,matching_index);
 }
 
-void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream){
-	if(node == NULL || stream == NULL) return;
+void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream,err_ctx_t * ctx){
+	if(node == NULL || stream == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	put_multitab(tabs,stream);
 	fprintf(stream,"Map-Node %p:\n",node);
-	cord_to_output_stream(node->coordinate,tabs+1,stream);
+	cord_to_output_stream(node->coordinate,tabs+1,stream,NULL);//TODO add error context
 	
 	if(node->name != NULL){
 		put_multitab(tabs,stream);
@@ -694,7 +789,7 @@ void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream,err_ctx_t 
 	for(size_t i = 0;i < mpo->n_cords;i++){
 		put_multitab(tabs,stream);
 		fprintf(stream,"\t\t%lu\n",i);
-		cord_to_output_stream(mpo->cords[i],tabs+2,stream);
+		cord_to_output_stream(mpo->cords[i],tabs+2,stream,ctx);
 	}
 }
 
@@ -705,6 +800,15 @@ void set_mpo_type(mpo_t * mpo,uint8_t new_type,err_ctx_t * ctx){
 	}
 	
 	mpo->type = new_type;
+}
+
+uint8_t get_mpo_type(const mpo_t * mpo,err_ctx_t * ctx){
+	if(mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return 0;
+	}
+	
+	return mpo->type;
 }
 
 void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord,err_ctx_t * ctx){
@@ -718,6 +822,19 @@ void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord,err_ctx_t * ctx){
 	}
 	
 	mpo->cords[index] = new_cord;
+}
+
+cord_t get_mpo_cord(const mpo_t * mpo,size_t index,err_ctx_t * ctx){
+	if(mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return create_cord(0.0,0.0);
+	}
+	if(!(index < mpo->n_cords)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return create_cord(0.0,0.0);
+	}
+	
+	return mpo->cords[index];
 }
 
 map_t init_map(void){
@@ -828,7 +945,7 @@ void remove_building_from_map_by_index(map_t * map,size_t index){
 	for(size_t i = 0;i < map->n_nodes;i++){
 		map_node_t * current_node = map->all_nodes[i];
 		if(current_node->associated_building == building_in_question){
-			clear_map_node_building(current_node);
+			clear_map_node_building(current_node,NULL);//TODO add error context
 		}
 	}
 	
@@ -1301,7 +1418,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
 	for(size_t i = 0;i < map.n_nodes;i++){
 		put_multitab(tabs,stream);
 		fprintf(stream,"\t\t%lu\n",i);
-		map_node_to_output_stream(map.all_nodes[i],tabs+2,stream);
+		map_node_to_output_stream(map.all_nodes[i],tabs+2,stream,NULL);//TODO add error context
 	}
 	
 	put_multitab(tabs,stream);
@@ -1365,18 +1482,18 @@ void do_thing(){
 	add_building_to_map(&map,building_a);
 	
 	map_node_t * a = create_map_node(create_cord(2,3));
-	set_map_node_name(a,"Node A");
-	set_map_node_building(a,building_a);
+	set_map_node_name(a,"Node A",&ctx);
+	set_map_node_building(a,building_a,&ctx);
 	add_node_to_map(&map,a);
 	
 	map_node_t * b = create_map_node(create_cord(4,6));
-	set_map_node_name(b,"Node B");
+	set_map_node_name(b,"Node B",&ctx);
 	add_node_to_map(&map,b);
 	
 	connect_nodes_in_map(&map,a,b,EDGE_TYPE_CROSSWALK);
 	
 	map_node_t * c = create_map_node(create_cord(-1,-3));
-	set_map_node_name(c,"Node C");
+	set_map_node_name(c,"Node C",&ctx);
 	add_node_to_map(&map,c);
 	
 	connect_nodes_in_map_by_names(&map,"Node A","Node C",EDGE_TYPE_STAIRS);
@@ -1448,168 +1565,6 @@ void clear_saved_paths(saved_paths_t * saved_paths){
 		}
 		free(saved_paths->paths);
 	}
-}
-/*
- * returns a number between 0 and 1 which corresponds to how similar to tokens are
- * 0.0 means the two tokens are not similar
- * 1.0 menas the strings are identical
- */
-static float token_similarity_score(const char * a,const char * b){
-	size_t a_len = strlen(a);
-	size_t b_len = strlen(b);
-	
-	
-	if(a_len > b_len) return token_similarity_score(b,a);
-	float score = 0;
-	
-	if(strcmp(a,b) == 0) return 1.0f;
-	
-	bool * used = (bool*) malloc(sizeof(bool)*b_len);
-	for(size_t i = 0;i < b_len;i++) used[i] = false;
-	
-	for(size_t i = 0;i < b_len;i++){
-		float this_loop_correctness = 0.0f;
-		bool last_correct = false;
-		for(size_t j = 0;j < a_len;j++){
-			size_t first_index = i+j;
-			size_t second_index = j;
-			
-			char b_char;
-			if(first_index < b_len){
-				b_char = b[first_index];
-			}else{
-				b_char = '\0';
-			}
-			char a_char = a[second_index];
-			
-			//printf("%c %c\n",a_char,b_char);
-			
-			if(a_char == b_char){
-				if(!used[first_index]) this_loop_correctness += last_correct ? 1.0f : 0.5f;
-				used[first_index] = true;
-				last_correct = true;
-			}else{
-				last_correct = false;
-			}
-			
-		}
-		//printf("\n");
-		
-		if(this_loop_correctness <= 2.0f) continue;
-		float correctness_percentage = this_loop_correctness/a_len;
-		score += correctness_percentage;
-	}
-	free(used);
-	
-	return score*((float)a_len)/((float)b_len);
-}
-
-/*
- * Counts the number of tokens in a string seperated by spaces or tabs
- */
-static size_t count_tokens(const char * input){
-	size_t token_count = 0;
-	bool last_was_space = true;
-	for(size_t i = 0; input[i] != '\0';i++){
-		char c = input[i];
-		bool space = isspace(c);
-		
-		if(!space && last_was_space){
-			token_count++;
-		}
-		last_was_space = space;
-	}
-	
-	return token_count;
-}
-
-/*
- * convert a c-string to lowercase
- */
-static void c_str_lowercase(char * str){
-	size_t str_len = strlen(str);
-	for(size_t i = 0;i < str_len;i++){
-		str[i] = tolower(str[i]);
-	}
-}
-
-/*
- * Returns a new c-string on the heap which is the first token in the input string
- * It also converts the string to lower case
- */
-static char * get_first_token(const char * input){
-	size_t index_of_first_space;
-	size_t index = 0;
-	while(!(input[index] == '\0' || isspace(input[index]))){
-		index++;
-	}
-	index_of_first_space = index;
-	char * output = (char*) malloc(index_of_first_space+1);
-	memcpy(output,input,index_of_first_space);
-	output[index_of_first_space] = '\0';
-	c_str_lowercase(output);
-	return output;
-}
-
-/*
- * Splits an input string into its tokens seperated by spaces or tabs
- */
-static char ** split_into_tokens(const char * input,size_t * n_tokens_out){
-	size_t token_count = count_tokens(input);
-	*n_tokens_out = token_count;
-	
-	char ** tokens = (char**)malloc(sizeof(char*)*token_count);
-	
-	bool last_was_space = true;
-	size_t at = 0;
-	for(size_t i = 0; input[i] != '\0';i++){
-		char c = input[i];
-		bool space = isspace(c);
-		
-		if(!space && last_was_space){
-			tokens[at] = get_first_token(input+i);
-			at++;
-		}
-		last_was_space = space;
-	}
-	
-	return tokens;
-}
-
-/*
- * Delete tokens from the heap
- */
-static void delete_tokens(char ** tokens,size_t n_tokens){
-	for(size_t i = 0;i < n_tokens;i++){
-		free(tokens[i]);
-	}
-	free(tokens);
-}
-
-/*
- * Compare phrases by trying to re-order tokens
- */
-float phrase_similarity_score(const char * phrase_1,const char * phrase_2){
-	size_t n_phrase_1_tokens;
-	char ** phrase_1_tokens = split_into_tokens(phrase_1,&n_phrase_1_tokens);
-	
-	size_t n_phrase_2_tokens;
-	char ** phrase_2_tokens = split_into_tokens(phrase_2,&n_phrase_2_tokens);
-	
-	float score = 0.0f;
-	
-	for(size_t i = 0;i < n_phrase_1_tokens;i++){
-		for(size_t j = 0;j < n_phrase_2_tokens;j++){
-			char * phrase_1_token = phrase_1_tokens[i];
-			char * phrase_2_token = phrase_2_tokens[j];
-			score += token_similarity_score(phrase_1_token,phrase_2_token);
-		}
-	}
-	
-	delete_tokens(phrase_2_tokens,n_phrase_2_tokens);
-	delete_tokens(phrase_1_tokens,n_phrase_1_tokens);
-	
-	return score;
 }
 
 /*
@@ -1869,34 +1824,6 @@ void file_open_test(){
 	//mpo_to_string(mpo_test, stdout);
 	
 	fclose(read_ptr);
-}
-
-void best_match_test(){
-	char input[64];
-	const char * locations[6] = {
-		"Information Technology Computing ITE",
-		"Library",
-		"Engineering ENG",
-		"Interdisciplinary Life Sciences ILS",
-		"Mathematics MATH",
-		"Janet and Walter Sondheim"
-	};
-
-	input[0] = '\0';
-	scanf(" %[^\n]",input);
-	const char * best = NULL;
-	
-	float max = 0.0f;
-	for(size_t i = 0;i < 6;i++){
-		const char * loc = locations[i];
-	float current_score = phrase_similarity_score(input,loc);
-		if(current_score > max){
-			max = current_score;
-			best = loc;
-		}
-	}
-	
-	printf("Best Guess is : %s\n",best);
 }
 
 /*

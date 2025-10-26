@@ -58,7 +58,10 @@ struct Coordinate{
 cord_t create_cord(double lon,double lat);
 
 //Print out a coordinate with its longitude and latitude. Tabs value lets you add tabs to every line of output.
-void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream);
+void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream,err_ctx_t * ctx);
+
+//are two coordinates equal?
+bool are_cords_equal(cord_t a,cord_t b);
 
 /*
  * A Rectangle formed by two coordinates
@@ -72,7 +75,7 @@ struct Map_Rect{
 map_rect_t create_map_rect(cord_t bottom_left,cord_t top_right);
 
 //Print out a map rectangle and all of its member data. Tabs value lets you add tabs to every line of output.
-void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream);
+void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream,err_ctx_t * ctx);
 
 
 
@@ -107,8 +110,14 @@ void delete_mpo(mpo_t * mpo,err_ctx_t * ctx);
 //edit a misplaced coordinate
 void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord,err_ctx_t * ctx);
 
+//get the coordinate from a polygon
+cord_t get_mpo_cord(const mpo_t * mpo,size_t index,err_ctx_t * ctx);
+
 //edit type
 void set_mpo_type(mpo_t * mpo,uint8_t new_type,err_ctx_t * ctx);
+
+//get the current mpo type
+uint8_t get_mpo_type(const mpo_t * mpo,err_ctx_t * ctx);
 
 //Give an MPO a name
 void set_mpo_name(mpo_t * mpo,const char * name,err_ctx_t * ctx);
@@ -218,40 +227,55 @@ map_node_t * create_map_node(cord_t coordinate);
 void delete_map_node(map_node_t * node,err_ctx_t * ctx);
 
 //Give a node a name.
-void set_map_node_name(map_node_t * node,const char * name);
+void set_map_node_name(map_node_t * node,const char * name,err_ctx_t * ctx);
 
 //clear the name field from a node
-void clear_map_node_name(map_node_t * node);
+void clear_map_node_name(map_node_t * node,err_ctx_t * ctx);
+
+//get the name of the map node
+const char * get_map_node_name(const map_node_t * node,err_ctx_t * ctx);
 
 //Set an image for node based on a file path.
-void set_map_node_picture(map_node_t * node,const char * file_path);
+void set_map_node_picture(map_node_t * node,const char * file_path,err_ctx_t * ctx);
 
 //clear the file name field from a node
-void clear_map_node_picture(map_node_t * node);
+void clear_map_node_picture(map_node_t * node,err_ctx_t * ctx);
+
+//get the file name field from a node
+const char * get_map_node_picture(const map_node_t * node,err_ctx_t * ctx);
 
 //Set a nodes floor number if applicable
-void set_map_node_floor_number(map_node_t * node,int8_t floor_number);
+void set_map_node_floor_number(map_node_t * node,int8_t floor_number,err_ctx_t * ctx);
+
+//get the floor number of a node if applicable
+int8_t get_map_node_floor_number(const map_node_t * node,err_ctx_t * ctx);
 
 //If a node doesn't have a floor number, like those outside then clear it
-void clear_map_node_floor_number(map_node_t * node);
+void clear_map_node_floor_number(map_node_t * node,err_ctx_t * ctx);
 
 //Make a node selectable with the mouse or not.
-void set_map_node_selectable(map_node_t * node,bool selectable);
+void set_map_node_selectable(map_node_t * node,bool selectable,err_ctx_t * ctx);
+
+//get whether or not a node is selectable with a mouse
+bool get_map_node_selectable(const map_node_t * node,err_ctx_t * ctx);
 
 //Set the building in which the node resides.
-void set_map_node_building(map_node_t * node,building_t * building);
+void set_map_node_building(map_node_t * node,building_t * building,err_ctx_t * ctx);
 
 //If you accidently assigned a building to a node you can clear it.
-void clear_map_node_building(map_node_t * node);
+void clear_map_node_building(map_node_t * node,err_ctx_t * ctx);
 
 //edit a misplaced coordinate
-void set_map_node_cord(map_node_t * node,cord_t new_cord);
+void set_map_node_cord(map_node_t * node,cord_t new_cord,err_ctx_t * ctx);
+
+//get the coordinate of the map node
+cord_t get_map_node_cord(const map_node_t * node,err_ctx_t * ctx);
 
 //is the node next to an automatic door?
-bool node_adjacent_to_auto_door(map_node_t * node);
+bool node_adjacent_to_auto_door(map_node_t * node,err_ctx_t * ctx);//TODO TEST
 
 //Print out a map node and show all of its member data. Tabs value lets you add tabs to every line of output.
-void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream);
+void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream,err_ctx_t * ctx);
 //---------------------------------------------------------- NODES END ----------------------------------------------------------------
 
 
