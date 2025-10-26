@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "err_ctx.h"
 
 typedef struct Map_Node map_node_t;
 typedef struct Map_Edge map_edge_t;
@@ -26,21 +27,6 @@ typedef struct Map_Polygon_Object mpo_t;
 typedef struct Map_Path map_path_t;
 typedef struct Saved_Paths saved_paths_t;
 typedef struct Building building_t;
-typedef struct Error_Context err_ctx_t;
-
-#define ERROR_INVALID_PARAM 1
-#define ERROR_DUPLICATE_PARAMETER 2
-#define ERROR_OUT_OF_BOUNDS_INDEX 4
-#define ERROR_OBJECT_NOT_FOUND 8
-
-struct Error_Context{
-	uint8_t flags;
-};
-
-err_ctx_t create_err_ctx();
-bool err_encountered(const err_ctx_t * ctx);
-void reset_err_ctx(err_ctx_t * ctx);
-void errs_to_output_stream(const err_ctx_t * ctx,FILE * stream);
 
 //---------------------------------------------------------- GEOMETRY PRIMITIVES BEGIN ------------------------------------------------
 /*
@@ -62,6 +48,9 @@ void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream,err_ctx_t * ctx
 
 //are two coordinates equal?
 bool are_cords_equal(cord_t a,cord_t b);
+
+//get the distance between coordinates
+double cord_distance(cord_t a,cord_t b);
 
 /*
  * A Rectangle formed by two coordinates
@@ -318,16 +307,22 @@ struct Map_Edge{
 };
 
 //Create a map_edge_t object in the heap. This will need to be freed.
-map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b);
+map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b,err_ctx_t * ctx);
 
 //Delete a map_edge_t object.
-void delete_map_edge(map_edge_t * edge);
+void delete_map_edge(map_edge_t * edge,err_ctx_t * ctx);
 
 //change the type of the edge
-void set_map_edge_type(map_edge_t * edge,uint8_t type);
+void set_map_edge_type(map_edge_t * edge,uint8_t type,err_ctx_t * ctx);
+
+//get the type of the edge
+uint8_t get_map_edge_type(const map_edge_t * edge,err_ctx_t * ctx);
+
+//get the Euclidean distance of an edge if applicable
+double get_edge_length(const map_edge_t * edge,err_ctx_t * ctx);
 
 //Print out a map edge and show all of its member data. Tabs value lets you add tabs to every line of output.
-void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream);
+void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream,err_ctx_t * ctx);
 //---------------------------------------------------------- EDGES END ----------------------------------------------------------------
 
 
@@ -366,16 +361,16 @@ map_t init_map(void);
 void clear_map(map_t * map,err_ctx_t * ctx);
 
 //add building to map
-void add_building_to_map(map_t * map,building_t * building);
+void add_building_to_map(map_t * map,building_t * building,err_ctx_t * ctx);
 
 //remove building from map
-void remove_building_from_map(map_t * map,building_t * building);
+void remove_building_from_map(map_t * map,building_t * building,err_ctx_t * ctx);
 
 //remove building by name
-void remove_building_by_name_from_map(map_t * map,const char * name);
+void remove_building_by_name_from_map(map_t * map,const char * name,err_ctx_t * ctx);
 
 //remove building from the map by index
-void remove_building_from_map_by_index(map_t * map,size_t index);
+void remove_building_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx);
 
 //get building by index
 building_t * get_building_by_index(map_t * map,size_t index);

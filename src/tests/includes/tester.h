@@ -15,10 +15,12 @@ struct Testable_Func{//dont re-order this please
 	bool silent;
 };
 
+bool token_matching_test(bool silent);
+bool phrase_matching_test(bool silent);
 bool building_data_structure_test(bool silent);
 bool mpo_data_structure_test(bool silent);
 bool map_node_data_structure_test(bool silent);
-bool token_matching_test(bool silent);
-bool phrase_matching_test(bool silent);
+bool map_edge_data_structure_test(bool silent);
+bool map_data_structure_test(bool silent);
 
 #endif

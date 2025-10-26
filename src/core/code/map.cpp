@@ -3,39 +3,8 @@
 #include <stdio.h>
 #include <ctype.h>
 #include "text_proc.h"
-
-
-err_ctx_t create_err_ctx(){
-	err_ctx_t out;
-	out.flags = 0;
-	return out;
-}
-
-void reset_err_ctx(err_ctx_t * ctx){
-	ctx->flags = 0;
-}
-
-void errs_to_output_stream(const err_ctx_t * ctx,FILE * stream){
-	if(ctx->flags == 0){
-		fputs("No errors encountered!\n",stream);
-		return;
-	}
-	
-	fputs("Errors Collected:\n",stream);
-	if((ctx->flags & ERROR_INVALID_PARAM) != 0){
-		fputs("\tError: Invalid parameter!\n",stream);
-	}else if((ctx->flags & ERROR_DUPLICATE_PARAMETER) != 0){
-		fputs("\tError: Duplicate parameters received!\n",stream);
-	}else if((ctx->flags & ERROR_OUT_OF_BOUNDS_INDEX) != 0){
-		fputs("\tError: Index passed is out of bounds!\n",stream);
-	}else if((ctx->flags & ERROR_OBJECT_NOT_FOUND) != 0){
-		fputs("\tError: Object not found!\n",stream);
-	}
-}
-
-bool err_encountered(const err_ctx_t * ctx){
-	return ctx->flags != 0;
-}
+#include <float.h>
+#include <math.h>
 
 //MEMORY PARAMETERS
 
@@ -60,6 +29,12 @@ cord_t create_cord(double lon,double lat){
 
 bool are_cords_equal(cord_t a,cord_t b){
 	return (a.longitude == b.longitude) && (a.latitude == b.latitude);
+}
+
+double cord_distance(cord_t a,cord_t b){
+	double dlon = b.longitude-a.longitude;
+	double dlat = b.latitude-a.latitude;
+	return sqrt(dlon*dlon + dlat*dlat );
 }
 
 void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream,err_ctx_t * ctx){
@@ -618,7 +593,12 @@ void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream
 	}
 }
 
-map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b) {
+map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b,err_ctx_t * ctx) {
+	if(a == NULL || b == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
 	map_edge_t * output = (map_edge_t *)malloc(sizeof(map_edge_t));
 	output->a = a;
 	output->b = b;
@@ -630,19 +610,50 @@ map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b) {
 	return output;
 }
 
-void delete_map_edge(map_edge_t * edge){
-	if(edge == NULL) return;
+void delete_map_edge(map_edge_t * edge,err_ctx_t * ctx){
+	if(edge == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	free(edge);
 }
 
-void set_map_edge_type(map_edge_t * edge,uint8_t type){
-	if(edge == NULL) return;
+void set_map_edge_type(map_edge_t * edge,uint8_t type,err_ctx_t * ctx){
+	if(edge == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	edge->type = type;
 }
 
-void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream){
-	if(edge == NULL || stream == NULL) return;
+uint8_t get_map_edge_type(const map_edge_t * edge,err_ctx_t * ctx){
+	if(edge == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return 0;
+	}
+	
+	return edge->type;
+}
+
+double get_edge_length(const map_edge_t * edge,err_ctx_t * ctx){
+	if(edge == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return 0.0;
+	}
+	
+	if(edge->a == NULL || edge->b == NULL){
+		return FLT_MAX;
+	}
+	
+	return cord_distance(edge->a->coordinate,edge->b->coordinate);
+}
+
+void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream,err_ctx_t * ctx){
+	if(edge == NULL || stream == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	put_multitab(tabs,stream);
 	fprintf(stream,"Edge %p:\n",edge);
@@ -683,6 +694,13 @@ void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream
 	fputs("\tNode 2:\n",stream);
 	put_multitab(tabs,stream);
 	fprintf(stream,"\t\t%p %s\n",edge->b,(edge->b->name == NULL) ? "" : edge->b->name);
+	
+	if(edge->a != NULL && edge->b != NULL){
+		put_multitab(tabs,stream);
+		fputs("\tEuclidian Length:\n",stream);
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%lf\n",get_edge_length(edge,ctx));
+	}
 }
 
 mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type,err_ctx_t * ctx){
@@ -873,7 +891,7 @@ void clear_map(map_t * map,err_ctx_t * ctx){
 
 	if(map->all_edges != NULL) {
 		for(size_t i = 0; i < map->n_edges;i++) {
-			delete_map_edge(map->all_edges[i]);
+			delete_map_edge(map->all_edges[i],ctx);
 		}
 		free(map->all_edges);
 	}
@@ -893,8 +911,11 @@ void clear_map(map_t * map,err_ctx_t * ctx){
 	}
 }
 
-void add_building_to_map(map_t * map,building_t * building){
-	if(map == NULL || building == NULL) return;
+void add_building_to_map(map_t * map,building_t * building,err_ctx_t * ctx){
+	if(map == NULL || building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	if(map->all_buildings == NULL){
 		map->buildings_capacity = DEFAULT_BUILDINGS_CAPACITY;
@@ -935,9 +956,15 @@ building_t * get_building_by_name(map_t * map, const char * name){
 	return NULL;
 }
 
-void remove_building_from_map_by_index(map_t * map,size_t index){
-	if(map == NULL) return;//invalid parameter
-	if(!(index < map->n_buildings)) return;//out of bounds
+void remove_building_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(!(index < map->n_buildings)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;
+	}
 	
 	building_t * building_in_question = map->all_buildings[index];
 	
@@ -945,12 +972,12 @@ void remove_building_from_map_by_index(map_t * map,size_t index){
 	for(size_t i = 0;i < map->n_nodes;i++){
 		map_node_t * current_node = map->all_nodes[i];
 		if(current_node->associated_building == building_in_question){
-			clear_map_node_building(current_node,NULL);//TODO add error context
+			clear_map_node_building(current_node,ctx);
 		}
 	}
 	
 	//delete the building
-	delete_building(building_in_question,NULL);//TODO add error context
+	delete_building(building_in_question,ctx);
 	
 	//shift over data
 	for(size_t i = index;i < map->n_buildings-1;i++){
@@ -959,9 +986,15 @@ void remove_building_from_map_by_index(map_t * map,size_t index){
 	map->n_buildings--;//shrink array
 }
 
-void remove_building_from_map(map_t * map,building_t * building){
-	if(map == NULL || building == NULL) return;//invalid parameters
-	if(map->n_buildings == 0) return;//array is empty
+void remove_building_from_map(map_t * map,building_t * building,err_ctx_t * ctx){
+	if(map == NULL || building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(map->n_buildings == 0){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
 	bool found = false;
 	size_t matching_index = 0;
@@ -977,14 +1010,23 @@ void remove_building_from_map(map_t * map,building_t * building){
 		}
 	}
 	
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	remove_building_from_map_by_index(map,matching_index);
+	remove_building_from_map_by_index(map,matching_index,ctx);
 }
 
-void remove_building_by_name_from_map(map_t * map,const char * name){
-	if(map == NULL || name == NULL) return;//invalid parameters
-	if(map->n_buildings == 0) return;//array is empty
+void remove_building_by_name_from_map(map_t * map,const char * name,err_ctx_t * ctx){
+	if(map == NULL || name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(map->n_buildings == 0){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
 	bool found = false;
 	size_t matching_index = 0;
@@ -1006,9 +1048,12 @@ void remove_building_by_name_from_map(map_t * map,const char * name){
 		if(found) break;
 	}
 	
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	remove_building_from_map_by_index(map,matching_index);
+	remove_building_from_map_by_index(map,matching_index,ctx);
 }
 
 void add_node_to_map(map_t * map,map_node_t * node){
@@ -1032,7 +1077,7 @@ static void remove_edge_from_map_by_index(map_t * map,size_t index){
 	if(map == NULL) return;
 	if(!(index < map->n_edges)) return;
 	
-	delete_map_edge(map->all_edges[index]);
+	delete_map_edge(map->all_edges[index],NULL);//TODO add context
 	
 	//shift over data
 	for(size_t i = index;i < map->n_edges-1;i++){
@@ -1184,7 +1229,7 @@ void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,u
 	map_node_t * node_a = map->all_nodes[index_a];
 	map_node_t * node_b = map->all_nodes[index_b];
 	
-	map_edge_t * new_edge = create_map_edge(edge_type,node_a,node_b);
+	map_edge_t * new_edge = create_map_edge(edge_type,node_a,node_b,NULL);//TODO add error context
 	
 	add_edge_to_map(map,new_edge);
 }
@@ -1431,7 +1476,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
 	for(size_t i = 0;i < map.n_edges;i++){
 		put_multitab(tabs,stream);
 		fprintf(stream,"\t\t%lu\n",i);
-		map_edge_to_output_stream(map.all_edges[i],tabs+2,stream);
+		map_edge_to_output_stream(map.all_edges[i],tabs+2,stream,NULL);//TODO add error context
 	}
 	
 	put_multitab(tabs,stream);
@@ -1479,7 +1524,7 @@ void do_thing(){
 	set_mpo_name(square_mpo,"Square Lake",&ctx);
 	add_mpo_to_map(&map,square_mpo);
 	
-	add_building_to_map(&map,building_a);
+	add_building_to_map(&map,building_a,&ctx);
 	
 	map_node_t * a = create_map_node(create_cord(2,3));
 	set_map_node_name(a,"Node A",&ctx);

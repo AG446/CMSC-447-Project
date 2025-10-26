@@ -6,13 +6,14 @@
 #include <string.h>
 #include <math.h>
 
-#define N_TESTS 5
+#define N_TESTS 6
 test_func_t func_table[N_TESTS] = {
 	{token_matching_test,"token matching test",SILENT},
 	{phrase_matching_test,"phrase matching test",SILENT},
 	{building_data_structure_test,"building data structure test",SILENT},
 	{mpo_data_structure_test,"map polygon object data structure test",SILENT},
-	{map_node_data_structure_test,"map node data structure test",SILENT}
+	{map_node_data_structure_test,"map node data structure test",SILENT},
+	{map_edge_data_structure_test,"map edge data structure test",SILENT}
 };
 
 int main(){
@@ -31,6 +32,55 @@ int main(){
 	}
 	
 	start_cli();
+}
+
+bool map_edge_data_structure_test(bool silent){
+	err_ctx_t err_ctx = create_err_ctx();
+	
+	map_node_t * node_a = create_map_node(create_cord(2.0,3.0));
+	map_node_t * node_b = create_map_node(create_cord(4.0,5.0));
+	
+	map_edge_t * edge = create_map_edge(EDGE_TYPE_HALLWAY,node_a,node_b,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	map_edge_t * bad_edge = create_map_edge(EDGE_TYPE_HALLWAY,NULL,node_b,&err_ctx);
+	if(bad_edge != NULL) return FAIL;
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	
+	if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	map_edge_to_output_stream(edge,0,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	
+	set_map_edge_type(NULL,EDGE_TYPE_ELEVATOR_SHAFT,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	set_map_edge_type(edge,EDGE_TYPE_ELEVATOR_SHAFT,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	get_map_edge_type(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	if(get_map_edge_type(edge,&err_ctx) != EDGE_TYPE_ELEVATOR_SHAFT) return NULL;
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
+	
+	double length = get_edge_length(edge,&err_ctx);
+	if(abs(length - 2*sqrt(2)) > 0.0001) return FAIL;
+	if(!silent) printf("length: %lf\n",length);
+	
+	delete_map_edge(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	delete_map_edge(edge,&err_ctx);
+	delete_map_node(node_a,&err_ctx);
+	delete_map_node(node_b,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	return PASS;
 }
 
 bool token_matching_test(bool silent){
@@ -79,7 +129,7 @@ bool phrase_matching_test(bool silent){
 		"maths bulding"
 	};
 	
-	const int correct_solution[6] = {
+	const size_t correct_solution[6] = {
 		5,
 		0,
 		1,

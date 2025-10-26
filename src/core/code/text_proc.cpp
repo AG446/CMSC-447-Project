@@ -112,6 +112,7 @@ char * get_first_token(const char * input){
 }
 
 void delete_tokens(char ** tokens,size_t n_tokens){
+	if(tokens == NULL) return;
 	for(size_t i = 0;i < n_tokens;i++){
 		free(tokens[i]);
 	}
