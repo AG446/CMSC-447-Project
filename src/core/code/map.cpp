@@ -4,35 +4,240 @@
 #include <math.h>
 #include <ctype.h>
 
-map_node_t * create_map_node(uint8_t type,cord_t coordinate) {
-	map_node_t * output = (map_node_t *) malloc(sizeof(map_node_t));
-	output->coordinate = coordinate;
-	output->possible_names = NULL;
-	output->n_possible_names = 0;
-	output->possible_names_capacity = 0;
-	output->picture_file_path = NULL;
-	output->outgoing_edges = NULL;
-	output->n_outgoing_edges = 0;
-	output->type = NODE_TYPE_BASIC;
-	output->floor_number = NODE_FLOOR_NUMBER_NONE;
-	return output;
+
+//MEMORY PARAMETERS
+
+#define DEFAULT_POSSIBLE_NAMES_CAPACITY 1
+#define DEFAULT_OUTGOING_EDGES_CAPACITY 1
+#define DEFAULT_BUILDINGS_CAPACITY 1
+#define DEFAULT_NODES_CAPACITY 1
+#define DEFAULT_EDGES_CAPACITY 1
+#define DEFAULT_MPO_CAPACITY 1
+
+static void put_multitab(size_t n_tabs,FILE * stream){
+	if(stream == NULL) return;
+	for(size_t i = 0;i < n_tabs;i++) fputc('\t',stream);
 }
 
-void add_map_node_name(map_node_t * node_ref,const char * name_ref){
-	size_t ref_length = strlen(name_ref);
-	char * string_cpy = (char*) malloc(ref_length+1);
-	strcpy(string_cpy,name_ref);
+cord_t create_cord(double lon,double lat){
+	cord_t out;
+	out.longitude = lon;
+	out.latitude = lat;
+	return out;
+}
 
-	if(node_ref->possible_names == NULL){
-		node_ref->possible_names_capacity = 1;
-		node_ref->possible_names = (char**) malloc(sizeof(char*)*node_ref->possible_names_capacity);
-	}else if(node_ref->possible_names_capacity == node_ref->n_possible_names){
-		node_ref->possible_names_capacity *= 2;
-		node_ref->possible_names = (char**) realloc(node_ref->possible_names
-		,sizeof(char*)*node_ref->possible_names_capacity);
+void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream){
+	put_multitab(tabs,stream);
+	fputs("Coordinate:\n",stream);
+	
+	put_multitab(tabs,stream);
+	fputs("\tLongitude:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%lf\n",cord.longitude);
+	
+	put_multitab(tabs,stream);
+	fputs("\tLatitude:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%lf\n",cord.latitude);
+}
+
+map_rect_t create_map_rect(cord_t bottom_left,cord_t top_right){
+	map_rect_t out;
+	out.bottom_left = bottom_left;
+	out.top_right = top_right;
+	return out;
+}
+
+void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream){
+	put_multitab(tabs,stream);
+	fputs("Map-Rect:\n",stream);
+	
+	put_multitab(tabs,stream);
+	fputs("\tBottom left:\n",stream);
+	cord_to_output_stream(rect.bottom_left,tabs+2,stream);
+	
+	put_multitab(tabs,stream);
+	fputs("\tTop Right:\n",stream);
+	cord_to_output_stream(rect.top_right,tabs+2,stream);
+}
+
+building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors){
+	building_t * out = (building_t*) malloc(sizeof(building_t));
+	
+	out->n_floors = n_floors;
+	out->possible_names_capacity = 0;
+	out->n_possible_names = 0;
+	out->possible_names = NULL;
+	out->building_bounding_box = building_bounding_box;
+	
+	add_building_alias_name(out,primary_name);
+	
+	return out;
+}
+
+void delete_building(building_t * building){
+	if(building == NULL) return;
+	
+	if(building->possible_names != NULL){
+		for(size_t i = 0;i < building->n_possible_names;i++){
+			free(building->possible_names[i]);
+		}
+		free(building->possible_names);
 	}
-	node_ref->possible_names[node_ref->n_possible_names] = string_cpy;
-	node_ref->n_possible_names++;
+	
+	free(building);
+}
+
+void add_building_alias_name(building_t * building,const char * alias_name){
+	if(building == NULL || alias_name == NULL) return;//invalid parameters
+	
+	//ensure an array of strings exists
+	if(building->possible_names == NULL){
+		building->possible_names_capacity = DEFAULT_POSSIBLE_NAMES_CAPACITY;
+		building->possible_names = (char**) malloc(sizeof(char*)*building->possible_names_capacity);
+	}
+	
+	//resize strings array buffer if full
+	if(building->n_possible_names == building->possible_names_capacity){
+		building->possible_names_capacity *= 2;
+		building->possible_names = (char**) realloc(building->possible_names,sizeof(char*)*building->possible_names_capacity);
+	}
+	
+	size_t alias_length = strlen(alias_name);
+	char * alias_string_cpy = (char*) malloc(alias_length+1);
+	strcpy(alias_string_cpy,alias_name);
+	
+	//add new element to the strings array
+	building->possible_names[building->n_possible_names] = alias_string_cpy;
+	building->n_possible_names++;
+}
+
+void remove_building_alias_name(building_t * building,const char * alias_name){
+	if(building == NULL || alias_name == NULL) return;//invalid parameters
+	if(building->n_possible_names == 0) return;//array is empty
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < building->n_possible_names;i++){
+		const char * current_alias = building->possible_names[i];
+		
+		if(strcmp(current_alias,alias_name) == 0){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	//delete the string
+	free(building->possible_names[matching_index]);
+	
+	//shift over data
+	for(size_t i = matching_index;i < building->n_possible_names-1;i++){
+		building->possible_names[i] = building->possible_names[i+1];
+	}
+	building->n_possible_names--;//shrink array
+}
+
+void change_primary_building_name(building_t * building,const char * primary_name){
+	if(building == NULL || primary_name == NULL) return;//invalid parameters
+	if(building->n_possible_names == 0) return;
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < building->n_possible_names;i++){
+		const char * current_alias = building->possible_names[i];
+		
+		if(strcmp(current_alias,primary_name) == 0){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	char * temp = building->possible_names[0];
+	building->possible_names[0] = building->possible_names[matching_index];
+	building->possible_names[matching_index] = temp;
+}
+
+void set_building_floor_count(building_t * building,size_t new_floor_count){
+	if(building == NULL) return;
+	building->n_floors = new_floor_count;
+}
+
+void set_building_bounding_box(building_t * building,map_rect_t building_bounding_box){
+	if(building == NULL) return;
+	
+	building->building_bounding_box = building_bounding_box;
+}
+
+const char * get_primary_building_name(const building_t * building){
+	if(building == NULL) return NULL;
+	if(building->n_possible_names == 0) return NULL;
+	
+	return building->possible_names[0];
+}
+
+void building_to_output_stream(const building_t * building,size_t tabs,FILE * stream){
+	if(building == NULL || stream == NULL) return;
+	
+	put_multitab(tabs,stream);
+	fprintf(stream,"Building %p:\n",building);
+	
+	if(building->n_possible_names > 0){
+		put_multitab(tabs,stream);
+		fputs("\tPrimary Name:\n",stream);
+		put_multitab(tabs,stream);
+		fputs("\t\t",stream);
+		fputs(building->possible_names[0],stream);
+		fputc('\n',stream);
+	}
+	
+	put_multitab(tabs,stream);
+	fputs("\tN floors:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%d\n",building->n_floors);
+	
+	if(building->n_possible_names > 1){
+		put_multitab(tabs,stream);
+		fputs("\tAlias Names:\n",stream);
+		for(size_t i = 1;i < building->n_possible_names;i++){
+			put_multitab(tabs,stream);
+			fputs("\t\t",stream);
+			fputs(building->possible_names[i],stream);
+			fputc('\n',stream);
+		}
+	}
+	
+	put_multitab(tabs,stream);
+	fputs("\tBounding Box:\n",stream);
+	map_rect_to_output_stream(building->building_bounding_box,tabs+2,stream);
+}
+
+map_node_t * create_map_node(cord_t coordinate) {
+	map_node_t * output = (map_node_t *) malloc(sizeof(map_node_t));
+	
+	output->coordinate = coordinate;
+	output->picture_file_path = NULL;
+	output->name = NULL;
+	output->outgoing_edges = NULL;
+	output->n_outgoing_edges = 0;
+	output->outgoing_edges_capacity = 0;
+	output->selectable = false;
+	output->floor_number = NODE_FLOOR_NUMBER_NONE;
+	output->associated_building = NULL;
+	output->cost_temp = 0.0;
+	output->index_temp = 0;
+	output->previous = NULL;
+	
+	return output;
 }
 
 void delete_map_node(map_node_t * node){
@@ -40,14 +245,207 @@ void delete_map_node(map_node_t * node){
 	if(node->picture_file_path != NULL) {
 		free(node->picture_file_path);
 	}
-	if(node->possible_names != NULL) {
-		for(size_t i=0; i< node->n_possible_names; i++) {
-			free(node->possible_names[i]);
-		}
-		free(node->possible_names);
+	if(node->name != NULL){
+		free(node->name);
 	}
 	free(node->outgoing_edges);
 	free(node);
+}
+
+void set_map_node_cord(map_node_t * node,cord_t new_cord){
+	if(node == NULL) return;
+	
+	node->coordinate = new_cord;
+}
+
+void set_map_node_name(map_node_t * node,const char * name){
+	if(node == NULL) return;
+	
+	if(node->name != NULL) free(node->name);
+	
+	size_t name_length = strlen(name);
+	char * name_cpy = (char*) malloc(name_length+1);
+	strcpy(name_cpy,name);
+	
+	node->name = name_cpy;
+}
+
+void clear_map_node_name(map_node_t * node){
+	if(node == NULL) return;
+	if(node->name == NULL) return;
+	
+	free(node->name);
+	node->name = NULL;
+}
+
+void set_map_node_picture(map_node_t * node,const char * file_path){
+	if(node == NULL) return;
+	
+	if(node->picture_file_path != NULL) free(node->picture_file_path);
+	
+	size_t path_length = strlen(file_path);
+	char * path_cpy = (char*) malloc(path_length+1);
+	strcpy(path_cpy,file_path);
+	
+	node->picture_file_path = path_cpy;
+}
+
+void clear_map_node_picture(map_node_t * node){
+	if(node == NULL) return;
+	if(node->picture_file_path == NULL) return;
+	
+	free(node->picture_file_path);
+	node->picture_file_path = NULL;
+}
+
+bool node_adjacent_to_auto_door(map_node_t * node){
+	if(node == NULL) return false;
+	if(node->n_outgoing_edges == 0) return false;
+	
+	for(size_t i = 0;i < node->n_outgoing_edges;i++){
+		map_edge_t * connected_edge = node->outgoing_edges[i];
+		
+		if(connected_edge->type == EDGE_TYPE_AUTO_DOOR){
+			return true;
+		}
+	}
+	
+	return false;
+}
+
+void set_map_node_floor_number(map_node_t * node,int8_t floor_number){
+	if(node == NULL) return;
+	
+	node->floor_number = floor_number;
+}
+
+void clear_map_node_floor_number(map_node_t * node){
+	if(node == NULL) return;
+	
+	node->floor_number = NODE_FLOOR_NUMBER_NONE;
+}
+
+void set_map_node_selectable(map_node_t * node,bool selectable){
+	if(node == NULL) return;
+	
+	node->selectable = selectable;
+}
+
+void set_map_node_building(map_node_t * node,building_t * building){
+	if(node == NULL || building == NULL) return;
+	
+	node->associated_building = building;
+}
+
+void clear_map_node_building(map_node_t * node){
+	if(node == NULL) return;
+	
+	node->associated_building = NULL;
+}
+
+static void add_outgoing_edge_to_node(map_node_t * node,map_edge_t * edge){
+	if(node == NULL || edge == NULL) return;
+	
+	if(node->outgoing_edges == NULL){
+		node->outgoing_edges_capacity = DEFAULT_OUTGOING_EDGES_CAPACITY;
+		node->outgoing_edges = (map_edge_t**) malloc(sizeof(map_edge_t*)*node->outgoing_edges_capacity);
+	}
+	
+	if(node->outgoing_edges_capacity == node->n_outgoing_edges){
+		node->outgoing_edges_capacity *= 2;
+		node->outgoing_edges = (map_edge_t**) realloc(node->outgoing_edges,sizeof(map_edge_t*)*node->outgoing_edges_capacity);
+	}
+	
+	node->outgoing_edges[node->n_outgoing_edges] = edge;
+	node->n_outgoing_edges++;
+}
+
+static void remove_outgoing_edge_from_node_by_index(map_node_t * node,size_t index){
+	if(node == NULL) return;
+	if(!(index < node->n_outgoing_edges)) return;
+	
+	//shift over data
+	for(size_t i = index;i < node->n_outgoing_edges-1;i++){
+		node->outgoing_edges[i] = node->outgoing_edges[i+1];
+	}
+	node->n_outgoing_edges--;//shrink array
+}
+
+static void remove_outgoing_edge_from_node(map_node_t * node,map_edge_t * edge){
+	if(node == NULL || edge == NULL) return;
+	if(node->n_outgoing_edges == 0) return;
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < node->n_outgoing_edges;i++){
+		map_edge_t * current_edge = node->outgoing_edges[i];
+		
+		if(current_edge == edge){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	remove_outgoing_edge_from_node_by_index(node,matching_index);
+}
+
+void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream){
+	if(node == NULL || stream == NULL) return;
+	
+	put_multitab(tabs,stream);
+	fprintf(stream,"Map-Node %p:\n",node);
+	cord_to_output_stream(node->coordinate,tabs+1,stream);
+	
+	if(node->name != NULL){
+		put_multitab(tabs,stream);
+		fputs("\tName:\n",stream);
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%s\n",node->name);
+	}
+	
+	if(node->picture_file_path != NULL){
+		put_multitab(tabs,stream);
+		fputs("\tPicture File:\n",stream);
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%s\n",node->picture_file_path);
+	}
+	
+	if(node->floor_number != NODE_FLOOR_NUMBER_NONE){
+		put_multitab(tabs,stream);
+		fputs("\tFloor Number:\n",stream);
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%u\n",node->floor_number);
+	}
+	
+	put_multitab(tabs,stream);
+	fputs("\tIs Selectable:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%s\n",node->selectable ? "True":"False");
+	
+	if(node->associated_building != NULL){
+		put_multitab(tabs,stream);
+		fputs("\tAssociated Building:\n",stream);
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%s\n",get_primary_building_name(node->associated_building));
+	}
+	
+	if(node->n_outgoing_edges > 0){
+		put_multitab(tabs,stream);
+		fputs("\tN outgoing edges:\n",stream);
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%lu\n",node->n_outgoing_edges);
+		put_multitab(tabs,stream);
+		fputs("\tOutgoing edges:\n",stream);
+		for(size_t i = 0;i < node->n_outgoing_edges;i++){
+			put_multitab(tabs,stream);
+			fprintf(stream,"\t\t%p\n",node->outgoing_edges[i]);
+		}
+	}
 }
 
 map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b) {
@@ -55,6 +453,10 @@ map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b) {
 	output->a = a;
 	output->b = b;
 	output->type = type;
+	
+	add_outgoing_edge_to_node(a,output);
+	add_outgoing_edge_to_node(b,output);
+	
 	return output;
 }
 
@@ -63,23 +465,54 @@ void delete_map_edge(map_edge_t * edge){
 	free(edge);
 }
 
-map_t init_map(void){
-	map_t map;
-	map.node_capacity = 0;
-	//makes an array of size node_capacity
-	map.all_nodes= NULL;
-	map.n_nodes = 0;
-	map.edge_capacity = 0;
-	map.all_edges = NULL;
-	map.n_edges = 0;
-	map.mpo_capacity = 0;
-	map.mpos = NULL;
-	map.n_mpos = 0;
-	map.active_start = NULL;
-	map.active_end = NULL;
-	map.active_path = NULL;
-	map.active_edge_cost_function = NULL;
-	return map;
+void set_map_edge_type(map_edge_t * edge,uint8_t type){
+	if(edge == NULL) return;
+	
+	edge->type = type;
+}
+
+void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream){
+	if(edge == NULL || stream == NULL) return;
+	
+	put_multitab(tabs,stream);
+	fprintf(stream,"Edge %p:\n",edge);
+	
+	put_multitab(tabs,stream);
+	fputs("\tType:\n",stream);
+	put_multitab(tabs,stream);
+	fputs("\t\t",stream);
+	if(edge->type == EDGE_TYPE_SIDEWALK){
+		fputs("sidewalk",stream);
+	}else if(edge->type == EDGE_TYPE_ROAD){
+		fputs("road",stream);
+	}else if(edge->type == EDGE_TYPE_STAIRS){
+		fputs("stairs",stream);
+	}else if(edge->type == EDGE_TYPE_RAMP){
+		fputs("ramp",stream);
+	}else if(edge->type == EDGE_TYPE_HALLWAY){
+		fputs("hallway",stream);
+	}else if(edge->type == EDGE_TYPE_ELEVATOR_SHAFT){
+		fputs("elevator shaft",stream);
+	}else if(edge->type == EDGE_TYPE_OVERPASS){
+		fputs("overpass",stream);
+	}else if(edge->type == EDGE_TYPE_DOOR){
+		fputs("door",stream);
+	}else if(edge->type == EDGE_TYPE_AUTO_DOOR){
+		fputs("automatic door",stream);
+	}else if(edge->type == EDGE_TYPE_CROSSWALK){
+		fputs("crosswalk",stream);
+	}
+	fputc('\n',stream);
+	
+	put_multitab(tabs,stream);
+	fputs("\tNode 1:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%p %s\n",edge->a,(edge->a->name == NULL) ? "" : edge->a->name);
+	
+	put_multitab(tabs,stream);
+	fputs("\tNode 2:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%p %s\n",edge->b,(edge->b->name == NULL) ? "" : edge->b->name);
 }
 
 mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type){
@@ -90,7 +523,29 @@ mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type){
 		output->cords[i] = cord_arry[i];
 	}
 	output->type = type;
+	output->name = NULL;
+	
 	return output;
+}
+
+void set_mpo_name(mpo_t * mpo,const char * name){
+	if(mpo == NULL || name == NULL) return;
+	
+	if(mpo->name != NULL) free(mpo->name);
+	
+	size_t name_length = strlen(name);
+	char * name_cpy = (char*) malloc(name_length+1);
+	strcpy(name_cpy,name);
+	
+	mpo->name = name_cpy;
+}
+
+void clear_mpo_name(mpo_t * mpo){
+	if(mpo == NULL) return;
+	if(mpo->name == NULL) return;
+	
+	free(mpo->name);
+	mpo->name = NULL;
 }
 
 void delete_map_mpo(mpo_t * mpo_ref){
@@ -99,29 +554,649 @@ void delete_map_mpo(mpo_t * mpo_ref){
 	free(mpo_ref);
 }
 
-void clear_map(map_t * map_ref){
-	if(map_ref->all_nodes != NULL) {
-		for(size_t i=0; i < map_ref->n_nodes; i++) {
-			delete_map_node(map_ref->all_nodes[i]);
+void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream){
+	if(mpo == NULL || stream == NULL) return;
+	
+	put_multitab(tabs,stream);
+	fprintf(stream,"Map-Polygon-Object %p:\n",mpo);
+	
+	put_multitab(tabs,stream);
+	fputs("\tType:\n",stream);
+	put_multitab(tabs,stream);
+	fputs("\t\t",stream);
+	if(mpo->type == MPO_TYPE_WATER){
+		fputs("water",stream);
+	}else if(mpo->type == MPO_TYPE_TREE){
+		fputs("tree",stream);
+	}else if(mpo->type == MPO_TYPE_BUILDING){
+		fputs("building",stream);
+	}
+	fputc('\n',stream);
+	
+	put_multitab(tabs,stream);
+	fputs("\tN Coordinates:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%lu\n",mpo->n_cords);
+	
+	put_multitab(tabs,stream);
+	fputs("\tCoordinate Array:\n",stream);
+	for(size_t i = 0;i < mpo->n_cords;i++){
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%lu\n",i);
+		cord_to_output_stream(mpo->cords[i],tabs+2,stream);
+	}
+}
+
+void set_mpo_type(mpo_t * mpo,uint8_t new_type){
+	if(mpo == NULL) return;
+	
+	mpo->type = new_type;
+}
+
+void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord){
+	if(mpo == NULL) return;
+	if(!(index < mpo->n_cords)) return;//out of bounds
+	
+	mpo->cords[index] = new_cord;
+}
+
+map_t init_map(void){
+	map_t map;
+	map.all_nodes= NULL;
+	map.n_nodes = 0;
+	map.node_capacity = 0;
+	
+	map.all_edges = NULL;
+	map.n_edges = 0;
+	map.edge_capacity = 0;
+	
+	map.all_buildings = NULL;
+	map.n_buildings = 0;
+	map.buildings_capacity = 0;
+	
+	map.all_mpos = NULL;
+	map.n_mpos = 0;
+	map.mpo_capacity = 0;
+	
+	map.active_start = NULL;
+	map.active_end = NULL;
+	map.active_path = NULL;
+	
+	map.active_edge_cost_function = NULL;
+	
+	return map;
+}
+
+void clear_map(map_t * map){
+	if(map == NULL) return;
+	
+	if(map->all_nodes != NULL) {
+		for(size_t i = 0; i < map->n_nodes;i++) {
+			delete_map_node(map->all_nodes[i]);
 		}
-		free(map_ref->all_nodes);
+		free(map->all_nodes);
 	}
 
-	if(map_ref->all_edges != NULL) {
-		for(size_t i=0; i < map_ref->n_edges; i++) {
-			delete_map_edge(map_ref->all_edges[i]);
+	if(map->all_edges != NULL) {
+		for(size_t i = 0; i < map->n_edges;i++) {
+			delete_map_edge(map->all_edges[i]);
 		}
-		free(map_ref->all_edges);
+		free(map->all_edges);
 	}
-	if(map_ref->mpos != NULL) {
-		for(size_t i=0; i < map_ref->n_mpos; i++) {
-			delete_map_mpo(map_ref->mpos[i]);
+	
+	if(map->all_buildings != NULL){
+		for(size_t i = 0;i < map->n_buildings;i++){
+			delete_building(map->all_buildings[i]);
 		}
-		free(map_ref->mpos);
+		free(map->all_buildings);
 	}
-	if(map_ref->active_path != NULL) {
-		delete_map_path(map_ref->active_path);
+	
+	if(map->all_mpos != NULL) {
+		for(size_t i = 0; i < map->n_mpos;i++) {
+			delete_map_mpo(map->all_mpos[i]);
+		}
+		free(map->all_mpos);
 	}
+	
+	if(map->active_path != NULL) {
+		delete_map_path(map->active_path);
+	}
+}
+
+void add_building_to_map(map_t * map,building_t * building){
+	if(map == NULL || building == NULL) return;
+	
+	if(map->all_buildings == NULL){
+		map->buildings_capacity = DEFAULT_BUILDINGS_CAPACITY;
+		map->all_buildings = (building_t**) malloc(sizeof(building_t*)*map->buildings_capacity);
+	}
+	
+	if(map->buildings_capacity == map->n_buildings){
+		map->buildings_capacity *= 2;
+		map->all_buildings = (building_t**) realloc(map->all_buildings,sizeof(building_t*)*map->buildings_capacity);
+	}
+	
+	map->all_buildings[map->n_buildings] = building;
+	map->n_buildings++;
+}
+
+void remove_building_from_map_by_index(map_t * map,size_t index){
+	if(map == NULL) return;//invalid parameter
+	if(!(index < map->n_buildings)) return;//out of bounds
+	
+	building_t * building_in_question = map->all_buildings[index];
+	
+	//remove all references to that building within the map
+	for(size_t i = 0;i < map->n_nodes;i++){
+		map_node_t * current_node = map->all_nodes[i];
+		if(current_node->associated_building == building_in_question){
+			clear_map_node_building(current_node);
+		}
+	}
+	
+	//delete the building
+	delete_building(building_in_question);
+	
+	//shift over data
+	for(size_t i = index;i < map->n_buildings-1;i++){
+		map->all_buildings[i] = map->all_buildings[i+1];
+	}
+	map->n_buildings--;//shrink array
+}
+
+void remove_building_from_map(map_t * map,building_t * building){
+	if(map == NULL || building == NULL) return;//invalid parameters
+	if(map->n_buildings == 0) return;//array is empty
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_buildings;i++){
+		building_t * current_building = map->all_buildings[i];
+		
+		if(current_building == building){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	remove_building_from_map_by_index(map,matching_index);
+}
+
+void remove_building_by_name_from_map(map_t * map,const char * name){
+	if(map == NULL || name == NULL) return;//invalid parameters
+	if(map->n_buildings == 0) return;//array is empty
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_buildings;i++){
+		building_t * current_building = map->all_buildings[i];
+		
+		for(size_t j = 0;j < current_building->n_possible_names;j++){
+			const char * possible_name = current_building->possible_names[j];
+			
+			if(strcmp(possible_name,name) == 0){
+				found = true;
+				matching_index = i;
+				break;
+			}
+		}
+		
+		if(found) break;
+	}
+	
+	if(!found) return;
+	
+	remove_building_from_map_by_index(map,matching_index);
+}
+
+void add_node_to_map(map_t * map,map_node_t * node){
+	if(map == NULL || node == NULL) return;
+	
+	if(map->all_nodes == NULL){
+		map->node_capacity = DEFAULT_NODES_CAPACITY;
+		map->all_nodes = (map_node_t**) malloc(sizeof(map_node_t*)*map->node_capacity);
+	}
+	
+	if(map->node_capacity == map->n_nodes){
+		map->node_capacity *= 2;
+		map->all_nodes = (map_node_t**) realloc(map->all_nodes,sizeof(map_node_t*)*map->node_capacity);
+	}
+	
+	map->all_nodes[map->n_nodes] = node;
+	map->n_nodes++;
+}
+
+static void remove_edge_from_map_by_index(map_t * map,size_t index){
+	if(map == NULL) return;
+	if(!(index < map->n_edges)) return;
+	
+	delete_map_edge(map->all_edges[index]);
+	
+	//shift over data
+	for(size_t i = index;i < map->n_edges-1;i++){
+		map->all_edges[i] = map->all_edges[i+1];
+	}
+	map->n_edges--;//shrink array
+}
+
+static void add_edge_to_map(map_t * map,map_edge_t * edge){
+	if(map == NULL || edge == NULL) return;
+	
+	if(map->all_edges == NULL){
+		map->edge_capacity = DEFAULT_EDGES_CAPACITY;
+		map->all_edges = (map_edge_t**) malloc(sizeof(map_edge_t*)*map->edge_capacity);
+	}
+	
+	if(map->edge_capacity == map->n_edges){
+		map->edge_capacity *= 2;
+		map->all_edges = (map_edge_t**) realloc(map->all_edges,sizeof(map_edge_t*)*map->edge_capacity);
+	}
+	
+	map->all_edges[map->n_edges] = edge;
+	map->n_edges++;
+}
+
+static void remove_edge_from_map(map_t * map,map_edge_t * edge){
+	if(map == NULL || edge == NULL) return;
+	if(map->n_edges == 0) return;
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_edges;i++){
+		map_edge_t * current_edge = map->all_edges[i];
+		
+		if(current_edge == edge){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	remove_edge_from_map_by_index(map,matching_index);
+}
+
+void remove_node_from_map_by_index(map_t * map,size_t index){
+	if(map == NULL) return;//invalid parameter
+	if(!(index < map->n_nodes)) return;//out of bounds
+	
+	map_node_t * node_in_question = map->all_nodes[index];
+	
+	//remove all connections to the node
+	for(size_t i = 0;i < node_in_question->n_outgoing_edges;i++){
+		map_edge_t * outgoing_edge = node_in_question->outgoing_edges[i];
+		
+		if(outgoing_edge->a == node_in_question){
+			remove_outgoing_edge_from_node(outgoing_edge->b,outgoing_edge);
+		}else if(outgoing_edge->b == node_in_question){
+			remove_outgoing_edge_from_node(outgoing_edge->a,outgoing_edge);
+		}
+		
+		remove_edge_from_map(map,outgoing_edge);
+	}
+	
+	//delete the node
+	delete_map_node(node_in_question);
+	
+	//shift over data
+	for(size_t i = index;i < map->n_nodes-1;i++){
+		map->all_nodes[i] = map->all_nodes[i+1];
+	}
+	map->n_nodes--;//shrink array
+}
+
+static size_t find_node_in_map_by_pointer(map_t * map,map_node_t * node,bool * found){
+	if(map == NULL || node == NULL) return 0;
+	
+	*found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_nodes;i++){
+		map_node_t * current_node = map->all_nodes[i];
+		
+		if(current_node == node){
+			*found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!(*found)) return 0;
+	
+	return matching_index;
+}
+
+void remove_node_from_map(map_t * map,map_node_t * node){
+	if(map == NULL || node == NULL) return;
+	
+	bool found = false;
+	size_t matching_index = find_node_in_map_by_pointer(map,node,&found);
+	if(!found) return;
+	
+	remove_node_from_map_by_index(map,matching_index);
+}
+
+static size_t find_node_in_map_by_name(map_t * map,const char * node_name,bool * found){
+	if(map == NULL || node_name == NULL) return 0;
+	
+	*found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_nodes;i++){
+		map_node_t * current_node = map->all_nodes[i];
+		if(current_node->name == NULL) continue;
+		
+		if(strcmp(node_name,current_node->name) == 0){
+			*found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!(*found)) return 0;
+	
+	return matching_index;
+}
+
+void remove_node_by_name_from_map(map_t * map,const char * node_name){
+	if(map == NULL || node_name == NULL) return;//invalid parameters
+	if(map->n_nodes == 0) return;//array is empty
+	
+	bool found = false;
+	size_t matching_index = find_node_in_map_by_name(map,node_name,&found);
+	if(!found) return;
+	
+	remove_node_from_map_by_index(map,matching_index);
+}
+
+void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type){
+	if(map == NULL) return;//invalid parameters
+	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))) return;//out of bounds
+	if(index_a == index_b) return;//dont connect nodes to themselves
+	
+	map_node_t * node_a = map->all_nodes[index_a];
+	map_node_t * node_b = map->all_nodes[index_b];
+	
+	map_edge_t * new_edge = create_map_edge(edge_type,node_a,node_b);
+	
+	add_edge_to_map(map,new_edge);
+}
+
+void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type){
+	if(map == NULL || node_a == NULL || node_b == NULL) return;
+	
+	bool found = false;
+	size_t node_a_index = find_node_in_map_by_pointer(map,node_a,&found);
+	if(!found) return;
+	found = false;
+	size_t node_b_index = find_node_in_map_by_pointer(map,node_b,&found);
+	if(!found) return;
+	
+	connect_nodes_in_map_by_indices(map,node_a_index,node_b_index,edge_type);
+}
+
+void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type){
+	if(map == NULL || node_a == NULL || node_b == NULL) return;
+	
+	bool found = false;
+	size_t node_a_index = find_node_in_map_by_name(map,node_a,&found);
+	if(!found) return;
+	found = false;
+	size_t node_b_index = find_node_in_map_by_name(map,node_b,&found);
+	if(!found) return;
+	
+	connect_nodes_in_map_by_indices(map,node_a_index,node_b_index,edge_type);
+}
+
+void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b){
+	if(map == NULL) return;
+	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))) return;//out of bounds
+	if(index_a == index_b) return;//cant disconnet from ourselves
+	
+	map_node_t * node_a = map->all_nodes[index_a];
+	map_node_t * node_b = map->all_nodes[index_b];
+	
+	for(size_t i = 0;i < node_a->n_outgoing_edges;i++){
+		map_edge_t * current_edge = node_a->outgoing_edges[i];
+		
+		if(current_edge->a == node_b || current_edge->b == node_b){
+			remove_outgoing_edge_from_node_by_index(node_a,i);
+			remove_outgoing_edge_from_node(node_b,current_edge);
+			remove_edge_from_map(map,current_edge);
+			return;
+		}
+	}
+}
+
+void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b){
+	if(map == NULL || node_a == NULL || node_b == NULL) return;
+	
+	bool found = false;
+	size_t node_a_index = find_node_in_map_by_pointer(map,node_a,&found);
+	if(!found) return;
+	found = false;
+	size_t node_b_index = find_node_in_map_by_pointer(map,node_b,&found);
+	if(!found) return;
+	
+	disconnect_nodes_in_map_by_indices(map,node_a_index,node_b_index);
+}
+
+void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b){
+	if(map == NULL || node_a == NULL || node_b == NULL) return;
+	
+	bool found = false;
+	size_t node_a_index = find_node_in_map_by_name(map,node_a,&found);
+	if(!found) return;
+	found = false;
+	size_t node_b_index = find_node_in_map_by_name(map,node_b,&found);
+	if(!found) return;
+	
+	disconnect_nodes_in_map_by_indices(map,node_a_index,node_b_index);
+}
+
+void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t new_edge_type){
+	if(map == NULL) return;
+	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))) return;//out of bounds
+	if(index_a == index_b) return;
+	
+	map_node_t * node_a = map->all_nodes[index_a];
+	map_node_t * node_b = map->all_nodes[index_b];
+	
+	for(size_t i = 0;i < node_a->n_outgoing_edges;i++){
+		map_edge_t * current_edge = node_a->outgoing_edges[i];
+		
+		if(current_edge->a == node_b || current_edge->b == node_b){
+			current_edge->type = new_edge_type;
+			return;
+		}
+	}
+}
+
+void set_connection_type_for_nodes(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type){
+	if(map == NULL || node_a == NULL || node_b == NULL) return;
+	
+	bool found = false;
+	size_t node_a_index = find_node_in_map_by_pointer(map,node_a,&found);
+	if(!found) return;
+	found = false;
+	size_t node_b_index = find_node_in_map_by_pointer(map,node_b,&found);
+	if(!found) return;
+	
+	set_connection_type_for_nodes_by_indices(map,node_a_index,node_b_index,new_edge_type);
+}
+
+void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const char * node_b,uint8_t new_edge_type){
+	if(map == NULL || node_a == NULL || node_b == NULL) return;
+	
+	bool found = false;
+	size_t node_a_index = find_node_in_map_by_name(map,node_a,&found);
+	if(!found) return;
+	found = false;
+	size_t node_b_index = find_node_in_map_by_name(map,node_b,&found);
+	if(!found) return;
+	
+	set_connection_type_for_nodes_by_indices(map,node_a_index,node_b_index,new_edge_type);
+}
+
+void add_mpo_to_map(map_t * map,mpo_t * mpo){
+	if(map == NULL || mpo == NULL) return;
+	
+	if(map->all_mpos == NULL){
+		map->mpo_capacity = DEFAULT_MPO_CAPACITY;
+		map->all_mpos = (mpo_t**) malloc(sizeof(mpo_t*)*map->mpo_capacity);
+	}
+	
+	if(map->mpo_capacity == map->n_mpos){
+		map->mpo_capacity *= 2;
+		map->all_mpos = (mpo_t**) realloc(map->all_mpos,sizeof(mpo_t*)*map->mpo_capacity);
+	}
+	
+	map->all_mpos[map->n_mpos] = mpo;
+	map->n_mpos++;
+}
+
+void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index){
+	if(map == NULL) return;//invalid parameter
+	if(!(mpo_index < map->n_mpos)) return;//out of bounds
+	
+	mpo_t * mpo_in_question = map->all_mpos[mpo_index];
+	
+	//delete the mpo
+	delete_map_mpo(mpo_in_question);
+	
+	//shift over data
+	for(size_t i = mpo_index;i < map->n_mpos-1;i++){
+		map->all_mpos[i] = map->all_mpos[i+1];
+	}
+	map->n_mpos--;//shrink array
+}
+
+void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name){
+	if(map == NULL || mpo_name == NULL) return;
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_mpos;i++){
+		mpo_t * current_mpo = map->all_mpos[i];
+		if(current_mpo->name == NULL) continue;
+		
+		if(strcmp(mpo_name,current_mpo->name) == 0){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	remove_mpo_from_map_by_index(map,matching_index);
+}
+
+void remove_mpo_from_map(map_t * map,mpo_t * mpo){
+	if(map == NULL || mpo == NULL) return;
+	
+	bool found = false;
+	size_t matching_index = 0;
+	
+	//find it in the array
+	for(size_t i = 0;i < map->n_mpos;i++){
+		mpo_t * current_mpo = map->all_mpos[i];
+		
+		if(current_mpo == mpo){
+			found = true;
+			matching_index = i;
+			break;
+		}
+	}
+	
+	if(!found) return;
+	
+	remove_mpo_from_map_by_index(map,matching_index);
+}
+
+void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
+	if(stream == NULL) return;
+	
+	put_multitab(tabs,stream);
+	fputs("Map:\n",stream);
+	
+	put_multitab(tabs,stream);
+	fputs("\tN nodes:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%lu\n",map.n_nodes);
+	
+	
+	put_multitab(tabs,stream);
+	fputs("\tNodes Array:\n",stream);
+	for(size_t i = 0;i < map.n_nodes;i++){
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%lu\n",i);
+		map_node_to_output_stream(map.all_nodes[i],tabs+2,stream);
+	}
+	
+	put_multitab(tabs,stream);
+	fputs("\tN edges:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%lu\n",map.n_edges);
+	
+	put_multitab(tabs,stream);
+	fputs("\tEdges Array:\n",stream);
+	for(size_t i = 0;i < map.n_edges;i++){
+		put_multitab(tabs,stream);
+		fprintf(stream,"\t\t%lu\n",i);
+		map_edge_to_output_stream(map.all_edges[i],tabs+2,stream);
+	}
+}
+
+void do_thing(){
+	map_t map = init_map();
+	
+	building_t * building_a = create_building(
+		"Building A",//primary building name
+		create_map_rect(create_cord(-5,-5),create_cord(5,5)),//bounding box of building
+		5//n floors
+	);
+	add_building_alias_name(building_a,"Build B");
+	
+	add_building_to_map(&map,building_a);
+	
+	map_node_t * a = create_map_node(create_cord(2,3));
+	set_map_node_name(a,"Node A");
+	set_map_node_building(a,building_a);
+	add_node_to_map(&map,a);
+	
+	map_node_t * b = create_map_node(create_cord(4,6));
+	set_map_node_name(b,"Node B");
+	add_node_to_map(&map,b);
+	
+	connect_nodes_in_map(&map,a,b,EDGE_TYPE_CROSSWALK);
+	
+	map_node_t * c = create_map_node(create_cord(-1,-3));
+	set_map_node_name(c,"Node C");
+	add_node_to_map(&map,c);
+	
+	connect_nodes_in_map_by_names(&map,"Node A","Node C",EDGE_TYPE_STAIRS);
+	
+	map_to_output_stream(map,0,stdout);
+	
+	remove_node_from_map(&map,a);
+	
+	map_to_output_stream(map,0,stdout);
+	clear_map(&map);
 }
 
 void delete_map_path(map_path_t * map_path_ref) {
@@ -443,6 +1518,7 @@ static map_edge_t * convert_binary_to_map_edge(const uint8_t * buffer,map_node_t
 /*
  * convert a map node object into a stream of bytes
  */
+/*
 static uint8_t * convert_map_node_to_binary(const map_node_t * node,size_t * buffer_size){
 	size_t total_alias_name_length = 0;
 	for(size_t i = 0;i < node->n_possible_names;i++){
@@ -495,10 +1571,12 @@ static uint8_t * convert_map_node_to_binary(const map_node_t * node,size_t * buf
 	
 	return buffer;
 }
+*/
 
 /*
  * convert a stream of bytes into an node object
  */
+/*
 static map_node_t * convert_binary_to_map_node(const uint8_t * buffer){
 	map_node_t * out = (map_node_t*) malloc(sizeof(map_node_t));
 	
@@ -546,60 +1624,7 @@ static map_node_t * convert_binary_to_map_node(const uint8_t * buffer){
 	
 	return out;
 }
-
-void coordinate_to_string(cord_t coordinate,FILE * stream){
-	fprintf(stream,"lon = %lf, lat = %lf",coordinate.longitude,coordinate.latitude);
-}
-
-void mpo_to_string(const mpo_t * mpo_ref,FILE * stream){
-	fprintf(stream,"Map-Polygon-Object: %p\n",mpo_ref);
-	fprintf(stream,"\tpoints:\n");
-	for(size_t i = 0;i < mpo_ref->n_cords;i++){
-		fputs("\t\t",stream);
-		coordinate_to_string(mpo_ref->cords[i],stream);
-		fputc('\n',stream);
-	}
-	fprintf(stream,"\ttype:\n\t\t");
-	if(mpo_ref->type == 1){
-		fputs("WATER",stream);
-	}else if(mpo_ref->type == 2){
-		fputs("TREE",stream);
-	}else if(mpo_ref->type == 3){
-		fputs("BUILDING",stream);
-	}
-	fputc('\n',stream);
-}
-
-void map_node_to_string(const map_node_t * node_ref,FILE * stream){
-	fprintf(stream,"Map-Node: %p\n",node_ref);
-	fputs("\tlocation:\n",stream);
-	fputs("\t\t",stream);
-	coordinate_to_string(node_ref->coordinate,stream);
-	fprintf(stream,"\n\tnames:\n");
-	for(size_t i = 0;i < node_ref->n_possible_names;i++){
-		fputs("\t\t",stream);
-		fputs(node_ref->possible_names[i],stream);
-		fputc('\n',stream);
-	}
-	fputs("\tpicture file path:\n",stream);
-	if(node_ref->picture_file_path == NULL){
-		fputs("\t\tNULL\n",stream);
-	}else{
-		fprintf(stream,"\t\t%s\n",node_ref->picture_file_path);
-	}
-	fputs("\ttype:\n\t\t",stream);
-	if(node_ref->type == 1){
-		fputs("NOTABLE LOCATION",stream);
-	}else if(node_ref->type == 2){
-		fputs("BASIC",stream);
-	}
-	fputc('\n',stream);
-	fprintf(stream,"\tn outgoing edges:\n\t\t%ld\n",node_ref->n_outgoing_edges);
-	fprintf(stream,"\toutgoing edges:\n");
-	for(size_t i = 0;i < node_ref->n_outgoing_edges;i++){
-		fprintf(stream,"\t\t%p\n",node_ref->outgoing_edges[i]);
-	}
-}
+*/
 
 void file_save_test(){
 	FILE *write_ptr;
@@ -651,7 +1676,7 @@ void file_open_test(){
 		printf("(%lf %lf),\n",mpo_test->cords[i].longitude,mpo_test->cords[i].latitude);
 	}
 	*/
-	mpo_to_string(mpo_test, stdout);
+	//mpo_to_string(mpo_test, stdout);
 	
 	fclose(read_ptr);
 }
@@ -682,72 +1707,6 @@ void best_match_test(){
 	}
 	
 	printf("Best Guess is : %s\n",best);
-}
-
-void do_thing(){
-	cord_t cord;
-	cord.longitude = 2.5;
-	cord.latitude = -3.1;
-
-	cord_t c;
-	c.longitude = 1.5;
-	c.latitude = -4.1;
-
-	map_node_t * node = create_map_node(NODE_TYPE_NOTABLE_LOCATION, cord);
-	map_node_t * t = create_map_node(NODE_TYPE_NOTABLE_LOCATION, c);
-	map_edge_t * edge = create_map_edge(EDGE_TYPE_SIDEWALK, node, t);
-	node->n_outgoing_edges = 1;
-	t->n_outgoing_edges = 1;
-
-	/*
-	node->coordinate.longitude = 2.5;
-	node->coordinate.latitude = -3.1;
-	*/
-	node->n_possible_names = 3;
-
-	char * temp;
-	
-	node->possible_names = (char**) malloc(sizeof(char*)*3);
-	temp = (char*) malloc(5);
-	strcpy(temp,"UMBC");
-	node->possible_names[0] = temp;
-	temp = (char*) malloc(3);
-	strcpy(temp,"hi");
-	node->possible_names[1] = temp;
-	temp = (char*) malloc(4);
-	strcpy(temp,"mum");
-	node->possible_names[2] = temp;
-	temp = (char*) malloc(9);
-	strcpy(temp,"test.png");
-	node->picture_file_path = temp;
-
-	node->n_outgoing_edges = 1;
-	t->n_outgoing_edges = 1;
-	node->outgoing_edges = (map_edge_t**)malloc(sizeof(map_edge_t*)*node->n_outgoing_edges);
-	t->outgoing_edges = (map_edge_t**)malloc(sizeof(map_edge_t*)*t->n_outgoing_edges);
-	node->outgoing_edges[0] = edge;
-	t->outgoing_edges[0]= edge;
-	//for(size_t i = 0;i < 2;i++) node->outgoing_edges[i] = NULL;
-	map_node_to_string(node,stdout);
-	map_node_to_string(t, stdout);
-	delete_map_node(node);
-	delete_map_node(t);
-	delete_map_edge(edge);
-	/*
-	size_t buffer_size;
-	uint8_t * buffer = convert_map_node_to_binary(node,&buffer_size);
-	for(size_t i = 0;i < buffer_size;i++){
-		printf("%x ",buffer[i]);
-	}
-	printf("\n");
-	
-	map_node_t * regen = convert_binary_to_map_node(buffer);
-	map_node_to_string(regen,stdout);
-	
-	//file_save_test();
-	file_open_test();
-	//best_match_test();
-	*/
 }
 
 /*
