@@ -123,13 +123,85 @@ gwo_t remove_gwo_from_gws(gws_t * gws,size_t index,err_ctx_t * ctx){
 	return out;
 }
 
+struct Index_Dual{
+	size_t index;
+	size_t position;
+};
+
+static int increasing_index(const void * a, const void * b){
+	const struct Index_Dual * a_index = (struct Index_Dual *)a;
+	const struct Index_Dual * b_index = (struct Index_Dual *)b;
+	
+	if (a_index->index > b_index->index) return 1;
+	if (a_index->index < b_index->index) return -1;
+	return 0;
+}
+
+gwo_t * remove_gwos_from_gws(gws_t * gws,size_t * indexes,size_t n_indexes,err_ctx_t * ctx){
+	if(gws == NULL || indexes == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	for(size_t i = 0;i < n_indexes;i++){
+		if(!(indexes[i] < gws->n_working_objects)){
+			ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+			return NULL;
+		}
+	}
+	
+	struct Index_Dual * indexes_sorted = (struct Index_Dual *) malloc(sizeof(struct Index_Dual)*n_indexes);
+	for(size_t i = 0;i < n_indexes;i++){
+		indexes_sorted[i].index = indexes[i];
+		indexes_sorted[i].position = i;
+	}
+	qsort(indexes_sorted,n_indexes,sizeof(struct Index_Dual),increasing_index);
+	
+	gwo_t * out = (gwo_t*) malloc(sizeof(gwo_t)*n_indexes);
+	
+	size_t read_index = 0;
+	size_t write_index = 0;
+	size_t meta_deletion_index = 0;
+	
+	while(read_index < gws->n_working_objects){
+		struct Index_Dual deletion_index = indexes_sorted[meta_deletion_index];
+		
+		if(read_index == deletion_index.index){
+			out[deletion_index.position] = gws->working_object_arr[read_index];
+			meta_deletion_index++;
+		}else{
+			gws->working_object_arr[write_index] = gws->working_object_arr[read_index];
+			write_index++;
+		}
+		
+		read_index++;
+	}
+	free(indexes_sorted);
+	gws->n_working_objects -= n_indexes;
+	return out;
+}
+
+void delete_gwo_from_gws(gws_t * gws,size_t index,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(!(index < gws->n_working_objects)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;
+	}
+	
+	gwo_t captured_gwo = remove_gwo_from_gws(gws,index,ctx);
+	
+	delete_gwo_data(&captured_gwo,ctx);
+}
+
 void gws_to_output_stream(const gws_t gws,FILE * stream,err_ctx_t * ctx){
 	if(stream == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return;
 	}
 	
-	fputs("### Current Working Set ###\n",stream);
+	fputs("\033[36m### Current Working Set ###\n\033[0m",stream);
 	
 	if(gws.n_working_objects == 0){
 		fputs("Empty\n",stream);
@@ -142,12 +214,14 @@ void gws_to_output_stream(const gws_t gws,FILE * stream,err_ctx_t * ctx){
 			cord_to_output_stream(current.cord,1,stream,ctx);
 		}else if(current.type == GWO_RECT){
 			map_rect_to_output_stream(current.rect,1,stream,ctx);
+		}else if(current.type == GWO_MPO){
+			mpo_to_output_stream(current.mpo,1,stream,ctx);
 		}
 	}
 }
 
 char * read_line(){
-	fputs("> ",stdout);
+	fputs("\033[93m>\033[0m ",stdout);
 	fflush(stdout);
 	
 	size_t allocated_space = 16;
@@ -181,6 +255,18 @@ static bool is_halting_string(const char * str){
 	if(strcmp(str,"quit") == 0) return true;
 	if(strcmp(str,"exit") == 0) return true;
 	if(strcmp(str,"cancel") == 0) return true;
+	
+	return false;
+}
+
+static bool is_deleting_string(const char * str){
+	if(str == NULL) return false;
+	
+	if(strcmp(str,"pop") == 0) return true;
+	if(strcmp(str,"delete") == 0) return true;
+	if(strcmp(str,"del") == 0) return true;
+	if(strcmp(str,"remove") == 0) return true;
+	if(strcmp(str,"rem") == 0) return true;
 	
 	return false;
 }
@@ -249,6 +335,97 @@ static cord_t parse_cord(bool * canceled){
 	return create_cord(longitude,latitude);
 }
 
+static void create_cord_command(gws_t * gws,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	cord_t cord = parse_cord(&canceled);
+	if(!canceled){
+		add_gwo_to_gws(gws,create_cord_gwo(cord),ctx);
+	}
+}
+
+static void create_rect_command(gws_t * gws,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	size_t first_obj_index = parse_index("Coordinte Object Index (Bottom Left)",&canceled);
+	if(canceled || !valid_gws_object(gws,first_obj_index,GWO_CORD,ctx)) return;
+	size_t second_obj_index = parse_index("Coordinte Object Index (Top Right)",&canceled);
+	if(canceled || !valid_gws_object(gws,second_obj_index,GWO_CORD,ctx)) return;
+	
+	if(first_obj_index == second_obj_index){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
+	
+	size_t indexes[2] = {first_obj_index,second_obj_index};
+	gwo_t * removed = remove_gwos_from_gws(gws,indexes,2,ctx);
+	gwo_t first_obj = removed[0];
+	gwo_t second_obj = removed[1];
+	free(removed);
+	
+	add_gwo_to_gws(gws,create_map_rect_gwo( create_map_rect(first_obj.cord,second_obj.cord) ),ctx);
+}
+
+static void create_mpo_command(gws_t * gws,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	size_t n_cords = parse_index("nuumber of cords",&canceled);
+	if(canceled) return;
+	
+	size_t * obj_indexes = (size_t*) malloc(sizeof(size_t)*n_cords);
+	
+	for(size_t i = 0; i < n_cords;i++){
+		printf("%lu ",i);
+		size_t obj_index = parse_index("Coordinte Object Index",&canceled);
+		
+		if(canceled || !valid_gws_object(gws,obj_index,GWO_CORD,ctx)) {
+			free(obj_indexes);
+			return;
+		}
+		
+		obj_indexes[i] = obj_index;
+	}
+	
+	gwo_t * removed = remove_gwos_from_gws(gws,obj_indexes,n_cords,ctx);
+	free(obj_indexes);
+	
+	cord_t * cord_arr = (cord_t*) malloc(sizeof(cord_t)*n_cords);
+	for(size_t i = 0;i < n_cords;i++){
+		cord_arr[i] = removed[i].cord;
+	}
+	free(removed);
+	
+	add_gwo_to_gws(gws,create_mpo_gwo( create_mpo(cord_arr,n_cords,MPO_TYPE_TREE,ctx),ctx ),ctx);//TODO type
+	free(cord_arr);
+}
+
+static void delete_command(gws_t * gws,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	size_t deletion_index = parse_index("Object Index",&canceled);
+		
+	if(canceled) return;
+	
+	delete_gwo_from_gws(gws,deletion_index,ctx);
+}
+
 void start_cli(){
 	
 	err_ctx_t err_ctx = create_err_ctx();
@@ -270,55 +447,21 @@ void start_cli(){
 			size_t n_tokens = 0;
 			char ** tokens = split_into_tokens(lowercase_line,&n_tokens);
 			
-			if((n_tokens == 2) && (strcmp(tokens[0],"create") == 0)){
-				if(strcmp(tokens[1],"cord") == 0){
-					bool canceled = false;
-					cord_t cord = parse_cord(&canceled);
-					if(!canceled){
-						add_gwo_to_gws(&working_set,create_cord_gwo(cord),&err_ctx);
+			if(n_tokens == 2){
+				if(strcmp(tokens[0],"create") == 0){
+					if(strcmp(tokens[1],"cord") == 0){
+						create_cord_command(&working_set,&err_ctx);
+					}else if(strcmp(tokens[1],"rect") == 0){
+						create_rect_command(&working_set,&err_ctx);
+					}else if(strcmp(tokens[1],"mpo") == 0){
+						create_mpo_command(&working_set,&err_ctx);
+					}else{
+						fputs("Invalid create option\n",stdout);
 					}
-				}else if(strcmp(tokens[1],"rect") == 0){
-					bool canceled = false;
-					const char * msg = "Coordinte Object Index";
-					size_t first_obj_index,second_obj_index,temp_index;
-					gwo_t first_obj,second_obj,temp_obj;
-					bool swap_made = false;
-					
-					first_obj_index = parse_index(msg,&canceled);
-					if(canceled || !valid_gws_object(&working_set,first_obj_index,GWO_CORD,&err_ctx)) goto rect_skip;
-					second_obj_index = parse_index(msg,&canceled);
-					if(canceled || !valid_gws_object(&working_set,second_obj_index,GWO_CORD,&err_ctx)) goto rect_skip;
-					
-					if(first_obj_index == second_obj_index){
-						err_ctx.flags |= ERROR_DUPLICATE_PARAMETER;
-						goto rect_skip;
-					}
-					
-					//the first index must be larger
-					if(first_obj_index < second_obj_index){
-						temp_index = first_obj_index;
-						first_obj_index = second_obj_index;
-						second_obj_index  = temp_index;
-						swap_made = true;
-					}
-					
-					first_obj = remove_gwo_from_gws(&working_set,first_obj_index,&err_ctx);
-					second_obj = remove_gwo_from_gws(&working_set,second_obj_index,&err_ctx);
-					
-					//preserve order
-					if(swap_made){
-						temp_obj = first_obj;
-						first_obj = second_obj;
-						second_obj = temp_obj;
-					}
-					
-					add_gwo_to_gws(&working_set,create_map_rect_gwo( create_map_rect(first_obj.cord,second_obj.cord) ),&err_ctx);
-					
-					rect_skip:;
-					if(err_encountered(&err_ctx)) errs_to_output_stream(&err_ctx,stdout);
-					reset_err_ctx(&err_ctx);
-				}else{
-					fputs("Invalid create option\n",stdout);
+				}
+			}else if(n_tokens == 1){
+				if(is_deleting_string(tokens[0])){
+					delete_command(&working_set,&err_ctx);
 				}
 			}
 			
@@ -326,8 +469,10 @@ void start_cli(){
 		}
 		free(lowercase_line);
 		free(line);
+		
+		errs_to_output_stream(&err_ctx,stdout);
+		reset_err_ctx(&err_ctx);
 	}
 	
 	clear_generic_working_set(&working_set,&err_ctx);
-	errs_to_output_stream(&err_ctx,stdout);
 }
