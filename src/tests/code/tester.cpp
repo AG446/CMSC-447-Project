@@ -6,14 +6,15 @@
 #include <string.h>
 #include <math.h>
 
-#define N_TESTS 6
+#define N_TESTS 7
 test_func_t func_table[N_TESTS] = {
-	{token_matching_test,"token matching test",SILENT},
-	{phrase_matching_test,"phrase matching test",SILENT},
-	{building_data_structure_test,"building data structure test",SILENT},
-	{mpo_data_structure_test,"map polygon object data structure test",SILENT},
-	{map_node_data_structure_test,"map node data structure test",SILENT},
-	{map_edge_data_structure_test,"map edge data structure test",SILENT}
+	{token_matching_test,"Token matching test",SILENT},
+	{phrase_matching_test,"Phrase matching test",SILENT},
+	{building_data_structure_test,"Building data structure test",SILENT},
+	{mpo_data_structure_test,"Map polygon object data structure test",SILENT},
+	{map_node_data_structure_test,"Map node data structure test",SILENT},
+	{map_edge_data_structure_test,"Map edge data structure test",SILENT},
+	{basic_map_data_structure_test,"Basic map data structure test",VERBOSE}
 };
 
 int main(){
@@ -30,8 +31,13 @@ int main(){
 			fputs("\033[31mFAIL\033[0m\n",stdout);
 		}
 	}
+	do_thing();
+	//start_cli();
+}
+
+bool basic_map_data_structure_test(bool silent){
 	
-	start_cli();
+	return PASS;
 }
 
 bool map_edge_data_structure_test(bool silent){
@@ -42,6 +48,15 @@ bool map_edge_data_structure_test(bool silent){
 	
 	map_edge_t * edge = create_map_edge(EDGE_TYPE_HALLWAY,node_a,node_b,&err_ctx);
 	if(err_encountered(&err_ctx)) return FAIL;
+	if(get_edge_node_a(edge,&err_ctx) != node_a) return FAIL;
+	if(get_edge_node_b(edge,&err_ctx) != node_b) return FAIL;
+	if(get_edge_node_a(NULL,&err_ctx) != NULL) return FAIL;
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	if(get_edge_node_b(NULL,&err_ctx) != NULL) return FAIL;
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	
 	map_edge_t * bad_edge = create_map_edge(EDGE_TYPE_HALLWAY,NULL,node_b,&err_ctx);
 	if(bad_edge != NULL) return FAIL;
 	if(!err_encountered(&err_ctx)) return FAIL;

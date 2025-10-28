@@ -15,6 +15,26 @@
 #define DEFAULT_EDGES_CAPACITY 1
 #define DEFAULT_MPO_CAPACITY 1
 
+
+const char * mpo_type_names[N_MPO_TYPES] = {
+	"Water",
+	"Tree",
+	"Building"
+};
+
+const char * edge_type_names[N_EDGE_TYPES] = {
+	"Sidewalk",
+	"Road",
+	"Stairs",
+	"Ramp",
+	"Hallway",
+	"Elevator Shaft",
+	"Overpass",
+	"Door",
+	"Automatic Door",
+	"Crosswalk"
+};
+
 static void put_multitab(size_t n_tabs,FILE * stream){
 	if(stream == NULL) return;
 	for(size_t i = 0;i < n_tabs;i++) fputc('\t',stream);
@@ -649,6 +669,24 @@ double get_edge_length(const map_edge_t * edge,err_ctx_t * ctx){
 	return cord_distance(edge->a->coordinate,edge->b->coordinate);
 }
 
+const map_node_t * get_edge_node_a(const map_edge_t * edge,err_ctx_t * ctx){
+	if(edge == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	return edge->a;
+}
+
+const map_node_t * get_edge_node_b(const map_edge_t * edge,err_ctx_t * ctx){
+	if(edge == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	return edge->b;
+}
+
 void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream,err_ctx_t * ctx){
 	if(edge == NULL || stream == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
@@ -662,26 +700,8 @@ void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream
 	fputs("\tType:\n",stream);
 	put_multitab(tabs,stream);
 	fputs("\t\t",stream);
-	if(edge->type == EDGE_TYPE_SIDEWALK){
-		fputs("sidewalk",stream);
-	}else if(edge->type == EDGE_TYPE_ROAD){
-		fputs("road",stream);
-	}else if(edge->type == EDGE_TYPE_STAIRS){
-		fputs("stairs",stream);
-	}else if(edge->type == EDGE_TYPE_RAMP){
-		fputs("ramp",stream);
-	}else if(edge->type == EDGE_TYPE_HALLWAY){
-		fputs("hallway",stream);
-	}else if(edge->type == EDGE_TYPE_ELEVATOR_SHAFT){
-		fputs("elevator shaft",stream);
-	}else if(edge->type == EDGE_TYPE_OVERPASS){
-		fputs("overpass",stream);
-	}else if(edge->type == EDGE_TYPE_DOOR){
-		fputs("door",stream);
-	}else if(edge->type == EDGE_TYPE_AUTO_DOOR){
-		fputs("automatic door",stream);
-	}else if(edge->type == EDGE_TYPE_CROSSWALK){
-		fputs("crosswalk",stream);
+	if(edge->type >= 1 && edge->type <= N_EDGE_TYPES){
+		fputs(edge_type_names[edge->type-1],stream);
 	}
 	fputc('\n',stream);
 	
@@ -781,12 +801,8 @@ void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream,err_ctx_t 
 	fputs("\tType:\n",stream);
 	put_multitab(tabs,stream);
 	fputs("\t\t",stream);
-	if(mpo->type == MPO_TYPE_WATER){
-		fputs("water",stream);
-	}else if(mpo->type == MPO_TYPE_TREE){
-		fputs("tree",stream);
-	}else if(mpo->type == MPO_TYPE_BUILDING){
-		fputs("building",stream);
+	if(mpo->type >= 1 && mpo->type <= N_MPO_TYPES){
+		fputs(mpo_type_names[mpo->type-1],stream);
 	}
 	fputc('\n',stream);
 	
@@ -876,7 +892,7 @@ map_t init_map(void){
 	return map;
 }
 
-void clear_map(map_t * map,err_ctx_t * ctx){
+void deinit_map(map_t * map,err_ctx_t * ctx){
 	if(map == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return;
@@ -931,15 +947,24 @@ void add_building_to_map(map_t * map,building_t * building,err_ctx_t * ctx){
 	map->n_buildings++;
 }
 
-building_t * get_building_by_index(map_t * map,size_t index){
-	if(map == NULL) return NULL;
-	if(!(index < map->n_buildings)) return NULL;//out of bounds
+building_t * get_building_by_index(map_t * map,size_t index,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	if(!(index < map->n_buildings)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return NULL;
+	}
 	
 	return map->all_buildings[index];
 }
 
-building_t * get_building_by_name(map_t * map, const char * name){
-	if(map == NULL || name == NULL) return NULL;//invalid parameters
+building_t * get_building_by_name(map_t * map, const char * name,err_ctx_t * ctx){
+	if(map == NULL || name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
 	
 	for(size_t i = 0;i < map->n_buildings;i++){
 		building_t * current_building = map->all_buildings[i];
@@ -952,6 +977,8 @@ building_t * get_building_by_name(map_t * map, const char * name){
 			}
 		}
 	}
+	
+	ctx->flags |= ERROR_OBJECT_NOT_FOUND;
 	
 	return NULL;
 }
@@ -1056,8 +1083,11 @@ void remove_building_by_name_from_map(map_t * map,const char * name,err_ctx_t * 
 	remove_building_from_map_by_index(map,matching_index,ctx);
 }
 
-void add_node_to_map(map_t * map,map_node_t * node){
-	if(map == NULL || node == NULL) return;
+void add_node_to_map(map_t * map,map_node_t * node,err_ctx_t * ctx){
+	if(map == NULL || node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	if(map->all_nodes == NULL){
 		map->node_capacity = DEFAULT_NODES_CAPACITY;
@@ -1126,9 +1156,15 @@ static void remove_edge_from_map(map_t * map,map_edge_t * edge){
 	remove_edge_from_map_by_index(map,matching_index);
 }
 
-void remove_node_from_map_by_index(map_t * map,size_t index){
-	if(map == NULL) return;//invalid parameter
-	if(!(index < map->n_nodes)) return;//out of bounds
+void remove_node_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(!(index < map->n_nodes)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;
+	}
 	
 	map_node_t * node_in_question = map->all_nodes[index];
 	
@@ -1146,7 +1182,7 @@ void remove_node_from_map_by_index(map_t * map,size_t index){
 	}
 	
 	//delete the node
-	delete_map_node(node_in_question,NULL);//TODO add error context
+	delete_map_node(node_in_question,ctx);
 	
 	//shift over data
 	for(size_t i = index;i < map->n_nodes-1;i++){
@@ -1177,14 +1213,20 @@ static size_t find_node_in_map_by_pointer(map_t * map,map_node_t * node,bool * f
 	return matching_index;
 }
 
-void remove_node_from_map(map_t * map,map_node_t * node){
-	if(map == NULL || node == NULL) return;
+void remove_node_from_map(map_t * map,map_node_t * node,err_ctx_t * ctx){
+	if(map == NULL || node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	bool found = false;
 	size_t matching_index = find_node_in_map_by_pointer(map,node,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	remove_node_from_map_by_index(map,matching_index);
+	remove_node_from_map_by_index(map,matching_index,ctx);
 }
 
 static size_t find_node_in_map_by_name(map_t * map,const char * node_name,bool * found){
@@ -1210,15 +1252,24 @@ static size_t find_node_in_map_by_name(map_t * map,const char * node_name,bool *
 	return matching_index;
 }
 
-void remove_node_by_name_from_map(map_t * map,const char * node_name){
-	if(map == NULL || node_name == NULL) return;//invalid parameters
-	if(map->n_nodes == 0) return;//array is empty
+void remove_node_by_name_from_map(map_t * map,const char * node_name,err_ctx_t * ctx){
+	if(map == NULL || node_name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(map->n_nodes == 0){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
 	bool found = false;
 	size_t matching_index = find_node_in_map_by_name(map,node_name,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	remove_node_from_map_by_index(map,matching_index);
+	remove_node_from_map_by_index(map,matching_index,ctx);
 }
 
 void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type){
@@ -1529,26 +1580,26 @@ void do_thing(){
 	map_node_t * a = create_map_node(create_cord(2,3));
 	set_map_node_name(a,"Node A",&ctx);
 	set_map_node_building(a,building_a,&ctx);
-	add_node_to_map(&map,a);
+	add_node_to_map(&map,a,&ctx);
 	
 	map_node_t * b = create_map_node(create_cord(4,6));
 	set_map_node_name(b,"Node B",&ctx);
-	add_node_to_map(&map,b);
+	add_node_to_map(&map,b,&ctx);
 	
 	connect_nodes_in_map(&map,a,b,EDGE_TYPE_CROSSWALK);
 	
 	map_node_t * c = create_map_node(create_cord(-1,-3));
 	set_map_node_name(c,"Node C",&ctx);
-	add_node_to_map(&map,c);
+	add_node_to_map(&map,c,&ctx);
 	
 	connect_nodes_in_map_by_names(&map,"Node A","Node C",EDGE_TYPE_STAIRS);
 	
 	map_to_output_stream(map,0,stdout);
 	
-	remove_node_from_map(&map,a);
+	remove_node_from_map(&map,a,&ctx);
 	
 	map_to_output_stream(map,0,stdout);
-	clear_map(&map,&ctx);
+	deinit_map(&map,&ctx);
 }
 
 void delete_map_path(map_path_t * map_path_ref) {
@@ -1815,7 +1866,7 @@ static map_node_t * convert_binary_to_map_node(const uint8_t * buffer){
 	return out;
 }
 */
-
+/*
 void file_save_test(){
 	FILE *write_ptr;
 	
@@ -1860,16 +1911,17 @@ void file_open_test(){
 	
 	mpo_test = convert_binary_to_mpo(buffer);
 	
-	/*
-	printf("%d %ld\n",mpo_test->type,mpo_test->n_cords);
-	for(size_t i = 0;i < mpo_test->n_cords;i++){
-		printf("(%lf %lf),\n",mpo_test->cords[i].longitude,mpo_test->cords[i].latitude);
-	}
-	*/
+	
+	//printf("%d %ld\n",mpo_test->type,mpo_test->n_cords);
+	//for(size_t i = 0;i < mpo_test->n_cords;i++){
+	//	printf("(%lf %lf),\n",mpo_test->cords[i].longitude,mpo_test->cords[i].latitude);
+	//}
+	
 	//mpo_to_string(mpo_test, stdout);
 	
 	fclose(read_ptr);
 }
+*/
 
 /*
 map_node_t ** filter_locations(const char * location_name,const map_t * map_ref,size_t max_results){

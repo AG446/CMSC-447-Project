@@ -4,6 +4,7 @@
 #include "cl_tool.h"
 #include "text_proc.h"
 #include "err_ctx.h"
+#include <ctype.h>
 
 #define DEFAULT_GWO_CAPACITY 4
 
@@ -41,6 +42,20 @@ gwo_t create_mpo_gwo(mpo_t * mpo,err_ctx_t * ctx){
 	return out;
 }
 
+gwo_t create_node_gwo(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return create_blank_gwo();
+	}
+	
+	gwo_t out;
+	
+	out.type = GWO_NODE;
+	out.node = node;
+	
+	return out;
+}
+
 void delete_gwo_data(gwo_t * gwo,err_ctx_t * ctx){
 	if(gwo == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
@@ -49,6 +64,8 @@ void delete_gwo_data(gwo_t * gwo,err_ctx_t * ctx){
 	
 	if(gwo->type == GWO_MPO){
 		delete_mpo(gwo->mpo,ctx);
+	}else if(gwo->type == GWO_NODE){
+		delete_map_node(gwo->node,ctx);
 	}
 }
 
@@ -73,7 +90,12 @@ bool valid_gws_object(gws_t * gws,size_t index,uint8_t type,err_ctx_t * ctx){
 		return false;
 	}
 	
-	return gws->working_object_arr[index].type == type;
+	if(gws->working_object_arr[index].type != type){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return false;
+	}
+	
+	return true;
 }
 
 void add_gwo_to_gws(gws_t * gws,gwo_t gwo,err_ctx_t * ctx){
@@ -91,7 +113,7 @@ void add_gwo_to_gws(gws_t * gws,gwo_t gwo,err_ctx_t * ctx){
 	gws->n_working_objects++;
 }
 
-void clear_generic_working_set(gws_t * gws,err_ctx_t * ctx){
+void deinit_generic_working_set(gws_t * gws,err_ctx_t * ctx){
 	if(gws == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return;
@@ -100,6 +122,17 @@ void clear_generic_working_set(gws_t * gws,err_ctx_t * ctx){
 		delete_gwo_data(&gws->working_object_arr[i],ctx);
 	}
 	free(gws->working_object_arr);
+}
+
+void clear_gws_objects(gws_t * gws,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	for(size_t i = 0;i < gws->n_working_objects;i++){
+		delete_gwo_data(&gws->working_object_arr[i],ctx);
+	}
+	gws->n_working_objects = 0;
 }
 
 gwo_t remove_gwo_from_gws(gws_t * gws,size_t index,err_ctx_t * ctx){
@@ -216,6 +249,8 @@ void gws_to_output_stream(const gws_t gws,FILE * stream,err_ctx_t * ctx){
 			map_rect_to_output_stream(current.rect,1,stream,ctx);
 		}else if(current.type == GWO_MPO){
 			mpo_to_output_stream(current.mpo,1,stream,ctx);
+		}else if(current.type == GWO_NODE){
+			map_node_to_output_stream(current.node,1,stream,ctx);
 		}
 	}
 }
@@ -323,6 +358,33 @@ static size_t parse_index(const char * title,bool * canceled){
 	return value;
 }
 
+static size_t parse_index_in_range(size_t min,size_t max,bool * canceled){
+	size_t choice = 0;
+	
+	while(true){
+		choice = parse_index("Choose",canceled);
+		if(*canceled) break;
+		
+		if(choice < min || choice > max){
+			fputs("Try again.\n",stdout);
+		}else break;
+	}
+	
+	return choice;
+}
+
+static bool parse_confirmation(const char * title){
+	fputs(title,stdout);
+	fputc(' ',stdout);
+	char * choice_string = read_line();
+	
+	bool out = strlen(choice_string) == 1 && tolower(choice_string[0]) == 'y';
+	
+	free(choice_string);
+	
+	return out;
+}
+
 static cord_t parse_cord(bool * canceled){
 	fputs("### Entering a Coordinate ###\n",stdout);
 	
@@ -375,6 +437,15 @@ static void create_rect_command(gws_t * gws,err_ctx_t * ctx){
 	add_gwo_to_gws(gws,create_map_rect_gwo( create_map_rect(first_obj.cord,second_obj.cord) ),ctx);
 }
 
+static uint8_t parse_mpo_type(bool * canceled){
+	fputs("### Choose an MPO type ###\n",stdout);
+	for(size_t i = 1;i <= N_MPO_TYPES;i++){
+		printf("%lu. %s\n",i,mpo_type_names[i-1]);
+	}
+	
+	return parse_index_in_range(1,N_MPO_TYPES,canceled);
+}
+
 static void create_mpo_command(gws_t * gws,err_ctx_t * ctx){
 	if(gws == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
@@ -382,8 +453,14 @@ static void create_mpo_command(gws_t * gws,err_ctx_t * ctx){
 	}
 	
 	bool canceled = false;
-	size_t n_cords = parse_index("nuumber of cords",&canceled);
-	if(canceled) return;
+	size_t n_cords = 0;
+	while(true){
+		n_cords = parse_index("nuumber of cords",&canceled);
+		if(canceled) return;
+		if(n_cords < 3){
+			fputs("Try again.\n",stdout);
+		}else break;
+	}
 	
 	size_t * obj_indexes = (size_t*) malloc(sizeof(size_t)*n_cords);
 	
@@ -408,8 +485,36 @@ static void create_mpo_command(gws_t * gws,err_ctx_t * ctx){
 	}
 	free(removed);
 	
-	add_gwo_to_gws(gws,create_mpo_gwo( create_mpo(cord_arr,n_cords,MPO_TYPE_TREE,ctx),ctx ),ctx);//TODO type
+	uint8_t chosen_mpo_type = parse_mpo_type(&canceled);
+	if(canceled) free(cord_arr);
+	
+	add_gwo_to_gws(gws,create_mpo_gwo( create_mpo(cord_arr,n_cords,chosen_mpo_type,ctx),ctx ),ctx);
 	free(cord_arr);
+}
+
+static void create_node_command(gws_t * gws,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	size_t obj_index = parse_index("Coordinte Object Index",&canceled);
+	
+	if(canceled || !valid_gws_object(gws,obj_index,GWO_CORD,ctx)) return;
+	
+	gwo_t removed = remove_gwo_from_gws(gws,obj_index,ctx);
+	
+	add_gwo_to_gws(gws,create_node_gwo( create_map_node(removed.cord),ctx),ctx);
+}
+
+static uint8_t parse_edge_type(bool * canceled){
+	fputs("### Choose an Edge type ###\n",stdout);
+	for(size_t i = 1;i <= N_EDGE_TYPES;i++){
+		printf("%lu. %s\n",i,edge_type_names[i-1]);
+	}
+	
+	return parse_index_in_range(1,N_EDGE_TYPES,canceled);
 }
 
 static void delete_command(gws_t * gws,err_ctx_t * ctx){
@@ -448,6 +553,7 @@ void start_cli(){
 			char ** tokens = split_into_tokens(lowercase_line,&n_tokens);
 			
 			if(n_tokens == 2){
+				
 				if(strcmp(tokens[0],"create") == 0){
 					if(strcmp(tokens[1],"cord") == 0){
 						create_cord_command(&working_set,&err_ctx);
@@ -455,6 +561,8 @@ void start_cli(){
 						create_rect_command(&working_set,&err_ctx);
 					}else if(strcmp(tokens[1],"mpo") == 0){
 						create_mpo_command(&working_set,&err_ctx);
+					}else if(strcmp(tokens[1],"node") == 0){
+						create_node_command(&working_set,&err_ctx);
 					}else{
 						fputs("Invalid create option\n",stdout);
 					}
@@ -462,7 +570,12 @@ void start_cli(){
 			}else if(n_tokens == 1){
 				if(is_deleting_string(tokens[0])){
 					delete_command(&working_set,&err_ctx);
+				}else if(strcmp(tokens[0],"clear") == 0){
+					if(parse_confirmation("Are you Sure?")) clear_gws_objects(&working_set,&err_ctx);
+					else fputs("Not cleared.\n",stdout);
 				}
+			}else{
+				fputs("Invalid command.\n",stdout);
 			}
 			
 			delete_tokens(tokens,n_tokens);
@@ -474,5 +587,5 @@ void start_cli(){
 		reset_err_ctx(&err_ctx);
 	}
 	
-	clear_generic_working_set(&working_set,&err_ctx);
+	deinit_generic_working_set(&working_set,&err_ctx);
 }

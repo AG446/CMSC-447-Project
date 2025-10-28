@@ -21,6 +21,6 @@ bool building_data_structure_test(bool silent);
 bool mpo_data_structure_test(bool silent);
 bool map_node_data_structure_test(bool silent);
 bool map_edge_data_structure_test(bool silent);
-bool map_data_structure_test(bool silent);
+bool basic_map_data_structure_test(bool silent);
 
 #endif
