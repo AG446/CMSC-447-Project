@@ -40,6 +40,7 @@ void deinit_generic_working_set(gws_t * gws,err_ctx_t * ctx);
 void clear_gws_objects(gws_t * gws,err_ctx_t * ctx);
 void add_gwo_to_gws(gws_t * gws,gwo_t gwo,err_ctx_t * ctx);
 gwo_t remove_gwo_from_gws(gws_t * gws,size_t index,err_ctx_t * ctx);
+gwo_t get_gwo_from_gws(gws_t * gws,size_t index,err_ctx_t * ctx);
 gwo_t * remove_gwos_from_gws(gws_t * gws,size_t * indexes,size_t n_indexes,err_ctx_t * ctx);
 void delete_gwo_from_gws(gws_t * gws,size_t index,err_ctx_t * ctx);
 bool valid_gws_object(gws_t * gws,size_t index,uint8_t type,err_ctx_t * ctx);

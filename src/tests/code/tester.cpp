@@ -32,7 +32,7 @@ int main(){
 		}
 	}
 	//do_thing();
-	//start_cli();
+	start_cli();
 }
 
 bool basic_map_data_structure_test(bool silent){

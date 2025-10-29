@@ -156,6 +156,19 @@ gwo_t remove_gwo_from_gws(gws_t * gws,size_t index,err_ctx_t * ctx){
 	return out;
 }
 
+gwo_t get_gwo_from_gws(gws_t * gws,size_t index,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return create_blank_gwo();
+	}
+	if(!(index < gws->n_working_objects)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return create_blank_gwo();
+	}
+	
+	return gws->working_object_arr[index];
+}
+
 struct Index_Dual{
 	size_t index;
 	size_t position;
@@ -385,6 +398,13 @@ static bool parse_confirmation(const char * title){
 	return out;
 }
 
+#define WORKING_MAP 1
+#define WORKING_SET 2
+static size_t parse_working_location(bool * canceled){
+	fputs("1. Working Map\n2. Working Set\n",stdout);
+	return parse_index_in_range(1,2,canceled);
+}
+
 static cord_t parse_cord(bool * canceled){
 	fputs("### Entering a Coordinate ###\n",stdout);
 	
@@ -531,9 +551,51 @@ static void delete_command(gws_t * gws,err_ctx_t * ctx){
 	delete_gwo_from_gws(gws,deletion_index,ctx);
 }
 
+static void show_map_command(map_t working_map,err_ctx_t * ctx){
+	fputs("\033[36m### Current Working Map ###\n\033[0m",stdout);
+	map_to_output_stream(working_map,0,stdout,ctx);
+}
+
+static void add_node_to_map_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	bool canceled = false;
+	
+	size_t obj_index = parse_index("Node index",&canceled);
+	if(canceled || !valid_gws_object(gws,obj_index,GWO_NODE,ctx)) return;
+	
+	gwo_t removed = remove_gwo_from_gws(gws,obj_index,ctx);
+	
+	add_node_to_map(map,removed.node,ctx);
+}
+
+static void set_node_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	bool canceled = false;
+	size_t choice = parse_working_location(&canceled);
+	if(canceled) return;
+	
+	map_node_t * node = NULL;
+	
+	if(choice == WORKING_MAP){
+		
+	}else if(choice == WORKING_SET){
+		size_t obj_index = parse_index("Node index",&canceled);
+		if(canceled || !valid_gws_object(gws,obj_index,GWO_NODE,ctx)) return;
+		
+		gwo_t obj = get_gwo_from_gws(gws,obj_index,ctx);
+		node = obj.node;
+	}
+	
+	map_node_to_output_stream(node,0,stdout,ctx);
+	
+	fputs("name",stdout);
+	char * name = read_line();
+	set_map_node_name(node,name,ctx);
+	free(name);
+}
+
 void start_cli(){
 	
 	err_ctx_t err_ctx = create_err_ctx();
+	map_t working_map = init_map();
 	
 	gws_t working_set = init_generic_working_set();
 	
@@ -552,7 +614,13 @@ void start_cli(){
 			size_t n_tokens = 0;
 			char ** tokens = split_into_tokens(lowercase_line,&n_tokens);
 			
-			if(n_tokens == 2){
+			if(n_tokens == 3){
+				if(strcmp(tokens[0],"set") == 0){
+					if(strcmp(tokens[1],"node") == 0 && (strcmp(tokens[2],"property") == 0 || strcmp(tokens[2],"prop") == 0)){
+						set_node_property_command(&working_map,&working_set,&err_ctx);
+					}
+				}
+			}else if(n_tokens == 2){
 				
 				if(strcmp(tokens[0],"create") == 0){
 					if(strcmp(tokens[1],"cord") == 0){
@@ -563,8 +631,14 @@ void start_cli(){
 						create_mpo_command(&working_set,&err_ctx);
 					}else if(strcmp(tokens[1],"node") == 0){
 						create_node_command(&working_set,&err_ctx);
-					}else{
-						fputs("Invalid create option\n",stdout);
+					}
+				}else if(strcmp(tokens[0],"show") == 0){
+					if(strcmp(tokens[1],"map") == 0){
+						show_map_command(working_map,&err_ctx);
+					}
+				}else if(strcmp(tokens[0],"add") == 0){
+					if(strcmp(tokens[1],"node") == 0){
+						add_node_to_map_command(&working_map,&working_set,&err_ctx);
 					}
 				}
 			}else if(n_tokens == 1){
@@ -574,8 +648,6 @@ void start_cli(){
 					if(parse_confirmation("Are you Sure?")) clear_gws_objects(&working_set,&err_ctx);
 					else fputs("Not cleared.\n",stdout);
 				}
-			}else{
-				fputs("Invalid command.\n",stdout);
 			}
 			
 			delete_tokens(tokens,n_tokens);
@@ -588,4 +660,5 @@ void start_cli(){
 	}
 	
 	deinit_generic_working_set(&working_set,&err_ctx);
+	deinit_map(&working_map,&err_ctx);
 }
