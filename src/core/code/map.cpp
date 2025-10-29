@@ -956,7 +956,7 @@ void add_building_to_map(map_t * map,building_t * building,err_ctx_t * ctx){
 	map->n_buildings++;
 }
 
-building_t * get_building_by_index(map_t * map,size_t index,err_ctx_t * ctx){
+building_t * get_building_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx){
 	if(map == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return NULL;
@@ -969,7 +969,7 @@ building_t * get_building_by_index(map_t * map,size_t index,err_ctx_t * ctx){
 	return map->all_buildings[index];
 }
 
-building_t * get_building_by_name(map_t * map, const char * name,err_ctx_t * ctx){
+building_t * get_building_by_name_from_map(map_t * map, const char * name,err_ctx_t * ctx){
 	if(map == NULL || name == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return NULL;
@@ -983,6 +983,40 @@ building_t * get_building_by_name(map_t * map, const char * name,err_ctx_t * ctx
 			
 			if(strcmp(possible_name,name) == 0){
 				return current_building;
+			}
+		}
+	}
+	
+	ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+	
+	return NULL;
+}
+
+mpo_t * get_mpo_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	if(!(index < map->n_mpos)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return NULL;
+	}
+	
+	return map->all_mpos[index];
+}
+
+mpo_t * get_mpo_by_name_from_map(map_t * map,const char * name,err_ctx_t * ctx){
+	if(map == NULL || name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	for(size_t i = 0;i < map->n_mpos;i++){
+		mpo_t * current_mpo = map->all_mpos[i];
+		
+		if(current_mpo->name != NULL){
+			if(strcmp(current_mpo->name,name) == 0){
+				return current_mpo;
 			}
 		}
 	}
@@ -1274,6 +1308,39 @@ static size_t find_node_in_map_by_name(map_t * map,const char * node_name,bool *
 	if(!(*found)) return 0;
 	
 	return matching_index;
+}
+
+map_node_t * get_node_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	if(!(index < map->n_nodes)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return NULL;
+	}
+	
+	return map->all_nodes[index];
+}
+
+map_node_t * get_node_by_name_from_map(map_t * map, const char * name,err_ctx_t * ctx){
+	if(map == NULL || name == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	if(map->n_nodes == 0){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return NULL;
+	}
+	
+	bool found = false;
+	size_t matching_index = find_node_in_map_by_name(map,name,&found);
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return NULL;
+	}
+	
+	return map->all_nodes[matching_index];
 }
 
 void remove_node_by_name_from_map(map_t * map,const char * node_name,err_ctx_t * ctx){
@@ -1575,6 +1642,33 @@ void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index,err_ctx_t * ctx){
 		map->all_mpos[i] = map->all_mpos[i+1];
 	}
 	map->n_mpos--;//shrink array
+}
+
+size_t get_map_node_count(map_t * map,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return 0;
+	}
+	
+	return map->n_nodes;
+}
+
+size_t get_map_mpo_count(map_t * map,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return 0;
+	}
+	
+	return map->n_mpos;
+}
+
+size_t get_map_building_count(map_t * map,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return 0;
+	}
+	
+	return map->n_buildings;
 }
 
 void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name,err_ctx_t * ctx){

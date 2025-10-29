@@ -652,7 +652,26 @@ static map_node_t * fetch_node(map_t * map,gws_t * gws,err_ctx_t * ctx){
 	if(canceled) return NULL;
 	
 	if(choice == WORKING_MAP){
-		//TODO
+		size_t n_options = 2;
+		const char * options[n_options] = {
+			"Find By Name",
+			"Find By Index"
+		};
+		
+		size_t chosen_option = parse_among_options("Choose How to Find Node",options,n_options,&canceled);
+		if(canceled) return NULL;
+		
+		if(chosen_option == 1){
+			fputs("Name of Node ",stdout);
+			char * name = read_line();
+			map_node_t * out = get_node_by_name_from_map(map,name,ctx);
+			free(name);
+			return out;
+		}else if(chosen_option == 2){
+			size_t node_index = parse_index_in_range("Index of Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+			if(canceled) return NULL;
+			return get_node_by_index_from_map(map,node_index,ctx);
+		}
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("Node index",&canceled);
 		if(canceled || !valid_gws_object(gws,obj_index,GWO_NODE,ctx)) return NULL;
@@ -674,7 +693,26 @@ static mpo_t * fetch_mpo(map_t * map,gws_t * gws,err_ctx_t * ctx){
 	if(canceled) return NULL;
 	
 	if(choice == WORKING_MAP){
-		//TODO
+		size_t n_options = 2;
+		const char * options[n_options] = {
+			"Find By Name",
+			"Find By Index"
+		};
+		
+		size_t chosen_option = parse_among_options("Choose How to Find MPO",options,n_options,&canceled);
+		if(canceled) return NULL;
+		
+		if(chosen_option == 1){
+			fputs("Name of MPO ",stdout);
+			char * name = read_line();
+			mpo_t * out = get_mpo_by_name_from_map(map,name,ctx);
+			free(name);
+			return out;
+		}else if(chosen_option == 2){
+			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(map,ctx)-1,&canceled);
+			if(canceled) return NULL;
+			return get_mpo_by_index_from_map(map,mpo_index,ctx);
+		}
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("MPO index",&canceled);
 		if(canceled || !valid_gws_object(gws,obj_index,GWO_MPO,ctx)) return NULL;
@@ -696,7 +734,26 @@ static building_t * fetch_building(map_t * map,gws_t * gws,err_ctx_t * ctx){
 	if(canceled) return NULL;
 	
 	if(choice == WORKING_MAP){
-		//TODO
+		size_t n_options = 2;
+		const char * options[n_options] = {
+			"Find By Name",
+			"Find By Index"
+		};
+		
+		size_t chosen_option = parse_among_options("Choose How to Find Building",options,n_options,&canceled);
+		if(canceled) return NULL;
+		
+		if(chosen_option == 1){
+			fputs("Name of Building ",stdout);
+			char * name = read_line();
+			building_t * out = get_building_by_name_from_map(map,name,ctx);
+			free(name);
+			return out;
+		}else if(chosen_option == 2){
+			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(map,ctx)-1,&canceled);
+			if(canceled) return NULL;
+			return get_building_by_index_from_map(map,building_index,ctx);
+		}
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("Building index",&canceled);
 		if(canceled || !valid_gws_object(gws,obj_index,GWO_BUILDING,ctx)) return NULL;
@@ -752,7 +809,10 @@ static void set_node_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
 		set_map_node_picture(node,file_path,ctx);
 		free(file_path);
 	}else if(chosen_option == 4){
-		//TODO
+		fputs("Select Building\n",stdout);
+		building_t * fetched_building = fetch_building(map,gws,ctx);
+		if(fetched_building == NULL) return;
+		set_map_node_building(node,fetched_building,ctx);
 	}else if(chosen_option == 5){
 		size_t floor_number = parse_index_in_range("Floor Number (0,64)",0,64,&canceled);
 		if(canceled) return;
@@ -915,17 +975,65 @@ static void delete_from_map_command(map_t * map,err_ctx_t * ctx){
 	
 	bool canceled = false;
 	
-	const size_t n_options = 3;
-	const char * options[n_options] = {
+	const size_t n_del_options = 3;
+	const char * del_options[n_del_options] = {
 		"Remove Node",
 		"Remove MPO",
 		"Remove Building"
 	};
 	
-	size_t chosen_option = parse_among_options("Choose what to delete from the map",options,n_options,&canceled);
+	size_t chosen_option = parse_among_options("Choose what to delete from the map",del_options,n_del_options,&canceled);
 	if(canceled) return;
 	
-	//TODO continue work here
+	size_t n_node_delete_options = 2;
+	const char * node_delete_options[n_node_delete_options] = {
+		"Remove By Name",
+		"Remove By Index"
+	};
+	
+	if(chosen_option == 1){
+		chosen_option = parse_among_options("Choose How to Delete Node",node_delete_options,n_node_delete_options,&canceled);
+		if(canceled) return;
+		
+		if(chosen_option == 1){
+			fputs("Node Name ",stdout);
+			char * name = read_line();
+			remove_node_by_name_from_map(map,name,ctx);
+			free(name);
+		}else if(chosen_option == 2){
+			size_t node_index = parse_index_in_range("Index of Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+			if(canceled) return;
+			remove_node_from_map_by_index(map,node_index,ctx);
+		}
+	}else if(chosen_option == 2){
+		chosen_option = parse_among_options("Choose How to Delete MPO",node_delete_options,n_node_delete_options,&canceled);
+		if(canceled) return;
+		
+		if(chosen_option == 1){
+			fputs("MPO Name ",stdout);
+			char * name = read_line();
+			remove_mpo_from_map_by_name(map,name,ctx);
+			free(name);
+		}else if(chosen_option == 2){
+			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(map,ctx)-1,&canceled);
+			if(canceled) return;
+			remove_mpo_from_map_by_index(map,mpo_index,ctx);
+		}
+	}else if(chosen_option == 3){
+		chosen_option = parse_among_options("Choose How to Delete Building",node_delete_options,n_node_delete_options,&canceled);
+		if(canceled) return;
+		
+		if(chosen_option == 1){
+			fputs("Building Name ",stdout);
+			char * name = read_line();
+			remove_building_by_name_from_map(map,name,ctx);
+			free(name);
+		}else if(chosen_option == 2){
+			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(map,ctx)-1,&canceled);
+			if(canceled) return;
+			remove_building_from_map_by_index(map,building_index,ctx);
+		}
+	}
 }
 
 void start_cli(){

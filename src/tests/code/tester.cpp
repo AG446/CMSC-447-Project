@@ -100,36 +100,36 @@ bool basic_map_data_structure_test(bool silent){
 	if(err_encountered(&err_ctx)) return FAIL;
 	
 	building_t * retr;
-	retr =  get_building_by_index(&map,5,&err_ctx);
+	retr =  get_building_by_index_from_map(&map,5,&err_ctx);
 	if(retr != NULL) return FAIL;
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
-	retr =  get_building_by_index(NULL,0,&err_ctx);
+	retr =  get_building_by_index_from_map(NULL,0,&err_ctx);
 	if(retr != NULL) return FAIL;
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
-	retr =  get_building_by_index(&map,0,&err_ctx);
+	retr =  get_building_by_index_from_map(&map,0,&err_ctx);
 	if(retr == NULL) return FAIL;
 	if(retr != cmsc_building) return FAIL;
-	retr =  get_building_by_index(&map,1,&err_ctx);
+	retr =  get_building_by_index_from_map(&map,1,&err_ctx);
 	if(retr == NULL) return FAIL;
 	if(retr != lib_building) return FAIL;
 	
 	if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
 	
-	retr = get_building_by_name(&map,NULL,&err_ctx);
+	retr = get_building_by_name_from_map(&map,NULL,&err_ctx);
 	if(retr != NULL) return FAIL;
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
-	retr = get_building_by_name(NULL,"CMSC",&err_ctx);
+	retr = get_building_by_name_from_map(NULL,"CMSC",&err_ctx);
 	if(retr != NULL) return FAIL;
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
-	retr = get_building_by_name(&map,"NOT CMSC",&err_ctx);
+	retr = get_building_by_name_from_map(&map,"NOT CMSC",&err_ctx);
 	if(retr != NULL) return FAIL;
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
-	retr = get_building_by_name(&map,"CMSC",&err_ctx);
+	retr = get_building_by_name_from_map(&map,"CMSC",&err_ctx);
 	if(retr == NULL) return FAIL;
 	if(err_encountered(&err_ctx)) return FAIL;
 	if(retr != cmsc_building) return FAIL;

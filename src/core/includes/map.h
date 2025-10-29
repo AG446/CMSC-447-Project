@@ -389,10 +389,10 @@ void remove_building_by_name_from_map(map_t * map,const char * name,err_ctx_t * 
 void remove_building_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx);
 
 //get building by index
-building_t * get_building_by_index(map_t * map,size_t index,err_ctx_t * ctx);
+building_t * get_building_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx);
 
 //get building by name
-building_t * get_building_by_name(map_t * map, const char * name,err_ctx_t * ctx);
+building_t * get_building_by_name_from_map(map_t * map, const char * name,err_ctx_t * ctx);
 
 //add node to map
 void add_node_to_map(map_t * map,map_node_t * node,err_ctx_t * ctx);
@@ -405,6 +405,12 @@ void remove_node_by_name_from_map(map_t * map,const char * node_name,err_ctx_t *
 
 //remove node from map by index
 void remove_node_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx);
+
+//get node by index
+map_node_t * get_node_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx);//TODO add tests
+
+//get node by name
+map_node_t * get_node_by_name_from_map(map_t * map, const char * name,err_ctx_t * ctx);//TODO add tests
 
 //connect two nodes in a map
 void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type,err_ctx_t * ctx);
@@ -444,6 +450,21 @@ void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name,err_ctx_t * c
 
 //remove a map polygon object from map by index
 void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index,err_ctx_t * ctx);
+
+//get map polygon object by index
+mpo_t * get_mpo_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx);//TODO add tests
+
+//get map polygon object by name
+mpo_t * get_mpo_by_name_from_map(map_t * map,const char * name,err_ctx_t * ctx);//TODO add tests
+
+//get the number of nodes in the map
+size_t get_map_node_count(map_t * map,err_ctx_t * ctx);//TODO add tests
+
+//get the number of map polygon objects in the map
+size_t get_map_mpo_count(map_t * map,err_ctx_t * ctx);//TODO add tests
+
+//get the number of buildings in the map
+size_t get_map_building_count(map_t * map,err_ctx_t * ctx);//TODO add tests
 
 //Print out a map and all its member data. Tabs value lets you add tabs to every line of output.
 void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx);
