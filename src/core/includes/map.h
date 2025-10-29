@@ -112,6 +112,9 @@ void set_mpo_type(mpo_t * mpo,uint8_t new_type,err_ctx_t * ctx);
 //get the current mpo type
 uint8_t get_mpo_type(const mpo_t * mpo,err_ctx_t * ctx);
 
+//get the size of the mpo
+size_t get_mpo_size(const mpo_t * mpo,err_ctx_t * ctx);//TODO add test
+
 //Give an MPO a name
 void set_mpo_name(mpo_t * mpo,const char * name,err_ctx_t * ctx);
 

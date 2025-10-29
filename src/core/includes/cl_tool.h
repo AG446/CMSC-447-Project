@@ -11,6 +11,7 @@ typedef struct Generic_Working_Set gws_t;
 #define GWO_MPO 2
 #define GWO_RECT 3
 #define GWO_NODE 4
+#define GWO_BUILDING 5
 
 struct Generic_Working_Object{
 	union{
@@ -18,15 +19,17 @@ struct Generic_Working_Object{
 		map_rect_t rect;
 		mpo_t * mpo;
 		map_node_t * node;
+		building_t * building;
 	};
 	uint8_t type;
 };
 
-gwo_t create_blank_gwo();
+gwo_t create_blank_gwo(void);
 gwo_t create_cord_gwo(cord_t cord);
 gwo_t create_map_rect_gwo(map_rect_t rect);
 gwo_t create_mpo_gwo(mpo_t * mpo,err_ctx_t * ctx);
 gwo_t create_node_gwo(map_node_t * node,err_ctx_t * ctx);
+gwo_t create_building_gwo(building_t * building,err_ctx_t * ctx);
 void delete_gwo_data(gwo_t * gwo,err_ctx_t * ctx);
 
 struct Generic_Working_Set{

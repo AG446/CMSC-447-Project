@@ -21,7 +21,7 @@ gwo_t create_map_rect_gwo(map_rect_t rect){
 	return out;
 }
 
-gwo_t create_blank_gwo(){
+gwo_t create_blank_gwo(void){
 	gwo_t out;
 	out.cord = create_cord(0.0,0.0);
 	out.type = 0;
@@ -56,6 +56,20 @@ gwo_t create_node_gwo(map_node_t * node,err_ctx_t * ctx){
 	return out;
 }
 
+gwo_t create_building_gwo(building_t * building,err_ctx_t * ctx){
+	if(building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return create_blank_gwo();
+	}
+	
+	gwo_t out;
+	
+	out.type = GWO_BUILDING;
+	out.building = building;
+	
+	return out;
+}
+
 void delete_gwo_data(gwo_t * gwo,err_ctx_t * ctx){
 	if(gwo == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
@@ -66,6 +80,8 @@ void delete_gwo_data(gwo_t * gwo,err_ctx_t * ctx){
 		delete_mpo(gwo->mpo,ctx);
 	}else if(gwo->type == GWO_NODE){
 		delete_map_node(gwo->node,ctx);
+	}else if(gwo->type == GWO_BUILDING){
+		delete_building(gwo->building,ctx);
 	}
 }
 
@@ -247,7 +263,7 @@ void gws_to_output_stream(const gws_t gws,FILE * stream,err_ctx_t * ctx){
 		return;
 	}
 	
-	fputs("\033[36m### Current Working Set ###\n\033[0m",stream);
+	fputs("\033[36mCurrent Working Set\n\033[0m",stream);
 	
 	if(gws.n_working_objects == 0){
 		fputs("Empty\n",stream);
@@ -264,11 +280,13 @@ void gws_to_output_stream(const gws_t gws,FILE * stream,err_ctx_t * ctx){
 			mpo_to_output_stream(current.mpo,1,stream,ctx);
 		}else if(current.type == GWO_NODE){
 			map_node_to_output_stream(current.node,1,stream,ctx);
+		}else if(current.type == GWO_BUILDING){
+			building_to_output_stream(current.building,1,stream,ctx);
 		}
 	}
 }
 
-char * read_line(){
+char * read_line(void){
 	fputs("\033[93m>\033[0m ",stdout);
 	fflush(stdout);
 	
@@ -293,6 +311,10 @@ char * read_line(){
 	output[current_length] = '\0';
 	
 	return output;
+}
+
+void clear_terminal_screen(void){
+	printf("\e[1;1H\e[2J");
 }
 
 static bool is_halting_string(const char * str){
@@ -371,11 +393,11 @@ static size_t parse_index(const char * title,bool * canceled){
 	return value;
 }
 
-static size_t parse_index_in_range(size_t min,size_t max,bool * canceled){
+static size_t parse_index_in_range(const char * title,size_t min,size_t max,bool * canceled){
 	size_t choice = 0;
 	
 	while(true){
-		choice = parse_index("Choose",canceled);
+		choice = parse_index(title,canceled);
 		if(*canceled) break;
 		
 		if(choice < min || choice > max){
@@ -398,11 +420,51 @@ static bool parse_confirmation(const char * title){
 	return out;
 }
 
+static bool parse_bool(const char * title,bool * canceled){
+	fputs(title,stdout);
+	fputc(' ',stdout);
+	char * choice_string = read_line();
+	
+	c_str_lowercase(choice_string);
+	
+	bool out = false;;
+	if((strcmp(choice_string,"t") == 0) || (strcmp(choice_string,"true") == 0)){
+		out = true;
+	}else if((strcmp(choice_string,"f") == 0) || (strcmp(choice_string,"false") == 0)){
+		out = false;
+	}else{
+		*canceled = true;
+	}
+	
+	free(choice_string);
+	
+	return out;
+}
+
+static size_t parse_among_options(const char * title,const char ** options,size_t n_options,bool * canceled){
+	fputs(title,stdout);
+	fputc('\n',stdout);
+	for(size_t i = 1;i <= n_options;i++){
+		printf("%lu. %s\n",i,options[i-1]);
+	}
+	
+	return parse_index_in_range("Choose",1,n_options,canceled);
+}
+
+static uint8_t parse_mpo_type(bool * canceled){
+	return (uint8_t) parse_among_options("### Choose an MPO type ###",mpo_type_names,N_MPO_TYPES,canceled);
+}
+
+static uint8_t parse_edge_type(bool * canceled){
+	return (uint8_t) parse_among_options("### Choose an Edge type ###",edge_type_names,N_EDGE_TYPES,canceled);
+}
+
 #define WORKING_MAP 1
 #define WORKING_SET 2
 static size_t parse_working_location(bool * canceled){
-	fputs("1. Working Map\n2. Working Set\n",stdout);
-	return parse_index_in_range(1,2,canceled);
+	const char * options[2] = {"Working Map","Working Set"};
+	
+	return parse_among_options("### Choose Where to Find ###",options,2,canceled);
 }
 
 static cord_t parse_cord(bool * canceled){
@@ -457,15 +519,6 @@ static void create_rect_command(gws_t * gws,err_ctx_t * ctx){
 	add_gwo_to_gws(gws,create_map_rect_gwo( create_map_rect(first_obj.cord,second_obj.cord) ),ctx);
 }
 
-static uint8_t parse_mpo_type(bool * canceled){
-	fputs("### Choose an MPO type ###\n",stdout);
-	for(size_t i = 1;i <= N_MPO_TYPES;i++){
-		printf("%lu. %s\n",i,mpo_type_names[i-1]);
-	}
-	
-	return parse_index_in_range(1,N_MPO_TYPES,canceled);
-}
-
 static void create_mpo_command(gws_t * gws,err_ctx_t * ctx){
 	if(gws == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
@@ -473,14 +526,8 @@ static void create_mpo_command(gws_t * gws,err_ctx_t * ctx){
 	}
 	
 	bool canceled = false;
-	size_t n_cords = 0;
-	while(true){
-		n_cords = parse_index("nuumber of cords",&canceled);
-		if(canceled) return;
-		if(n_cords < 3){
-			fputs("Try again.\n",stdout);
-		}else break;
-	}
+	size_t n_cords = parse_index_in_range("Number of Coordinates",3,512,&canceled);
+	if(canceled) return;
 	
 	size_t * obj_indexes = (size_t*) malloc(sizeof(size_t)*n_cords);
 	
@@ -528,15 +575,6 @@ static void create_node_command(gws_t * gws,err_ctx_t * ctx){
 	add_gwo_to_gws(gws,create_node_gwo( create_map_node(removed.cord),ctx),ctx);
 }
 
-static uint8_t parse_edge_type(bool * canceled){
-	fputs("### Choose an Edge type ###\n",stdout);
-	for(size_t i = 1;i <= N_EDGE_TYPES;i++){
-		printf("%lu. %s\n",i,edge_type_names[i-1]);
-	}
-	
-	return parse_index_in_range(1,N_EDGE_TYPES,canceled);
-}
-
 static void delete_command(gws_t * gws,err_ctx_t * ctx){
 	if(gws == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
@@ -557,6 +595,11 @@ static void show_map_command(map_t working_map,err_ctx_t * ctx){
 }
 
 static void add_node_to_map_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
 	bool canceled = false;
 	
 	size_t obj_index = parse_index("Node index",&canceled);
@@ -567,29 +610,192 @@ static void add_node_to_map_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
 	add_node_to_map(map,removed.node,ctx);
 }
 
-static void set_node_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+static map_node_t * fetch_node(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
 	bool canceled = false;
 	size_t choice = parse_working_location(&canceled);
-	if(canceled) return;
-	
-	map_node_t * node = NULL;
+	if(canceled) return NULL;
 	
 	if(choice == WORKING_MAP){
-		
+		//TODO
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("Node index",&canceled);
-		if(canceled || !valid_gws_object(gws,obj_index,GWO_NODE,ctx)) return;
+		if(canceled || !valid_gws_object(gws,obj_index,GWO_NODE,ctx)) return NULL;
 		
 		gwo_t obj = get_gwo_from_gws(gws,obj_index,ctx);
-		node = obj.node;
+		return obj.node;
 	}
+	
+	return NULL;
+}
+
+static mpo_t * fetch_mpo(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	bool canceled = false;
+	size_t choice = parse_working_location(&canceled);
+	if(canceled) return NULL;
+	
+	if(choice == WORKING_MAP){
+		//TODO
+	}else if(choice == WORKING_SET){
+		size_t obj_index = parse_index("MPO index",&canceled);
+		if(canceled || !valid_gws_object(gws,obj_index,GWO_MPO,ctx)) return NULL;
+		
+		gwo_t obj = get_gwo_from_gws(gws,obj_index,ctx);
+		return obj.mpo;
+	}
+	
+	return NULL;
+}
+
+static void set_node_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	map_node_t * node = fetch_node(map,gws,ctx);
+	if(node == NULL) return;
 	
 	map_node_to_output_stream(node,0,stdout,ctx);
 	
-	fputs("name",stdout);
-	char * name = read_line();
-	set_map_node_name(node,name,ctx);
-	free(name);
+	const size_t n_options = 10;
+	const char * options[n_options] = {
+		"Change Coordinate",
+		"Set Name",
+		"Set Picture File Path",
+		"Set Associated Building",
+		"Set Floor Number",
+		"Set Selectable",
+		"Clear Name",
+		"Clear Picture File Path",
+		"Clear Associated Building",
+		"Clear Floor Number"
+	};
+	size_t chosen_option = parse_among_options("Choose which property to edit",options,n_options,&canceled);
+	if(canceled) return;
+	
+	if(chosen_option == 1){
+		cord_t cord = parse_cord(&canceled);
+		if(canceled) return;
+		set_map_node_cord(node,cord,ctx);
+	}else if(chosen_option == 2){
+		fputs("Name ",stdout);
+		char * name = read_line();
+		set_map_node_name(node,name,ctx);
+		free(name);
+	}else if(chosen_option == 3){
+		fputs("Picture Path ",stdout);
+		char * file_path = read_line();
+		set_map_node_picture(node,file_path,ctx);
+		free(file_path);
+	}else if(chosen_option == 4){
+		//TODO
+	}else if(chosen_option == 5){
+		size_t floor_number = parse_index_in_range("Floor Number (0,64)",0,64,&canceled);
+		if(canceled) return;
+		set_map_node_floor_number(node,floor_number,ctx);
+	}else if(chosen_option == 6){
+		bool selectable = parse_bool("Is it selectable (true/false)",&canceled);
+		if(canceled) return;
+		set_map_node_selectable(node,selectable,ctx);
+	}else if(chosen_option == 7){
+		clear_map_node_name(node,ctx);
+	}else if(chosen_option == 8){
+		clear_map_node_picture(node,ctx);
+	}else if(chosen_option == 9){
+		clear_map_node_building(node,ctx);
+	}else if(chosen_option == 10){
+		clear_map_node_floor_number(node,ctx);
+	}
+	
+	map_node_to_output_stream(node,0,stdout,ctx);
+	fputc('\n',stdout);
+}
+
+static void create_building_command(gws_t * gws,err_ctx_t * ctx){
+	if(gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	fputs("Building name ",stdout);
+	char * building_name = read_line();
+	
+	size_t rect_index = parse_index("Bounding Box Rectangle index",&canceled);
+	if(canceled || !valid_gws_object(gws,rect_index,GWO_RECT,ctx)){
+		free(building_name);
+		return;
+	}
+	
+	size_t n_floors = parse_index_in_range("Number of Floors (0,64)",0,64,&canceled);
+	if(canceled){
+		free(building_name);
+		return;
+	}
+	
+	gwo_t removed = remove_gwo_from_gws(gws,rect_index,ctx);
+	map_rect_t building_rect = removed.rect;
+	
+	add_gwo_to_gws(gws,create_building_gwo( create_building(building_name,building_rect,n_floors,ctx),ctx),ctx);
+	
+	free(building_name);
+}
+
+static void set_mpo_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	mpo_t * mpo = fetch_mpo(map,gws,ctx);
+	if(mpo == NULL) return;
+	
+	mpo_to_output_stream(mpo,0,stdout,ctx);
+	
+	const size_t n_options = 4;
+	const char * options[n_options] = {
+		"Edit Coordinate",
+		"Set Name",
+		"Set Type",
+		"Clear Name"
+	};
+	
+	size_t chosen_option = parse_among_options("Choose which property to edit",options,n_options,&canceled);
+	if(canceled) return;
+	
+	if(chosen_option == 1){
+		size_t index = parse_index_in_range("Index To Edit",0,get_mpo_size(mpo,ctx)-1,&canceled);
+		if(canceled) return;
+		cord_t new_cord = parse_cord(&canceled);
+		if(canceled) return;
+		set_mpo_cord(mpo,index,new_cord,ctx);
+	}else if(chosen_option == 2){
+		fputs("Name ",stdout);
+		char * name = read_line();
+		set_mpo_name(mpo,name,ctx);
+		free(name);
+	}else if(chosen_option == 3){
+		uint8_t mpo_type = parse_mpo_type(&canceled);
+		if(canceled) return;
+		set_mpo_type(mpo,mpo_type,ctx);
+	}else if(chosen_option == 4){
+		clear_mpo_name(mpo,ctx);
+	}
+	
+	mpo_to_output_stream(mpo,0,stdout,ctx);
+	fputc('\n',stdout);
 }
 
 void start_cli(){
@@ -601,6 +807,7 @@ void start_cli(){
 	
 	bool running = true;
 	while(running){
+		//clear_terminal_screen();
 		gws_to_output_stream(working_set,stdout,&err_ctx);
 		
 		char * line = read_line();
@@ -618,6 +825,8 @@ void start_cli(){
 				if(strcmp(tokens[0],"set") == 0){
 					if(strcmp(tokens[1],"node") == 0 && (strcmp(tokens[2],"property") == 0 || strcmp(tokens[2],"prop") == 0)){
 						set_node_property_command(&working_map,&working_set,&err_ctx);
+					}else if(strcmp(tokens[1],"mpo") == 0 && (strcmp(tokens[2],"property") == 0 || strcmp(tokens[2],"prop") == 0)){
+						set_mpo_property_command(&working_map,&working_set,&err_ctx);
 					}
 				}
 			}else if(n_tokens == 2){
@@ -631,6 +840,8 @@ void start_cli(){
 						create_mpo_command(&working_set,&err_ctx);
 					}else if(strcmp(tokens[1],"node") == 0){
 						create_node_command(&working_set,&err_ctx);
+					}else if(strcmp(tokens[1],"building") == 0 || strcmp(tokens[1],"build") == 0){
+						create_building_command(&working_set,&err_ctx);
 					}
 				}else if(strcmp(tokens[0],"show") == 0){
 					if(strcmp(tokens[1],"map") == 0){
@@ -657,6 +868,11 @@ void start_cli(){
 		
 		errs_to_output_stream(&err_ctx,stdout);
 		reset_err_ctx(&err_ctx);
+		
+		if(running){
+			fputs("Press ENTER to continue\n",stdout);
+			getc(stdin);
+		}
 	}
 	
 	deinit_generic_working_set(&working_set,&err_ctx);

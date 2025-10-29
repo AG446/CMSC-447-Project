@@ -845,6 +845,15 @@ uint8_t get_mpo_type(const mpo_t * mpo,err_ctx_t * ctx){
 	return mpo->type;
 }
 
+size_t get_mpo_size(const mpo_t * mpo,err_ctx_t * ctx){
+	if(mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return 0;
+	}
+	
+	return mpo->n_cords;
+}
+
 void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord,err_ctx_t * ctx){
 	if(mpo == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
