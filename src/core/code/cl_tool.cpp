@@ -610,6 +610,38 @@ static void add_node_to_map_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
 	add_node_to_map(map,removed.node,ctx);
 }
 
+static void add_mpo_to_map_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	size_t obj_index = parse_index("MPO index",&canceled);
+	if(canceled || !valid_gws_object(gws,obj_index,GWO_MPO,ctx)) return;
+	
+	gwo_t removed = remove_gwo_from_gws(gws,obj_index,ctx);
+	
+	add_mpo_to_map(map,removed.mpo,ctx);
+}
+
+static void add_building_to_map_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	size_t obj_index = parse_index("Building index",&canceled);
+	if(canceled || !valid_gws_object(gws,obj_index,GWO_BUILDING,ctx)) return;
+	
+	gwo_t removed = remove_gwo_from_gws(gws,obj_index,ctx);
+	
+	add_building_to_map(map,removed.building,ctx);
+}
+
 static map_node_t * fetch_node(map_t * map,gws_t * gws,err_ctx_t * ctx){
 	if(map == NULL || gws == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
@@ -649,6 +681,28 @@ static mpo_t * fetch_mpo(map_t * map,gws_t * gws,err_ctx_t * ctx){
 		
 		gwo_t obj = get_gwo_from_gws(gws,obj_index,ctx);
 		return obj.mpo;
+	}
+	
+	return NULL;
+}
+
+static building_t * fetch_building(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	bool canceled = false;
+	size_t choice = parse_working_location(&canceled);
+	if(canceled) return NULL;
+	
+	if(choice == WORKING_MAP){
+		//TODO
+	}else if(choice == WORKING_SET){
+		size_t obj_index = parse_index("Building index",&canceled);
+		if(canceled || !valid_gws_object(gws,obj_index,GWO_BUILDING,ctx)) return NULL;
+		
+		gwo_t obj = get_gwo_from_gws(gws,obj_index,ctx);
+		return obj.building;
 	}
 	
 	return NULL;
@@ -718,7 +772,6 @@ static void set_node_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
 	}
 	
 	map_node_to_output_stream(node,0,stdout,ctx);
-	fputc('\n',stdout);
 }
 
 static void create_building_command(gws_t * gws,err_ctx_t * ctx){
@@ -795,7 +848,84 @@ static void set_mpo_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
 	}
 	
 	mpo_to_output_stream(mpo,0,stdout,ctx);
-	fputc('\n',stdout);
+}
+
+
+static void set_building_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
+	if(map == NULL || gws == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	building_t * building = fetch_building(map,gws,ctx);
+	if(building == NULL) return;
+	
+	building_to_output_stream(building,0,stdout,ctx);
+	
+	const size_t n_options = 5;
+	const char * options[n_options] = {
+		"Change Bounding Box",
+		"Add alias name",
+		"Remove alias name",
+		"Change Primary Name",
+		"Set Floor Count"
+	};
+	
+	size_t chosen_option = parse_among_options("Choose which property to edit",options,n_options,&canceled);
+	if(canceled) return;
+	
+	if(chosen_option == 1){
+		size_t rect_index = parse_index("Bounding Box Rectangle index",&canceled);
+		if(canceled || !valid_gws_object(gws,rect_index,GWO_RECT,ctx)) return;
+		gwo_t removed = remove_gwo_from_gws(gws,rect_index,ctx);
+		map_rect_t bounding_box = removed.rect;
+		
+		set_building_bounding_box(building,bounding_box,ctx);
+	}else if(chosen_option == 2){
+		fputs("Alias Name ",stdout);
+		char * alias_name = read_line();
+		add_building_alias_name(building,alias_name,ctx);
+		free(alias_name);
+	}else if(chosen_option == 3){
+		fputs("Name to remove ",stdout);
+		char * name = read_line();
+		remove_building_alias_name(building,name,ctx);
+		free(name);
+	}else if(chosen_option == 4){
+		fputs("Primary Name ",stdout);
+		char * name = read_line();
+		change_primary_building_name(building,name,ctx);
+		free(name);
+	}else if(chosen_option == 5){
+		size_t n_floors = parse_index_in_range("Number of Floors (0,64)",0,64,&canceled);
+		if(canceled) return;
+		set_building_floor_count(building,n_floors,ctx);
+	}
+	
+	building_to_output_stream(building,0,stdout,ctx);
+}
+
+static void delete_from_map_command(map_t * map,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	const size_t n_options = 3;
+	const char * options[n_options] = {
+		"Remove Node",
+		"Remove MPO",
+		"Remove Building"
+	};
+	
+	size_t chosen_option = parse_among_options("Choose what to delete from the map",options,n_options,&canceled);
+	if(canceled) return;
+	
+	//TODO continue work here
 }
 
 void start_cli(){
@@ -827,6 +957,8 @@ void start_cli(){
 						set_node_property_command(&working_map,&working_set,&err_ctx);
 					}else if(strcmp(tokens[1],"mpo") == 0 && (strcmp(tokens[2],"property") == 0 || strcmp(tokens[2],"prop") == 0)){
 						set_mpo_property_command(&working_map,&working_set,&err_ctx);
+					}else if((strcmp(tokens[1],"building") == 0 || strcmp(tokens[1],"build") == 0) && (strcmp(tokens[2],"property") == 0 || strcmp(tokens[2],"prop") == 0)){
+						set_building_property_command(&working_map,&working_set,&err_ctx);
 					}
 				}
 			}else if(n_tokens == 2){
@@ -850,7 +982,13 @@ void start_cli(){
 				}else if(strcmp(tokens[0],"add") == 0){
 					if(strcmp(tokens[1],"node") == 0){
 						add_node_to_map_command(&working_map,&working_set,&err_ctx);
+					}else if(strcmp(tokens[1],"mpo") == 0){
+						add_mpo_to_map_command(&working_map,&working_set,&err_ctx);
+					}else if(strcmp(tokens[1],"building") == 0 || strcmp(tokens[1],"build") == 0){
+						add_building_to_map_command(&working_map,&working_set,&err_ctx);
 					}
+				}else if(strcmp(tokens[0],"map") == 0 && is_deleting_string(tokens[1])){
+					delete_from_map_command(&working_map,&err_ctx);
 				}
 			}else if(n_tokens == 1){
 				if(is_deleting_string(tokens[0])){
