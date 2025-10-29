@@ -404,34 +404,34 @@ void remove_node_by_name_from_map(map_t * map,const char * node_name,err_ctx_t *
 void remove_node_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx);
 
 //connect two nodes in a map
-void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type);
+void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type,err_ctx_t * ctx);
 
 //connect two nodes in a map by their index
-void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type);
+void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type,err_ctx_t * ctx);
 
 //connect two nodes in a map by their names
-void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type);
+void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type,err_ctx_t * ctx);
 
 //disconnect two nodes in a map
-void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b);
+void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,err_ctx_t * ctx);
 
 //disconnect two nodes in a map by their index
-void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b);
+void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,err_ctx_t * ctx);
 
 //disconnect two nodes in map by their names
-void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b);
+void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,err_ctx_t * ctx);
 
 //change the connection edge type by their index
-void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t new_edge_type);
+void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t new_edge_type,err_ctx_t * ctx);
 
 //change the connection edge type
-void set_connection_type_for_nodes(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type);
+void set_connection_type_for_nodes(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type,err_ctx_t * ctx);
 
 //change the connection edge type by name
-void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const char * node_b,uint8_t new_edge_type);
+void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const char * node_b,uint8_t new_edge_type,err_ctx_t * ctx);
 
 //add a map polygon object to the map
-void add_mpo_to_map(map_t * map,mpo_t * mpo);
+void add_mpo_to_map(map_t * map,mpo_t * mpo,err_ctx_t * ctx);
 
 //remove a map polygon object from the map
 void remove_mpo_from_map(map_t * map,mpo_t * mpo,err_ctx_t * ctx);
@@ -443,7 +443,7 @@ void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name,err_ctx_t * c
 void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index,err_ctx_t * ctx);
 
 //Print out a map and all its member data. Tabs value lets you add tabs to every line of output.
-void map_to_output_stream(map_t map,size_t tabs,FILE * stream);
+void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx);
 
 struct Map_Path{
 	map_node_t ** nodes;//ordered list that defines a path, does not own nodes

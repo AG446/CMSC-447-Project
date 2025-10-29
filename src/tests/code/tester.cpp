@@ -14,7 +14,7 @@ test_func_t func_table[N_TESTS] = {
 	{mpo_data_structure_test,"Map polygon object data structure test",SILENT},
 	{map_node_data_structure_test,"Map node data structure test",SILENT},
 	{map_edge_data_structure_test,"Map edge data structure test",SILENT},
-	{basic_map_data_structure_test,"Basic map data structure test",VERBOSE}
+	{basic_map_data_structure_test,"Basic map data structure test",SILENT}
 };
 
 int main(){
@@ -31,11 +31,233 @@ int main(){
 			fputs("\033[31mFAIL\033[0m\n",stdout);
 		}
 	}
-	do_thing();
+	//do_thing();
 	//start_cli();
 }
 
 bool basic_map_data_structure_test(bool silent){
+	err_ctx_t err_ctx = create_err_ctx();
+	
+	map_t map = init_map();
+	
+	building_t * math_building = create_building("MATH",create_map_rect(create_cord(1,-1),create_cord(5,3)),3,&err_ctx);
+	add_building_to_map(NULL,math_building,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	add_building_to_map(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	add_building_to_map(&map,math_building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	building_t * lib_building = create_building("LIB",create_map_rect(create_cord(5,7),create_cord(6,9)),3,&err_ctx);
+	add_building_to_map(&map,lib_building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	building_t * cmsc_building = create_building("CMSC",create_map_rect(create_cord(5,7),create_cord(6,9)),3,&err_ctx);
+	add_building_alias_name(cmsc_building,"Computer Science",&err_ctx);
+	add_building_to_map(&map,cmsc_building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+	
+	remove_building_from_map(NULL,lib_building,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_building_from_map(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_building_from_map(&map,lib_building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	remove_building_by_name_from_map(NULL,"Computer Science",&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_building_by_name_from_map(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_building_by_name_from_map(&map,"Computer Science",&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+	
+	
+	cmsc_building = create_building("CMSC",create_map_rect(create_cord(5,7),create_cord(6,9)),3,&err_ctx);
+	add_building_to_map(&map,cmsc_building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	lib_building = create_building("LIB",create_map_rect(create_cord(5,7),create_cord(6,9)),3,&err_ctx);
+	add_building_to_map(&map,lib_building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	remove_building_from_map_by_index(&map,5,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_building_from_map_by_index(NULL,0,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_building_from_map_by_index(&map,0,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	building_t * retr;
+	retr =  get_building_by_index(&map,5,&err_ctx);
+	if(retr != NULL) return FAIL;
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	retr =  get_building_by_index(NULL,0,&err_ctx);
+	if(retr != NULL) return FAIL;
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	retr =  get_building_by_index(&map,0,&err_ctx);
+	if(retr == NULL) return FAIL;
+	if(retr != cmsc_building) return FAIL;
+	retr =  get_building_by_index(&map,1,&err_ctx);
+	if(retr == NULL) return FAIL;
+	if(retr != lib_building) return FAIL;
+	
+	if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+	
+	retr = get_building_by_name(&map,NULL,&err_ctx);
+	if(retr != NULL) return FAIL;
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	retr = get_building_by_name(NULL,"CMSC",&err_ctx);
+	if(retr != NULL) return FAIL;
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	retr = get_building_by_name(&map,"NOT CMSC",&err_ctx);
+	if(retr != NULL) return FAIL;
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	retr = get_building_by_name(&map,"CMSC",&err_ctx);
+	if(retr == NULL) return FAIL;
+	if(err_encountered(&err_ctx)) return FAIL;
+	if(retr != cmsc_building) return FAIL;
+	
+	map_node_t * node_a = create_map_node(create_cord(2,3));
+	set_map_node_name(node_a,"A",&err_ctx);
+	set_map_node_building(node_a,lib_building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	add_node_to_map(NULL,node_a,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	add_node_to_map(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	add_node_to_map(&map,node_a,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	map_node_t * node_b = create_map_node(create_cord(5,6));
+	set_map_node_name(node_b,"B",&err_ctx);
+	add_node_to_map(&map,node_b,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	map_node_t * node_c = create_map_node(create_cord(5,6));
+	set_map_node_name(node_c,"C",&err_ctx);
+	add_node_to_map(&map,node_c,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+	
+	remove_node_from_map(NULL,node_b,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_node_from_map(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_node_from_map(&map,node_b,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	remove_node_by_name_from_map(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_node_by_name_from_map(NULL,"C",&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_node_by_name_from_map(&map,"C",&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	remove_building_from_map(&map,lib_building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	remove_node_from_map_by_index(&map,5,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_node_from_map_by_index(NULL,0,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_node_from_map_by_index(&map,0,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+	
+	const cord_t square[4] = {create_cord(0,0),create_cord(0,1),create_cord(1,1),create_cord(1,0)};
+	mpo_t * mpo_a = create_mpo(square,4,MPO_TYPE_TREE,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	add_mpo_to_map(NULL,mpo_a,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	add_mpo_to_map(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	add_mpo_to_map(&map,mpo_a,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	const cord_t triangle[3] = {create_cord(0,0),create_cord(1,0),create_cord(0.5,1)};
+	mpo_t * mpo_b = create_mpo(triangle,3,MPO_TYPE_WATER,&err_ctx);
+	set_mpo_name(mpo_b,"B",&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	add_mpo_to_map(&map,mpo_b,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	const cord_t diaomond[4] = {create_cord(0.5,0),create_cord(1,0.5),create_cord(0.5,1),create_cord(0,0.5)};
+	mpo_t * mpo_c = create_mpo(diaomond,4,MPO_TYPE_BUILDING,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	add_mpo_to_map(&map,mpo_c,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+	
+	remove_mpo_from_map(NULL,mpo_a,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_mpo_from_map(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_mpo_from_map(&map,mpo_a,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	remove_mpo_from_map_by_name(NULL,"B",&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_mpo_from_map_by_name(&map,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_mpo_from_map_by_name(&map,"B",&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	remove_mpo_from_map_by_index(NULL,0,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_mpo_from_map_by_index(&map,5,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	remove_mpo_from_map_by_index(&map,0,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+	
+	map_to_output_stream(map,0,NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	
+	deinit_map(NULL,&err_ctx);
+	if(!err_encountered(&err_ctx)) return FAIL;
+	reset_err_ctx(&err_ctx);
+	deinit_map(&map,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
 	
 	return PASS;
 }

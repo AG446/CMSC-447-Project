@@ -15,12 +15,29 @@ struct Testable_Func{//dont re-order this please
 	bool silent;
 };
 
+//check if the fuzzy token matching algorithms work as intended
 bool token_matching_test(bool silent);
+
+//check if the fuzzy phrase matching algorithms work as intended
 bool phrase_matching_test(bool silent);
+
+//test all the functions related to the building object
 bool building_data_structure_test(bool silent);
+
+//test all the functions related to the map polygon object
 bool mpo_data_structure_test(bool silent);
+
+//test all the functions related to the map node object
 bool map_node_data_structure_test(bool silent);
+
+//test all the functions related to the map edge object
 bool map_edge_data_structure_test(bool silent);
+
+/*
+ * Test all the basic functions related to the map object.
+ * Test adding and remmoval of objects within the map and testing 
+ * simple property retreival related stuff.
+ */
 bool basic_map_data_structure_test(bool silent);
 
 #endif

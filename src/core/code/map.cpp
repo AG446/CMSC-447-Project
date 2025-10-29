@@ -564,7 +564,7 @@ void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream
 	
 	put_multitab(tabs,stream);
 	fprintf(stream,"Map-Node %p:\n",node);
-	cord_to_output_stream(node->coordinate,tabs+1,stream,NULL);//TODO add error context
+	cord_to_output_stream(node->coordinate,tabs+1,stream,ctx);
 	
 	if(node->name != NULL){
 		put_multitab(tabs,stream);
@@ -596,7 +596,7 @@ void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream
 		put_multitab(tabs,stream);
 		fputs("\tAssociated Building:\n",stream);
 		put_multitab(tabs,stream);
-		fprintf(stream,"\t\t%s\n",get_primary_building_name(node->associated_building,NULL));//TODO add error context
+		fprintf(stream,"\t\t%s\n",get_primary_building_name(node->associated_building,ctx));
 	}
 	
 	if(node->n_outgoing_edges > 0){
@@ -1103,11 +1103,17 @@ void add_node_to_map(map_t * map,map_node_t * node,err_ctx_t * ctx){
 	map->n_nodes++;
 }
 
-static void remove_edge_from_map_by_index(map_t * map,size_t index){
-	if(map == NULL) return;
-	if(!(index < map->n_edges)) return;
+static void remove_edge_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(!(index < map->n_edges)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;
+	}
 	
-	delete_map_edge(map->all_edges[index],NULL);//TODO add context
+	delete_map_edge(map->all_edges[index],ctx);
 	
 	//shift over data
 	for(size_t i = index;i < map->n_edges-1;i++){
@@ -1133,9 +1139,15 @@ static void add_edge_to_map(map_t * map,map_edge_t * edge){
 	map->n_edges++;
 }
 
-static void remove_edge_from_map(map_t * map,map_edge_t * edge){
-	if(map == NULL || edge == NULL) return;
-	if(map->n_edges == 0) return;
+static void remove_edge_from_map(map_t * map,map_edge_t * edge,err_ctx_t * ctx){
+	if(map == NULL || edge == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if(map->n_edges == 0){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
 	bool found = false;
 	size_t matching_index = 0;
@@ -1151,9 +1163,12 @@ static void remove_edge_from_map(map_t * map,map_edge_t * edge){
 		}
 	}
 	
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	remove_edge_from_map_by_index(map,matching_index);
+	remove_edge_from_map_by_index(map,matching_index,ctx);
 }
 
 void remove_node_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx){
@@ -1178,7 +1193,7 @@ void remove_node_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx){
 			remove_outgoing_edge_from_node(outgoing_edge->a,outgoing_edge);
 		}
 		
-		remove_edge_from_map(map,outgoing_edge);
+		remove_edge_from_map(map,outgoing_edge,ctx);
 	}
 	
 	//delete the node
@@ -1272,49 +1287,95 @@ void remove_node_by_name_from_map(map_t * map,const char * node_name,err_ctx_t *
 	remove_node_from_map_by_index(map,matching_index,ctx);
 }
 
-void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type){
-	if(map == NULL) return;//invalid parameters
-	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))) return;//out of bounds
-	if(index_a == index_b) return;//dont connect nodes to themselves
+void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;
+	}
+	if(index_a == index_b){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;//dont connect nodes to themselves
+	}
 	
 	map_node_t * node_a = map->all_nodes[index_a];
 	map_node_t * node_b = map->all_nodes[index_b];
 	
-	map_edge_t * new_edge = create_map_edge(edge_type,node_a,node_b,NULL);//TODO add error context
+	map_edge_t * new_edge = create_map_edge(edge_type,node_a,node_b,ctx);
 	
 	add_edge_to_map(map,new_edge);
 }
 
-void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type){
-	if(map == NULL || node_a == NULL || node_b == NULL) return;
+void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type,err_ctx_t * ctx){
+	if(map == NULL || node_a == NULL || node_b == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	if(node_a == node_b){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
 	
 	bool found = false;
 	size_t node_a_index = find_node_in_map_by_pointer(map,node_a,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	found = false;
 	size_t node_b_index = find_node_in_map_by_pointer(map,node_b,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	connect_nodes_in_map_by_indices(map,node_a_index,node_b_index,edge_type);
+	connect_nodes_in_map_by_indices(map,node_a_index,node_b_index,edge_type,ctx);
 }
 
-void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type){
-	if(map == NULL || node_a == NULL || node_b == NULL) return;
+void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type,err_ctx_t * ctx){
+	if(map == NULL || node_a == NULL || node_b == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	if(strcmp(node_a,node_b) == 0){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
 	
 	bool found = false;
 	size_t node_a_index = find_node_in_map_by_name(map,node_a,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	found = false;
 	size_t node_b_index = find_node_in_map_by_name(map,node_b,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	connect_nodes_in_map_by_indices(map,node_a_index,node_b_index,edge_type);
+	connect_nodes_in_map_by_indices(map,node_a_index,node_b_index,edge_type,ctx);
 }
 
-void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b){
-	if(map == NULL) return;
-	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))) return;//out of bounds
-	if(index_a == index_b) return;//cant disconnet from ourselves
+void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;
+	}
+	if(index_a == index_b){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
 	
 	map_node_t * node_a = map->all_nodes[index_a];
 	map_node_t * node_b = map->all_nodes[index_b];
@@ -1325,42 +1386,79 @@ void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_
 		if(current_edge->a == node_b || current_edge->b == node_b){
 			remove_outgoing_edge_from_node_by_index(node_a,i);
 			remove_outgoing_edge_from_node(node_b,current_edge);
-			remove_edge_from_map(map,current_edge);
+			remove_edge_from_map(map,current_edge,ctx);
 			return;
 		}
 	}
 }
 
-void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b){
-	if(map == NULL || node_a == NULL || node_b == NULL) return;
+void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,err_ctx_t * ctx){
+	if(map == NULL || node_a == NULL || node_b == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	if(node_a == node_b){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
 	
 	bool found = false;
 	size_t node_a_index = find_node_in_map_by_pointer(map,node_a,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	found = false;
 	size_t node_b_index = find_node_in_map_by_pointer(map,node_b,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	disconnect_nodes_in_map_by_indices(map,node_a_index,node_b_index);
+	disconnect_nodes_in_map_by_indices(map,node_a_index,node_b_index,ctx);
 }
 
-void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b){
-	if(map == NULL || node_a == NULL || node_b == NULL) return;
+void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,err_ctx_t * ctx){
+	if(map == NULL || node_a == NULL || node_b == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	if(strcmp(node_a,node_b) == 0){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
 	
 	bool found = false;
 	size_t node_a_index = find_node_in_map_by_name(map,node_a,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	found = false;
 	size_t node_b_index = find_node_in_map_by_name(map,node_b,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	disconnect_nodes_in_map_by_indices(map,node_a_index,node_b_index);
+	disconnect_nodes_in_map_by_indices(map,node_a_index,node_b_index,ctx);
 }
 
-void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t new_edge_type){
-	if(map == NULL) return;
-	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))) return;//out of bounds
-	if(index_a == index_b) return;
+void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t new_edge_type,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	if( (!(index_a < map->n_nodes)) || (!(index_b < map->n_nodes))){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return;
+	}
+	if(index_a == index_b){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
 	
 	map_node_t * node_a = map->all_nodes[index_a];
 	map_node_t * node_b = map->all_nodes[index_b];
@@ -1375,34 +1473,64 @@ void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t 
 	}
 }
 
-void set_connection_type_for_nodes(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type){
-	if(map == NULL || node_a == NULL || node_b == NULL) return;
+void set_connection_type_for_nodes(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type,err_ctx_t * ctx){
+	if(map == NULL || node_a == NULL || node_b == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	if(node_a == node_b){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
 	
 	bool found = false;
 	size_t node_a_index = find_node_in_map_by_pointer(map,node_a,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	found = false;
 	size_t node_b_index = find_node_in_map_by_pointer(map,node_b,&found);
-	if(!found) return;
-	
-	set_connection_type_for_nodes_by_indices(map,node_a_index,node_b_index,new_edge_type);
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
+	set_connection_type_for_nodes_by_indices(map,node_a_index,node_b_index,new_edge_type,ctx);
 }
 
-void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const char * node_b,uint8_t new_edge_type){
-	if(map == NULL || node_a == NULL || node_b == NULL) return;
+void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const char * node_b,uint8_t new_edge_type,err_ctx_t * ctx){
+	if(map == NULL || node_a == NULL || node_b == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	if(strcmp(node_a,node_b) == 0){
+		ctx->flags |= ERROR_DUPLICATE_PARAMETER;
+		return;
+	}
 	
 	bool found = false;
 	size_t node_a_index = find_node_in_map_by_name(map,node_a,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	found = false;
 	size_t node_b_index = find_node_in_map_by_name(map,node_b,&found);
-	if(!found) return;
+	if(!found){
+		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
+		return;
+	}
 	
-	set_connection_type_for_nodes_by_indices(map,node_a_index,node_b_index,new_edge_type);
+	set_connection_type_for_nodes_by_indices(map,node_a_index,node_b_index,new_edge_type,ctx);
 }
 
-void add_mpo_to_map(map_t * map,mpo_t * mpo){
-	if(map == NULL || mpo == NULL) return;
+void add_mpo_to_map(map_t * map,mpo_t * mpo,err_ctx_t * ctx){
+	if(map == NULL || mpo == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	if(map->all_mpos == NULL){
 		map->mpo_capacity = DEFAULT_MPO_CAPACITY;
@@ -1497,8 +1625,11 @@ void remove_mpo_from_map(map_t * map,mpo_t * mpo,err_ctx_t * ctx){
 	remove_mpo_from_map_by_index(map,matching_index,ctx);
 }
 
-void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
-	if(stream == NULL) return;
+void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx){
+	if(stream == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
 	
 	put_multitab(tabs,stream);
 	fputs("Map:\n",stream);
@@ -1514,7 +1645,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
 	for(size_t i = 0;i < map.n_nodes;i++){
 		put_multitab(tabs,stream);
 		fprintf(stream,"\t\t%lu\n",i);
-		map_node_to_output_stream(map.all_nodes[i],tabs+2,stream,NULL);//TODO add error context
+		map_node_to_output_stream(map.all_nodes[i],tabs+2,stream,ctx);
 	}
 	
 	put_multitab(tabs,stream);
@@ -1527,7 +1658,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
 	for(size_t i = 0;i < map.n_edges;i++){
 		put_multitab(tabs,stream);
 		fprintf(stream,"\t\t%lu\n",i);
-		map_edge_to_output_stream(map.all_edges[i],tabs+2,stream,NULL);//TODO add error context
+		map_edge_to_output_stream(map.all_edges[i],tabs+2,stream,ctx);
 	}
 	
 	put_multitab(tabs,stream);
@@ -1540,7 +1671,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
 	for(size_t i = 0;i < map.n_buildings;i++){
 		put_multitab(tabs,stream);
 		fprintf(stream,"\t\t%lu\n",i);
-		building_to_output_stream(map.all_buildings[i],tabs+2,stream,NULL);//TODO add error context
+		building_to_output_stream(map.all_buildings[i],tabs+2,stream,ctx);
 	}
 	
 	put_multitab(tabs,stream);
@@ -1553,7 +1684,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream){
 	for(size_t i = 0;i < map.n_mpos;i++){
 		put_multitab(tabs,stream);
 		fprintf(stream,"\t\t%lu\n",i);
-		mpo_to_output_stream(map.all_mpos[i],tabs+2,stream,NULL);//TODO add error context
+		mpo_to_output_stream(map.all_mpos[i],tabs+2,stream,ctx);
 	}
 }
 
@@ -1573,7 +1704,7 @@ void do_thing(){
 	cord_t cord_arr[4] = {create_cord(0,0), create_cord(0,1), create_cord(1,1), create_cord(1,0) };
 	mpo_t * square_mpo = create_mpo(cord_arr,4,MPO_TYPE_WATER,&ctx);
 	set_mpo_name(square_mpo,"Square Lake",&ctx);
-	add_mpo_to_map(&map,square_mpo);
+	add_mpo_to_map(&map,square_mpo,&ctx);
 	
 	add_building_to_map(&map,building_a,&ctx);
 	
@@ -1586,19 +1717,19 @@ void do_thing(){
 	set_map_node_name(b,"Node B",&ctx);
 	add_node_to_map(&map,b,&ctx);
 	
-	connect_nodes_in_map(&map,a,b,EDGE_TYPE_CROSSWALK);
+	connect_nodes_in_map(&map,a,b,EDGE_TYPE_CROSSWALK,&ctx);
 	
 	map_node_t * c = create_map_node(create_cord(-1,-3));
 	set_map_node_name(c,"Node C",&ctx);
 	add_node_to_map(&map,c,&ctx);
 	
-	connect_nodes_in_map_by_names(&map,"Node A","Node C",EDGE_TYPE_STAIRS);
+	connect_nodes_in_map_by_names(&map,"Node A","Node C",EDGE_TYPE_STAIRS,&ctx);
 	
-	map_to_output_stream(map,0,stdout);
+	map_to_output_stream(map,0,stdout,&ctx);
 	
 	remove_node_from_map(&map,a,&ctx);
 	
-	map_to_output_stream(map,0,stdout);
+	map_to_output_stream(map,0,stdout,&ctx);
 	deinit_map(&map,&ctx);
 }
 
