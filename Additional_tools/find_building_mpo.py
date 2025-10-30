@@ -25,12 +25,14 @@ def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
     while queue:
         #gets current corrd we are checking
         x, y = queue.popleft()
-        #adds the cords to the mpo_cords list since this cord is vaild
-        mpo_cords.append((x,y))
+
         if (x,y) != start_cord:
             r, g, b = pixels[x, y]
             if r > color_threshold and r > g and r > b:
+                mpo_cords.append((x,y))
                 return
+            elif  g > color_threshold and g > r and g > b:
+                mpo_cords.append((x,y))
         #add cord to visited so we dont check again
         visited.add((x, y))
         counter +=1
@@ -52,8 +54,9 @@ def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
                             r, g, b = pixels[next_x, next_y]
                             is_blue = b > color_threshold and b > g and b > r
                             is_red = r > color_threshold and r > g and r > b
+                            is_green = g > color_threshold and g > r and g > b
                             # Check if the neighbor is a valid blue or red pixel
-                            if is_blue or is_red:
+                            if is_blue or is_red or is_green:
                                 queue.append((next_x, next_y))
     return
 
@@ -93,6 +96,7 @@ if __name__ == "__main__":
                     #array of tuples that holds the cords of the building mpo(map polygram object)
                     #array that stores the coords for each mpo
                     mpo_cords = []
+                    mpo_cords.append(curr_cord)
                     find_blue(pixels, color_threshold, width, height, mpo_cords, curr_cord)
                     mpo_list.append(mpo_cords)
 
