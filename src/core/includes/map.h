@@ -142,6 +142,9 @@ struct Building{
 	size_t n_possible_names;
 	size_t possible_names_capacity;
 	
+	//a temporary index which is used for file saving purposes
+	size_t index_temp;
+	
 	//The number of floors in that building.
 	uint8_t n_floors;
 };

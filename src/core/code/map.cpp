@@ -115,6 +115,7 @@ building_t * create_building(const char * primary_name,map_rect_t building_bound
 	out->n_possible_names = 0;
 	out->possible_names = NULL;
 	out->building_bounding_box = building_bounding_box;
+	out->index_temp = 0;
 	
 	add_building_alias_name(out,primary_name,ctx);
 	

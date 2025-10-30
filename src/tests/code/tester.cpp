@@ -5,11 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include "map_serial.h"
 
-#define N_TESTS 7
+#define N_TESTS 8
 test_func_t func_table[N_TESTS] = {
 	{token_matching_test,"Token matching test",SILENT},
 	{phrase_matching_test,"Phrase matching test",SILENT},
+	{basic_serialization_test,"Basic serialization test",VERBOSE},
 	{building_data_structure_test,"Building data structure test",SILENT},
 	{mpo_data_structure_test,"Map polygon object data structure test",SILENT},
 	{map_node_data_structure_test,"Map node data structure test",SILENT},
@@ -32,7 +34,85 @@ int main(){
 		}
 	}
 	//do_thing();
-	start_cli();
+	//start_cli();
+}
+
+static void print_bytes(uint8_t * bytes,size_t n_bytes){
+	for(size_t i = 0;i < n_bytes;i++){
+		printf("%X ",bytes[i]);
+	}
+	fputc('\n',stdout);
+}
+
+bool basic_serialization_test(bool silent){
+	size_t number = 16897;
+	size_t n_bytes_for_size_t = 0;
+	uint8_t * bytes_for_size_t = convert_size_t_to_binary(number,&n_bytes_for_size_t);
+	
+	if(!silent) print_bytes(bytes_for_size_t,n_bytes_for_size_t);
+	
+	size_t bytes_read = 0;
+	size_t number_read = convert_binary_to_size_t(bytes_for_size_t,n_bytes_for_size_t,&bytes_read);
+	if(bytes_read != sizeof(size_t)) return FAIL;
+	
+	free(bytes_for_size_t);
+	
+	if(!silent) printf("got: %lu\n",number_read);
+	if(number_read != number) return FAIL;
+	
+	
+	
+	const char * string = "Hello There!";
+	size_t n_bytes_for_string = 0;
+	uint8_t * bytes_for_string = convert_string_to_binary(string,&n_bytes_for_string);
+	
+	if(!silent) print_bytes(bytes_for_string,n_bytes_for_string);
+	
+	bytes_read = 0;
+	char * string_read = convert_binary_to_string(bytes_for_string,n_bytes_for_string,&bytes_read);
+	if(bytes_read != sizeof(size_t)+strlen(string_read)) return FAIL;
+	
+	if(!silent) printf("%s\n",string_read);
+	
+	if(strcmp(string,string_read) != 0) return FAIL;
+	
+	free(string_read);
+	free(bytes_for_string);
+	
+	
+	
+	const char * strings_arr[3] = {"Hi","Hello!","Computer"};
+	size_t n_bytes_for_string_arr = 0;
+	uint8_t * bytes_for_string_arr = convert_string_array_to_binary(strings_arr,3,&n_bytes_for_string_arr);
+	
+	if(!silent){
+		print_bytes(bytes_for_string_arr,n_bytes_for_string_arr);
+		printf("%lu\n",n_bytes_for_string_arr);
+	}
+	
+	size_t n_bytes_read_for_string_arr = 0;
+	size_t n_strings = 0;
+	char ** strings_arr_read = convert_binary_to_string_array(bytes_for_string_arr,n_bytes_for_string_arr,&n_bytes_read_for_string_arr,&n_strings);
+	
+	free(bytes_for_string_arr);
+	
+	if(n_strings != 3) return FAIL;
+	
+	for(size_t i = 0;i < n_strings;i++){
+		if(strcmp(strings_arr[i],strings_arr_read[i]) != 0) return FAIL;
+	}
+	
+	if(!silent){
+		for(size_t i = 0;i < n_strings;i++){
+			printf("%s\n",strings_arr_read[i]);
+		}
+		printf("%lu\n",n_bytes_read_for_string_arr);
+	}
+	
+	for(size_t i = 0;i < n_strings;i++) free(strings_arr_read[i]);
+	free(strings_arr_read);
+	
+	return PASS;
 }
 
 bool basic_map_data_structure_test(bool silent){
