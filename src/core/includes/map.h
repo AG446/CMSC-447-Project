@@ -466,6 +466,9 @@ size_t get_map_mpo_count(map_t * map,err_ctx_t * ctx);//TODO add tests
 //get the number of buildings in the map
 size_t get_map_building_count(map_t * map,err_ctx_t * ctx);//TODO add tests
 
+//get the number of edges in the map
+size_t get_map_edge_count(map_t * map,err_ctx_t * ctx);//TODO add tests
+
 //Print out a map and all its member data. Tabs value lets you add tabs to every line of output.
 void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx);
 

@@ -341,6 +341,24 @@ static bool is_deleting_string(const char * str){
 	return false;
 }
 
+static bool is_property_string(const char * str){
+	if(str == NULL) return false;
+	
+	if(strcmp(str,"property") == 0) return true;
+	if(strcmp(str,"prop") == 0) return true;
+	
+	return false;
+}
+
+static bool is_building_string(const char * str){
+	if(str == NULL) return false;
+	
+	if(strcmp(str,"building") == 0) return true;
+	if(strcmp(str,"build") == 0) return true;
+	
+	return false;
+}
+
 static double parse_double(const char * title,bool * canceled){
 	double value = 0.0;
 	bool valid = false;
@@ -1036,6 +1054,112 @@ static void delete_from_map_command(map_t * map,err_ctx_t * ctx){
 	}
 }
 
+#define CONNECT true
+#define DISCONNECT false
+static void connect_disconnect_nodes_command(map_t * map,err_ctx_t * ctx,bool connect_mode){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	uint8_t chosen_edge_type = 0;
+	if(connect_mode == CONNECT){
+		chosen_edge_type = parse_edge_type(&canceled);
+		if(canceled) return;
+	}
+	
+	size_t chosen_connection_option = 0;
+	
+	const size_t n_connect_options = 2;
+	if(connect_mode == CONNECT){
+		const char * connect_options[n_connect_options] = {
+			"Connect By Index",
+			"Connect By Names"
+		};
+		chosen_connection_option = parse_among_options("Choose how to connect nodes",connect_options,n_connect_options,&canceled);
+	}else if(connect_mode == DISCONNECT){
+		const char * connect_options[n_connect_options] = {
+			"Disconnect By Index",
+			"Disconnect By Names"
+		};
+		chosen_connection_option = parse_among_options("Choose how to connect nodes",connect_options,n_connect_options,&canceled);
+	}
+	if(canceled) return;
+	
+	if(chosen_connection_option == 1){
+		size_t first_node_index = parse_index_in_range("Index of First Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+		if(canceled) return;
+		
+		size_t second_node_index = parse_index_in_range("Index of Second Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+		if(canceled) return;
+		
+		if(connect_mode == CONNECT) connect_nodes_in_map_by_indices(map,first_node_index,second_node_index,chosen_edge_type,ctx);
+		else if(connect_mode == DISCONNECT) disconnect_nodes_in_map_by_indices(map,first_node_index,second_node_index,ctx);
+	}else if(chosen_connection_option == 2){
+		fputs("First Node Name ",stdout);
+		char * first_node_name = read_line();
+		
+		fputs("Second Node Name ",stdout);
+		char * second_node_name = read_line();
+		
+		if(connect_mode == CONNECT) connect_nodes_in_map_by_names(map,first_node_name,second_node_name,chosen_edge_type,ctx);
+		else if(connect_mode == DISCONNECT) disconnect_nodes_in_map_by_names(map,first_node_name,second_node_name,ctx);
+		free(first_node_name);
+		free(second_node_name);
+	}
+}
+
+static void connect_nodes_command(map_t * map,err_ctx_t * ctx){
+	connect_disconnect_nodes_command(map,ctx,true);
+}
+
+static void disconnect_nodes_command(map_t * map,err_ctx_t * ctx){
+	connect_disconnect_nodes_command(map,ctx,false);
+}
+
+static void set_edge_type_command(map_t * map,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
+	}
+	
+	bool canceled = false;
+	
+	const size_t n_options = 2;
+	const char * options[n_options] = {
+		"Seach By Node Index Pair",
+		"Seach By Node Name Pair"
+	};
+	
+	size_t chosen_option = parse_among_options("Chooose how to edit a connection type",options,n_options,&canceled);
+	if(canceled) return;
+	
+	uint8_t chosen_edge_type = parse_edge_type(&canceled);
+	if(canceled) return;
+	
+	if(chosen_option == 1){
+		size_t first_node_index = parse_index_in_range("Index of First Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+		if(canceled) return;
+		
+		size_t second_node_index = parse_index_in_range("Index of Second Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+		if(canceled) return;
+		
+		set_connection_type_for_nodes_by_indices(map,first_node_index,second_node_index,chosen_edge_type,ctx);
+	}else if(chosen_option == 2){
+		fputs("First Node Name ",stdout);
+		char * first_node_name = read_line();
+		
+		fputs("Second Node Name ",stdout);
+		char * second_node_name = read_line();
+		
+		set_connection_type_for_nodes_by_name(map,first_node_name,second_node_name,chosen_edge_type,ctx);
+		free(first_node_name);
+		free(second_node_name);
+	}
+}
+
 void start_cli(){
 	
 	err_ctx_t err_ctx = create_err_ctx();
@@ -1049,28 +1173,27 @@ void start_cli(){
 		gws_to_output_stream(working_set,stdout,&err_ctx);
 		
 		char * line = read_line();
-		char * lowercase_line = (char*) malloc(strlen(line)+1);
-		strcpy(lowercase_line,line);
-		c_str_lowercase(lowercase_line);
+		c_str_lowercase(line);
 		
-		if(is_halting_string(lowercase_line)){
+		if(is_halting_string(line)){
 			running = false;
 		}else{
 			size_t n_tokens = 0;
-			char ** tokens = split_into_tokens(lowercase_line,&n_tokens);
+			char ** tokens = split_into_tokens(line,&n_tokens);
 			
 			if(n_tokens == 3){
 				if(strcmp(tokens[0],"set") == 0){
-					if(strcmp(tokens[1],"node") == 0 && (strcmp(tokens[2],"property") == 0 || strcmp(tokens[2],"prop") == 0)){
+					if(strcmp(tokens[1],"node") == 0 && is_property_string(tokens[2])){
 						set_node_property_command(&working_map,&working_set,&err_ctx);
-					}else if(strcmp(tokens[1],"mpo") == 0 && (strcmp(tokens[2],"property") == 0 || strcmp(tokens[2],"prop") == 0)){
+					}else if(strcmp(tokens[1],"mpo") == 0 && is_property_string(tokens[2])){
 						set_mpo_property_command(&working_map,&working_set,&err_ctx);
-					}else if((strcmp(tokens[1],"building") == 0 || strcmp(tokens[1],"build") == 0) && (strcmp(tokens[2],"property") == 0 || strcmp(tokens[2],"prop") == 0)){
+					}else if(is_building_string(tokens[1]) && is_property_string(tokens[2])){
 						set_building_property_command(&working_map,&working_set,&err_ctx);
+					}else if((strcmp(tokens[1],"edge") == 0 || strcmp(tokens[1],"connection") == 0) && strcmp(tokens[2],"type") == 0){
+						set_edge_type_command(&working_map,&err_ctx);
 					}
 				}
 			}else if(n_tokens == 2){
-				
 				if(strcmp(tokens[0],"create") == 0){
 					if(strcmp(tokens[1],"cord") == 0){
 						create_cord_command(&working_set,&err_ctx);
@@ -1080,7 +1203,7 @@ void start_cli(){
 						create_mpo_command(&working_set,&err_ctx);
 					}else if(strcmp(tokens[1],"node") == 0){
 						create_node_command(&working_set,&err_ctx);
-					}else if(strcmp(tokens[1],"building") == 0 || strcmp(tokens[1],"build") == 0){
+					}else if(is_building_string(tokens[1])){
 						create_building_command(&working_set,&err_ctx);
 					}
 				}else if(strcmp(tokens[0],"show") == 0){
@@ -1092,11 +1215,15 @@ void start_cli(){
 						add_node_to_map_command(&working_map,&working_set,&err_ctx);
 					}else if(strcmp(tokens[1],"mpo") == 0){
 						add_mpo_to_map_command(&working_map,&working_set,&err_ctx);
-					}else if(strcmp(tokens[1],"building") == 0 || strcmp(tokens[1],"build") == 0){
+					}else if(is_building_string(tokens[1])){
 						add_building_to_map_command(&working_map,&working_set,&err_ctx);
 					}
 				}else if(strcmp(tokens[0],"map") == 0 && is_deleting_string(tokens[1])){
 					delete_from_map_command(&working_map,&err_ctx);
+				}else if(strcmp(tokens[0],"connect") == 0 && strcmp(tokens[1],"nodes") == 0){
+					connect_nodes_command(&working_map,&err_ctx);
+				}else if(strcmp(tokens[0],"disconnect") == 0 && strcmp(tokens[1],"nodes") == 0){
+					disconnect_nodes_command(&working_map,&err_ctx);
 				}
 			}else if(n_tokens == 1){
 				if(is_deleting_string(tokens[0])){
@@ -1109,7 +1236,6 @@ void start_cli(){
 			
 			delete_tokens(tokens,n_tokens);
 		}
-		free(lowercase_line);
 		free(line);
 		
 		errs_to_output_stream(&err_ctx,stdout);

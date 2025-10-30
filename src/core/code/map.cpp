@@ -1662,6 +1662,15 @@ size_t get_map_mpo_count(map_t * map,err_ctx_t * ctx){
 	return map->n_mpos;
 }
 
+size_t get_map_edge_count(map_t * map,err_ctx_t * ctx){
+	if(map == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return 0;
+	}
+	
+	return map->n_edges;
+}
+
 size_t get_map_building_count(map_t * map,err_ctx_t * ctx){
 	if(map == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
