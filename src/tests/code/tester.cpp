@@ -34,6 +34,8 @@ int main(){
 		}
 	}
 	//do_thing();
+	//fputs("Press ENTER to continue\n",stdout);
+	//getc(stdin);
 	//start_cli();
 }
 
@@ -45,6 +47,8 @@ static void print_bytes(uint8_t * bytes,size_t n_bytes){
 }
 
 bool basic_serialization_test(bool silent){
+	err_ctx_t err_ctx = create_err_ctx();
+	
 	size_t number = 16897;
 	size_t n_bytes_for_size_t = 0;
 	uint8_t * bytes_for_size_t = convert_size_t_to_binary(number,&n_bytes_for_size_t);
@@ -111,6 +115,109 @@ bool basic_serialization_test(bool silent){
 	
 	for(size_t i = 0;i < n_strings;i++) free(strings_arr_read[i]);
 	free(strings_arr_read);
+	
+	
+	
+	cord_t cord = create_cord(78.873,92.7865);
+	
+	size_t n_cord_bytes;
+	uint8_t * cord_bytes = convert_cord_to_binary(cord,&n_cord_bytes);
+	
+	if(!silent){
+		print_bytes(cord_bytes,n_cord_bytes);
+		printf("%lu\n",n_cord_bytes);
+	}
+	
+	size_t n_bytes_read_for_cord = 0;
+	cord_t read_cord = convert_binary_to_cord(cord_bytes,n_cord_bytes,&n_bytes_read_for_cord);
+	
+	if(!are_cords_equal(cord,read_cord)) return FAIL;
+	
+	if(!silent) cord_to_output_stream(read_cord,0,stdout,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	free(cord_bytes);
+	
+	
+	
+	map_rect_t rect = create_map_rect(create_cord(78.873,92.7865),create_cord(89.873,103.982));
+	
+	size_t n_rect_bytes;
+	uint8_t * rect_bytes = convert_rect_to_binary(rect,&n_rect_bytes);
+	
+	if(!silent){
+		print_bytes(rect_bytes,n_rect_bytes);
+		printf("%lu\n",n_rect_bytes);
+	}
+	
+	size_t n_bytes_read_for_rect = 0;
+	map_rect_t read_rect = convert_binary_to_rect(rect_bytes,n_rect_bytes,&n_bytes_read_for_rect);
+	
+	if(memcmp(&rect,&read_rect,sizeof(map_rect_t)) != 0) return FAIL;
+	
+	if(!silent) map_rect_to_output_stream(read_rect,0,stdout,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	free(rect_bytes);
+	
+	
+	
+	const cord_t cords[5] = {
+		create_cord(1.0,2.0),
+		create_cord(3.0,4.0),
+		create_cord(5.0,6.0),
+		create_cord(7.0,8.0),
+		create_cord(7.0,6.0)
+	};
+	
+	size_t cord_arr_n_bytes = 0;
+	uint8_t * cord_arr_bytes = convert_cord_array_to_binary(cords,5,&cord_arr_n_bytes);
+	
+	if(!silent){
+		print_bytes(cord_arr_bytes,cord_arr_n_bytes);
+		printf("%lu\n",cord_arr_n_bytes);
+	}
+	
+	size_t cord_arr_n_bytes_read = 0;
+	size_t n_cords = 0;
+	cord_t * read_cord_arr = convert_binary_to_cord_array(cord_arr_bytes,cord_arr_n_bytes,&cord_arr_n_bytes_read,&n_cords);
+	if(read_cord_arr == NULL) return FAIL;
+	
+	if(n_cords != 5) return FAIL;
+	
+	for(size_t i = 0;i < n_cords;i++){
+		if(!are_cords_equal(cords[i],read_cord_arr[i])) return FAIL;
+		if(!silent) cord_to_output_stream(read_cord_arr[i],0,stdout,&err_ctx);
+	}
+	
+	free(read_cord_arr);
+	free(cord_arr_bytes);
+	
+	
+	
+	mpo_t * mpo = create_mpo(cords,5,MPO_TYPE_BUILDING,&err_ctx);
+	if(!silent) mpo_to_output_stream(mpo,0,stdout,&err_ctx);
+	
+	size_t mpo_n_bytes = 0;
+	uint8_t * mpo_bytes = convert_mpo_to_binary(mpo,&mpo_n_bytes);
+	
+	delete_mpo(mpo,&err_ctx);
+	
+	if(!silent) print_bytes(mpo_bytes,mpo_n_bytes);
+	
+	size_t bytes_read_for_mpo = 0;
+	mpo_t * read_mpo = convert_binary_to_mpo(mpo_bytes,mpo_n_bytes,&bytes_read_for_mpo);
+	if(read_mpo == NULL) return FAIL;
+	
+	free(mpo_bytes);
+	
+	if(!silent) mpo_to_output_stream(read_mpo,0,stdout,&err_ctx);
+	
+	delete_mpo(read_mpo,&err_ctx);
+	
+	
+	
+	
 	
 	return PASS;
 }

@@ -1169,7 +1169,7 @@ void start_cli(){
 	
 	bool running = true;
 	while(running){
-		//clear_terminal_screen();
+		clear_terminal_screen();
 		gws_to_output_stream(working_set,stdout,&err_ctx);
 		
 		char * line = read_line();
