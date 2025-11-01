@@ -112,7 +112,7 @@ if __name__ == "__main__":
                         mpo_list.append(mpo_cords)
                         #print(len(mpo_cords)) #for testing
         #only used for a santiy check and making sure the right pixels were found
-    """
+        """
         for i in range(len(mpo_list)):
             for j in range(len(mpo_list[i])):
                 pixels[mpo_list[i][j]] =(255,165,0) #used to change red and green to orange
@@ -120,7 +120,7 @@ if __name__ == "__main__":
         #used dislay the green and red pixels turned orange, only for testing to see if it worked properly
         img.save("orange", format="png")
         img.show()
-    """
+        """
     except FileNotFoundError:
         print(f"Error: The file at {image_path} was not found.")
     except Exception as e:
