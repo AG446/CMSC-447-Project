@@ -7,11 +7,12 @@
 #include <math.h>
 #include "map_serial.h"
 
-#define N_TESTS 8
+#define N_TESTS 9
 test_func_t func_table[N_TESTS] = {
 	{token_matching_test,"Token matching test",SILENT},
 	{phrase_matching_test,"Phrase matching test",SILENT},
-	{basic_serialization_test,"Basic serialization test",VERBOSE},
+	{basic_serialization_test,"Basic serialization test",SILENT},
+	{serialization_test,"Serialization test",VERBOSE},
 	{building_data_structure_test,"Building data structure test",SILENT},
 	{mpo_data_structure_test,"Map polygon object data structure test",SILENT},
 	{map_node_data_structure_test,"Map node data structure test",SILENT},
@@ -44,6 +45,73 @@ static void print_bytes(uint8_t * bytes,size_t n_bytes){
 		printf("%X ",bytes[i]);
 	}
 	fputc('\n',stdout);
+}
+
+bool serialization_test(bool silent){
+	err_ctx_t err_ctx = create_err_ctx();
+	
+	map_node_t * nodes[3] = {create_map_node(create_cord(2.0,3.0)), create_map_node(create_cord(5.0,6.0)), create_map_node(create_cord(8.0,-2.0))};
+	for(size_t i = 0;i < 3;i++) nodes[i]->index_temp = i;
+	
+	
+	map_edge_t * edge = create_map_edge(EDGE_TYPE_DOOR,nodes[1],nodes[2],&err_ctx);
+	
+	if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
+	
+	size_t edge_n_bytes = 0;
+	uint8_t * edge_bytes = convert_edge_to_binary(edge,&edge_n_bytes);
+	if(!silent) print_bytes(edge_bytes,edge_n_bytes);
+	delete_map_edge(edge,&err_ctx);
+	
+	size_t n_bytes_read_for_edge = 0;
+	map_edge_t * read_edge = convert_binary_to_edge(edge_bytes,edge_n_bytes,&n_bytes_read_for_edge,nodes,&err_ctx);
+	if(n_bytes_read_for_edge != edge_n_bytes) return FAIL;
+	
+	if(!silent) map_edge_to_output_stream(read_edge,0,stdout,&err_ctx);
+	
+	free(edge_bytes);
+	
+	delete_map_edge(read_edge,&err_ctx);
+	
+	for(size_t i = 0;i < 3;i++) delete_map_node(nodes[i],&err_ctx);
+	
+	
+	
+	building_t * building_arr[3] = {
+		create_building("Math",create_map_rect(create_cord(2.0,3.0),create_cord(5.0,8.0)),7,&err_ctx ),
+		create_building("Art",create_map_rect(create_cord(-2.0,-3.0),create_cord(6.0,2.0)),3,&err_ctx ),
+		create_building("Music",create_map_rect(create_cord(-3.0,-8.0),create_cord(9.0,13.0)),4,&err_ctx )
+	};
+	for(size_t i = 0;i < 3;i++) building_arr[i]->index_temp = i;
+	map_node_t * node_a = create_map_node(create_cord(3.278,7.893));
+	set_map_node_name(node_a,"Node A",&err_ctx);
+	set_map_node_picture(node_a,"Node_A.jpeg",&err_ctx);
+	set_map_node_floor_number(node_a,3,&err_ctx);
+	set_map_node_selectable(node_a,true,&err_ctx);
+	set_map_node_building(node_a,building_arr[2],&err_ctx);
+	
+	if(!silent) map_node_to_output_stream(node_a,0,stdout,NULL);
+	
+	size_t n_node_a_bytes = 0;
+	uint8_t * node_a_bytes = convert_node_to_binary(node_a,&n_node_a_bytes);
+	if(!silent) print_bytes(node_a_bytes,n_node_a_bytes);
+	delete_map_node(node_a,&err_ctx);
+	
+	size_t n_bytes_read_for_node_a = 0;
+	map_node_t * read_node_a = convert_binary_to_node(node_a_bytes,n_node_a_bytes,&n_bytes_read_for_node_a,building_arr,&err_ctx);
+	if(read_node_a == NULL) return FAIL;
+	if(n_bytes_read_for_node_a != n_node_a_bytes) return FAIL;
+	
+	if(!silent) map_node_to_output_stream(read_node_a,0,stdout,NULL);
+	
+	delete_map_node(read_node_a,&err_ctx);
+	
+	free(node_a_bytes);
+	for(size_t i = 0;i < 3;i++) delete_building(building_arr[i],&err_ctx);
+	
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	return PASS;
 }
 
 bool basic_serialization_test(bool silent){
@@ -196,6 +264,7 @@ bool basic_serialization_test(bool silent){
 	
 	
 	mpo_t * mpo = create_mpo(cords,5,MPO_TYPE_BUILDING,&err_ctx);
+	set_mpo_name(mpo,"Bob",&err_ctx);
 	if(!silent) mpo_to_output_stream(mpo,0,stdout,&err_ctx);
 	
 	size_t mpo_n_bytes = 0;
@@ -206,10 +275,9 @@ bool basic_serialization_test(bool silent){
 	if(!silent) print_bytes(mpo_bytes,mpo_n_bytes);
 	
 	size_t bytes_read_for_mpo = 0;
-	mpo_t * read_mpo = convert_binary_to_mpo(mpo_bytes,mpo_n_bytes,&bytes_read_for_mpo);
-	if(read_mpo == NULL) return FAIL;
-	
+	mpo_t * read_mpo = convert_binary_to_mpo(mpo_bytes,mpo_n_bytes,&bytes_read_for_mpo,&err_ctx);
 	free(mpo_bytes);
+	if(read_mpo == NULL) return FAIL;
 	
 	if(!silent) mpo_to_output_stream(read_mpo,0,stdout,&err_ctx);
 	
@@ -217,7 +285,29 @@ bool basic_serialization_test(bool silent){
 	
 	
 	
+	building_t * build = create_building("Math Building",create_map_rect(create_cord(2.3,6.5),create_cord(1.1,0.3)),3,&err_ctx);
+	add_building_alias_name(build,"MATH",&err_ctx);
 	
+	if(!silent) building_to_output_stream(build,0,stdout,&err_ctx);
+	
+	size_t n_building_bytes = 0;
+	uint8_t * building_bytes = convert_building_to_binary(build,&n_building_bytes);
+	
+	if(!silent) print_bytes(building_bytes,n_building_bytes);
+	delete_building(build,&err_ctx);
+	
+	size_t building_bytes_read = 0;
+	building_t * building_read = convert_binary_to_building(building_bytes,n_building_bytes,&building_bytes_read,&err_ctx);
+	if(building_read == NULL) return FAIL;
+	if(building_bytes_read != n_building_bytes) return FAIL;
+	
+	free(building_bytes);
+	
+	if(!silent) building_to_output_stream(building_read,0,stdout,&err_ctx);
+	
+	delete_building(building_read,&err_ctx);
+	
+	if(err_encountered(&err_ctx)) return FAIL;
 	
 	return PASS;
 }

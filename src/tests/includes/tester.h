@@ -24,6 +24,9 @@ bool phrase_matching_test(bool silent);
 //check if the basic serializtion functions work as intended
 bool basic_serialization_test(bool silent);
 
+//check if the serializtion functions work with reference objects
+bool serialization_test(bool silent);
+
 //test all the functions related to the building object
 bool building_data_structure_test(bool silent);
 

@@ -203,12 +203,6 @@ struct Map_Node{
 	//associated building if applicable
 	building_t * associated_building;
 	
-	//floor number of node if applicable
-	int8_t floor_number;
-	
-	//whether or not the node is selectable with the mouse
-	bool selectable;
-	
 	//used for intermediate calculation during A* search
 	double cost_temp;
 	
@@ -217,6 +211,12 @@ struct Map_Node{
 	
 	//used to reconstruct shortest path after A* has finished
 	map_node_t * previous;
+	
+	//whether or not the node is selectable with the mouse
+	bool selectable;
+	
+	//floor number of node if applicable
+	int8_t floor_number;
 };
 
 //Create a map_node_t object in the heap. This will need to be freed.
@@ -310,7 +310,10 @@ void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream
 //Does the edge use a crosswalk
 #define EDGE_TYPE_CROSSWALK 10
 
-#define N_EDGE_TYPES 10
+//Is the Edge Blocked by construction
+#define EDGE_TYPE_CONSTRUCTION 11
+
+#define N_EDGE_TYPES 11
 extern const char * edge_type_names[N_EDGE_TYPES];
 
 struct Map_Edge{

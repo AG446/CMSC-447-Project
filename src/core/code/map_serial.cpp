@@ -118,7 +118,7 @@ static char ** create_empty_string_arr(void){
 	return strings_arr_out;
 }
 
-char ** convert_binary_to_string_array(uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_strings_out){
+char ** convert_binary_to_string_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_strings_out){
 	if(n_bytes < sizeof(size_t)){
 		*bytes_read_out = 0;
 		*n_strings_out = 0;
@@ -169,7 +169,7 @@ uint8_t * convert_cord_to_binary(cord_t cord,size_t * n_bytes_out){
 	return out;
 }
 
-cord_t convert_binary_to_cord(uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out){
+cord_t convert_binary_to_cord(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out){
 	if(n_bytes < sizeof(cord_t)){
 		*bytes_read_out = 0;
 		return create_cord(0.0,0.0);
@@ -189,7 +189,7 @@ uint8_t * convert_rect_to_binary(map_rect_t rect,size_t * n_bytes_out){
 	return out;
 }
 
-map_rect_t convert_binary_to_rect(uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out){
+map_rect_t convert_binary_to_rect(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out){
 	if(n_bytes < sizeof(map_rect_t)){
 		*bytes_read_out = 0;
 		return create_map_rect(create_cord(0.0,0.0),create_cord(1.0,1.0));
@@ -245,7 +245,7 @@ static cord_t * create_empty_cord_arr(){
 	return out;
 }
 
-cord_t * convert_binary_to_cord_array(uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_cords_out){
+cord_t * convert_binary_to_cord_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_cords_out){
 	if(n_bytes < sizeof(size_t)){
 		*bytes_read_out = 0;
 		*n_cords_out = 0;
@@ -323,8 +323,7 @@ uint8_t * convert_mpo_to_binary(const mpo_t * mpo,size_t * n_bytes_out){
 	return out;
 }
 
-mpo_t * convert_binary_to_mpo(uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out){
-	mpo_t * out = (mpo_t*) malloc(sizeof(mpo_t));
+mpo_t * convert_binary_to_mpo(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,err_ctx_t * ctx){
 	
 	size_t at = 0;
 	
@@ -334,7 +333,8 @@ mpo_t * convert_binary_to_mpo(uint8_t * bytes,size_t n_bytes,size_t * bytes_read
 	at += n_bytes_read_for_cords;
 	
 	if(n_bytes_read_for_cords == 0 || !(at < n_bytes)){
-		free(out);
+		*bytes_read_out = 0;
+		free(cord_arr);
 		return NULL;
 	}
 	
@@ -342,30 +342,36 @@ mpo_t * convert_binary_to_mpo(uint8_t * bytes,size_t n_bytes,size_t * bytes_read
 	at += 1;
 	
 	if(!(at < n_bytes)){
-		free(out);
+		*bytes_read_out = 0;
+		free(cord_arr);
 		return NULL;
 	}
-	
-	out->type = type;
 	
 	size_t n_bytes_read_for_name = 0;
 	char * name = convert_binary_to_string(bytes+at,n_bytes-at,&n_bytes_read_for_name);
 	at += n_bytes_read_for_name;
 	
 	if(n_bytes_read_for_name == 0){
-		free(out);
+		*bytes_read_out = 0;
+		free(cord_arr);
+		free(name);
 		return NULL;
 	}
 	
-	out->cords = cord_arr;
-	out->n_cords = n_cords;
+	*bytes_read_out = at;
 	
 	if(strlen(name) == 0){
-		out->name = NULL;
 		free(name);
-	}else{
-		out->name = name;
+		name = NULL;
 	}
+	
+	mpo_t * out = create_mpo(cord_arr,n_cords,type,ctx);
+	if(name != NULL){
+		set_mpo_name(out,name,ctx);
+		free(name);
+	}
+	
+	free(cord_arr);
 	
 	return out;
 }
@@ -381,13 +387,297 @@ uint8_t * convert_building_to_binary(const building_t * building,size_t * n_byte
 	
 	size_t total_byte_count = 0;
 	total_byte_count = rect_n_bytes + names_n_bytes + 1;
+	*n_bytes_out = total_byte_count;
 	
 	uint8_t * out = (uint8_t*) malloc(total_byte_count);
 	
 	size_t at = 0;
-	memcpy(out+at,rect_bytes,rect_n_bytes);
 	
-	//TODO
+	memcpy(out+at,rect_bytes,rect_n_bytes);
+	at += rect_n_bytes;
+	
+	memcpy(out+at,names_bytes,names_n_bytes);
+	at += names_n_bytes;
+	
+	out[at] = n_floors_byte;
+	at += 1;
+	
+	free(rect_bytes);
+	free(names_bytes);
+	
+	return out;
+}
+
+building_t * convert_binary_to_building(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,err_ctx_t * ctx){
+	size_t at = 0;
+	
+	size_t bytes_read_for_rect = 0;
+	map_rect_t building_rect = convert_binary_to_rect(bytes+at,n_bytes-at,&bytes_read_for_rect);
+	at += bytes_read_for_rect;
+	
+	if(bytes_read_for_rect == 0 || !(at < n_bytes)){
+		*bytes_read_out = 0;
+		return NULL;
+	}
+	
+	size_t n_bytes_read_for_names = 0;
+	size_t n_names = 0;
+	char ** names = convert_binary_to_string_array(bytes+at,n_bytes-at,&n_bytes_read_for_names,&n_names);
+	at += n_bytes_read_for_names;
+	
+	if(n_bytes_read_for_names == 0 || !(at < n_bytes)){
+		for(size_t i = 0;i < n_names;i++) free(names[i]);
+		free(names);
+		*bytes_read_out = 0;
+		return NULL;
+	}
+	
+	uint8_t n_floors = bytes[at];
+	at++;
+	
+	*bytes_read_out = at;
+	
+	building_t * out = create_building(names[0],building_rect,n_floors,ctx);
+	for(size_t i = 1;i < n_names;i++){
+		add_building_alias_name(out,names[i],ctx);
+	}
+	
+	for(size_t i = 0;i < n_names;i++) free(names[i]);
+	free(names);
+	
+	return out;
+}
+
+uint8_t * convert_edge_to_binary(const map_edge_t * edge,size_t * n_bytes_out){
+	size_t node_a_index = edge->a->index_temp;
+	size_t node_b_index = edge->b->index_temp;
+	
+	size_t a_index_size_t_n_bytes = 0;
+	uint8_t * a_index_size_t_bytes = convert_size_t_to_binary(node_a_index,&a_index_size_t_n_bytes);
+	
+	size_t b_index_size_t_n_bytes = 0;
+	uint8_t * b_index_size_t_bytes = convert_size_t_to_binary(node_b_index,&b_index_size_t_n_bytes);
+	
+	uint8_t type_byte = edge->type;
+	
+	size_t total_byte_count = a_index_size_t_n_bytes + b_index_size_t_n_bytes + 1;
+	
+	*n_bytes_out = total_byte_count;
+	
+	uint8_t * out = (uint8_t*) malloc(total_byte_count);
+	size_t at = 0;
+	
+	memcpy(out+at,a_index_size_t_bytes,a_index_size_t_n_bytes);
+	at += a_index_size_t_n_bytes;
+	
+	memcpy(out+at,b_index_size_t_bytes,b_index_size_t_n_bytes);
+	at += b_index_size_t_n_bytes;
+	
+	out[at] = type_byte;
+	
+	free(a_index_size_t_bytes);
+	free(b_index_size_t_bytes);
+	
+	return out;
+}
+
+map_edge_t * convert_binary_to_edge(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,map_node_t ** nodes_ref,err_ctx_t * ctx){
+	size_t at = 0;
+	
+	size_t n_bytes_read_for_index_a = 0;
+	size_t index_a = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_bytes_read_for_index_a);
+	at += n_bytes_read_for_index_a;
+	
+	if(n_bytes_read_for_index_a == 0 || !(at < n_bytes)){
+		*bytes_read_out = 0;
+		return NULL;
+	}
+	
+	size_t n_bytes_read_for_index_b = 0;
+	size_t index_b = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_bytes_read_for_index_b);
+	at += n_bytes_read_for_index_b;
+	
+	if(n_bytes_read_for_index_b == 0 || !(at < n_bytes)){
+		*bytes_read_out = 0;
+		return NULL;
+	}
+	
+	uint8_t type = bytes[at];
+	at++;
+	
+	*bytes_read_out = at;
+	
+	map_node_t * node_a = nodes_ref[index_a];
+	map_node_t * node_b = nodes_ref[index_b];
+	
+	map_edge_t * out = create_map_edge(type,node_a,node_b,ctx);
+	
+	return out;
+}
+
+uint8_t * convert_node_to_binary(const map_node_t * node,size_t * n_bytes_out){
+	//outgoing edges are not serialized, they are reconstructed during map load
+	
+	size_t n_bytes_for_cord = 0;
+	uint8_t * cord_bytes = convert_cord_to_binary(node->coordinate,&n_bytes_for_cord);
+	
+	size_t n_bytes_for_name = 0;
+	uint8_t * name_bytes = NULL;
+	
+	if(node->name == NULL){
+		name_bytes = convert_string_to_binary("",&n_bytes_for_name);
+	}else{
+		name_bytes = convert_string_to_binary(node->name,&n_bytes_for_name);
+	}
+	
+	size_t n_bytes_for_file_name = 0;
+	uint8_t * file_name_bytes = NULL;
+	
+	if(node->picture_file_path == NULL){
+		file_name_bytes = convert_string_to_binary("",&n_bytes_for_file_name);
+	}else{
+		file_name_bytes = convert_string_to_binary(node->picture_file_path,&n_bytes_for_file_name);
+	}
+	
+	uint8_t has_building_byte = (node->associated_building == NULL) ? 0 : 1;
+	
+	size_t n_bytes_for_building_index = 0;
+	uint8_t * bytes_for_building_index = NULL;
+	if(node->associated_building != NULL){
+		bytes_for_building_index = convert_size_t_to_binary(node->associated_building->index_temp,&n_bytes_for_building_index);
+	}
+	
+	uint8_t is_selectable_byte = node->selectable ? 1 : 0;
+	
+	uint8_t floor_number_byte = node->floor_number;
+	
+	size_t total_byte_count = n_bytes_for_cord + n_bytes_for_name + n_bytes_for_file_name + 1 + n_bytes_for_building_index + 1 + 1;
+	*n_bytes_out = total_byte_count;
+	uint8_t * out = (uint8_t*) malloc(total_byte_count);
+	size_t at = 0;
+	
+	memcpy(out+at,cord_bytes,n_bytes_for_cord);
+	at += n_bytes_for_cord;
+	
+	memcpy(out+at,name_bytes,n_bytes_for_name);
+	at += n_bytes_for_name;
+	
+	memcpy(out+at,file_name_bytes,n_bytes_for_file_name);
+	at += n_bytes_for_file_name;
+	
+	out[at] = has_building_byte;
+	at++;
+	
+	if(node->associated_building != NULL){
+		memcpy(out+at,bytes_for_building_index,n_bytes_for_building_index);
+		at += n_bytes_for_building_index;
+	}
+	
+	out[at] = is_selectable_byte;
+	at++;
+	
+	out[at] = floor_number_byte;
+	
+	free(cord_bytes);
+	free(name_bytes);
+	free(file_name_bytes);
+	free(bytes_for_building_index);
+	
+	return out;
+}
+
+map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,building_t ** buildings_ref,err_ctx_t * ctx){
+	size_t at = 0;
+	
+	size_t n_bytes_read_for_cord = 0;
+	cord_t coordinate = convert_binary_to_cord(bytes+at,n_bytes-at,&n_bytes_read_for_cord);
+	at += n_bytes_read_for_cord;
+	
+	if(n_bytes_read_for_cord == 0 || !(at < n_bytes)){
+		*bytes_read_out = 0;
+		return NULL;
+	}
+	
+	size_t n_bytes_read_for_name = 0;
+	char * name = convert_binary_to_string(bytes+at,n_bytes-at,&n_bytes_read_for_name);
+	at += n_bytes_read_for_name;
+	
+	if(n_bytes_read_for_name == 0 || !(at < n_bytes)){
+		*bytes_read_out = 0;
+		free(name);
+		return NULL;
+	}
+	
+	size_t n_bytes_read_for_file_name = 0;
+	char * file_name = convert_binary_to_string(bytes+at,n_bytes-at,&n_bytes_read_for_file_name);
+	at += n_bytes_read_for_file_name;
+	
+	if(n_bytes_read_for_file_name == 0 || !(at < n_bytes)){
+		*bytes_read_out = 0;
+		free(name);
+		free(file_name);
+		return NULL;
+	}
+	
+	bool has_building = bytes[at] == 1;
+	at++;
+	
+	if(n_bytes_read_for_file_name == 0 || !(at < n_bytes)){
+		*bytes_read_out = 0;
+		free(name);
+		free(file_name);
+		return NULL;
+	}
+	
+	building_t * build = NULL;
+	
+	if(has_building){
+		size_t n_bytes_read_for_building_index = 0;
+		size_t building_index = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_bytes_read_for_building_index);
+		at += n_bytes_read_for_building_index;
+		build = buildings_ref[building_index];
+		
+		if(n_bytes_read_for_building_index == 0){
+			*bytes_read_out = 0;
+			free(name);
+			free(file_name);
+			return NULL;
+		}
+	}
+	
+	if(!(at+1 < n_bytes)){
+		*bytes_read_out = 0;
+		free(name);
+		free(file_name);
+		return NULL;
+	}
+	
+	bool is_selectable = bytes[at] == 1;
+	at++;
+	
+	uint8_t floor_number = bytes[at];
+	at++;
+	
+	*bytes_read_out = at;
+	
+	map_node_t * out = create_map_node(coordinate);
+	
+	if(strlen(name) > 0){
+		set_map_node_name(out,name,ctx);
+	}
+	free(name);
+	
+	if(strlen(file_name) > 0){
+		set_map_node_picture(out,file_name,ctx);
+	}
+	free(file_name);
+	
+	if(build != NULL){
+		set_map_node_building(out,build,ctx);
+	}
+	
+	set_map_node_selectable(out,is_selectable,ctx);
+	set_map_node_floor_number(out,floor_number,ctx);
 	
 	return out;
 }

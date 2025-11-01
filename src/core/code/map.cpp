@@ -32,7 +32,8 @@ const char * edge_type_names[N_EDGE_TYPES] = {
 	"Overpass",
 	"Door",
 	"Automatic Door",
-	"Crosswalk"
+	"Crosswalk",
+	"Construction"
 };
 
 static void put_multitab(size_t n_tabs,FILE * stream){
@@ -2000,116 +2001,6 @@ static map_edge_t * convert_binary_to_map_edge(const uint8_t * buffer,map_node_t
 	return out;
 }
 
-/*
- * convert a map node object into a stream of bytes
- */
-/*
-static uint8_t * convert_map_node_to_binary(const map_node_t * node,size_t * buffer_size){
-	size_t total_alias_name_length = 0;
-	for(size_t i = 0;i < node->n_possible_names;i++){
-		char * string = node->possible_names[i];
-		size_t string_len = strlen(string);
-		total_alias_name_length += string_len+1;
-	}
-	
-	size_t picture_file_path_len = 0;
-	if(node->picture_file_path != NULL) picture_file_path_len = strlen(node->picture_file_path);
-	
-	*buffer_size = 
-		sizeof(uint8_t) + //type
-		sizeof(cord_t) + //coordinate
-		sizeof(size_t) + //n_possible_names
-		total_alias_name_length + //array of strings
-		picture_file_path_len+1 + //picture file path name
-		sizeof(size_t);//n_outgoing_edges
-	
-	uint8_t * buffer = (uint8_t *) malloc(*buffer_size);
-	
-	size_t current_offset = 0;
-	
-	memcpy(buffer+current_offset,&(node->type),sizeof(uint8_t));
-	current_offset += sizeof(uint8_t);
-	
-	memcpy(buffer+current_offset,&(node->coordinate),sizeof(cord_t));
-	current_offset += sizeof(cord_t);
-	
-	memcpy(buffer+current_offset,&(node->n_possible_names),sizeof(size_t));
-	current_offset += sizeof(size_t);
-	
-	
-	for(size_t i = 0;i < node->n_possible_names;i++){
-		char * string = node->possible_names[i];
-		size_t string_len = strlen(string);
-		memcpy(buffer+current_offset,string,string_len+1);
-		current_offset += string_len+1;
-	}
-	
-	if(node->picture_file_path != NULL){
-		memcpy(buffer+current_offset,node->picture_file_path,picture_file_path_len+1);
-		current_offset += picture_file_path_len+1;
-	}else{
-		memcpy(buffer+current_offset,"\0",1);
-		current_offset++;
-	}
-	
-	memcpy(buffer+current_offset,&(node->n_outgoing_edges),sizeof(size_t));
-	
-	return buffer;
-}
-*/
-
-/*
- * convert a stream of bytes into an node object
- */
-/*
-static map_node_t * convert_binary_to_map_node(const uint8_t * buffer){
-	map_node_t * out = (map_node_t*) malloc(sizeof(map_node_t));
-	
-	size_t current_offset = 0;
-	
-	memcpy(&(out->type),buffer+current_offset,sizeof(uint8_t));
-	current_offset += sizeof(uint8_t);
-	
-	memcpy(&(out->coordinate),buffer+current_offset,sizeof(cord_t));
-	current_offset += sizeof(cord_t);
-	
-	memcpy(&(out->n_possible_names),buffer+current_offset,sizeof(size_t));
-	current_offset += sizeof(size_t);
-	
-	out->possible_names = (char**) malloc(sizeof(char*)*out->n_possible_names);
-	
-	size_t next_null_char_index;
-	for(size_t i = 0; i < out->n_possible_names;i++){
-		next_null_char_index = 0;
-		while((char)buffer[current_offset+next_null_char_index] != '\0'){
-			next_null_char_index++;
-		}
-		char * possible_name = (char*) malloc(next_null_char_index+1);
-		memcpy(possible_name,buffer+current_offset,next_null_char_index+1);
-		current_offset+=next_null_char_index+1;
-		out->possible_names[i] = possible_name;
-	}
-	next_null_char_index = 0;
-	while((char)buffer[current_offset+next_null_char_index] != '\0'){
-		next_null_char_index++;
-	}
-	if(next_null_char_index == 0){
-		out->picture_file_path = NULL;
-		current_offset++;
-	}else{
-		out->picture_file_path = (char*) malloc(next_null_char_index+1);
-		memcpy(out->picture_file_path,buffer+current_offset,next_null_char_index+1);
-		current_offset += next_null_char_index+1;
-	}
-	
-	memcpy(&(out->n_outgoing_edges),buffer+current_offset,sizeof(size_t));
-	
-	out->outgoing_edges = (map_edge_t**) malloc(sizeof(map_edge_t*)*out->n_outgoing_edges);
-	for(size_t i = 0;i < out->n_outgoing_edges;i++) out->outgoing_edges[i] = NULL;
-	
-	return out;
-}
-*/
 /*
 void file_save_test(){
 	FILE *write_ptr;
