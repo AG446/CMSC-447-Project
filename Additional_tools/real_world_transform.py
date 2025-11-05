@@ -1,15 +1,45 @@
 
 """"
-Reads in a picture, needs to be a png in black and white with whatever object you want to get the border of having only 1 red pixel at a corner and blue pixels tracing the outline of the object, the blue pixels need to connect to the red pixels on both sides.
+Reads in a picture, needs to be a png in black and white with whatever object you want to get the outline of need to have a red pixel to indicate the starting point, preferbely at a corner, green pixels for important points like corner, curves, etc, and blue pixels to trace the border
 
-Takes the image and finds all the mpo objects marked by the blue and red pixels and stores all the mpo coordinates for each mpo, this is stores in a 2d list
+Takes the image and finds all the mpo objects marked by the green and red pixels and stores all the mpo coordinates for each mpo, this is stores in a 2d list
 
-There is a sanity check that when it finds the mpo coords it will change the pixles to white and shows the chnages made to verify that the coords are found right
+There is a sanity check that when it finds the mpo coords it will change the pixles to orange and shows the changes made to verify that the coords are found right
 
-Reccommendation: its easier to edits the image in canva by tracing the objects in blue with weight size of 1 then change the color to red and weight size to 2 and put a red dot anywhere in the blue trace, this will make 2 pixels red so you will have to edit the image first to get rid of the second red pixel, the blue lines must not overlap other wise the mpo coords will be off.
+Reccommendation:
+- instal gimp and use gimp to edit the png with the red, green, and blue pixels,
+- only red and green pixels need to be very accurate the
+- blue outline just needs to connect the red and green pixels so they dont need to be very accurate
+- start by outline in blue first then placing red and green dots on the outline,
+- keep point to a minuimum, no more then 38 since it going to be a pain to input
 """
 from collections import deque
 from PIL import Image
+IMAGE_NAME = "test.png"
+
+
+def get_bounds(pixel_pair, corrd_pair, width, height):
+    pixel_pair[0] = (pixel_pair[0][0],height - pixel_pair[0][1])
+    pixel_pair[1] = (pixel_pair[1][0],height - pixel_pair[1][1])
+    w_e_x= (corrd_pair[1][0] - corrd_pair[0][0])/((pixel_pair[1][0] - pixel_pair[0][0])/width)
+    w_e_y= (corrd_pair[1][1] - corrd_pair[0][1])/((pixel_pair[1][1] - pixel_pair[0][1])/height)
+    left_bound = corrd_pair[0][0] - pixel_pair[0][0]*(w_e_x/width)
+    right_bound = left_bound + w_e_x
+    bottom_bound =corrd_pair[0][1] - pixel_pair[0][1]*(w_e_y/height)
+    top_bound = bottom_bound + w_e_y
+    return [(left_bound, bottom_bound), (right_bound, top_bound)]
+
+def get_real_cord(pixel_cord,width,height,bounds):
+    pixel_cord = (pixel_cord[0],height-pixel_cord[1])
+
+    percent_x = pixel_cord[0]/width
+    percent_y = pixel_cord[1]/height
+    bound_width = bounds[1][0] - bounds[0][0]
+    bound_height = bounds[1][1] - bounds[0][1]
+    x_cord_out = bounds[0][0] + percent_x * bound_width
+    y_cord_out = bounds[0][1] + percent_y * bound_height
+    return (x_cord_out,y_cord_out)
+
 
 # used to find the blue lines that connect the green dot(corners of the buildings)
 #only used to find 1 buulding at a time
@@ -28,11 +58,15 @@ def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
 
         if (x,y) != start_cord:
             r, g, b = pixels[x, y]
-            if r > color_threshold and r > g and r > b:
-                mpo_cords.append((x,y))
-                return
-            elif  g > color_threshold and g > r and g > b:
-                mpo_cords.append((x,y))
+            #finds a red pixel and ingores whitish colors
+            if g < color_threshold and b < color_threshold:
+                if r > color_threshold and r > g and r > b:
+                    mpo_cords.append((x,y))
+                    return
+            #finds a green pixel and ingores whitish colors
+            elif r < color_threshold and b < color_threshold:
+                if  g > color_threshold and g > r and g > b:
+                    mpo_cords.append((x,y))
         #add cord to visited so we dont check again
         visited.add((x, y))
         counter +=1
@@ -55,14 +89,31 @@ def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
                             is_blue = b > color_threshold and b > g and b > r
                             is_red = r > color_threshold and r > g and r > b
                             is_green = g > color_threshold and g > r and g > b
-                            # Check if the neighbor is a valid blue or red pixel
-                            if is_blue or is_red or is_green:
-                                queue.append((next_x, next_y))
+                            # Check if the neighbor is a valid blue, red, or green pixels and ingores whitish pixels
+                            if g < color_threshold and b < color_threshold:
+                                if is_red:
+                                    queue.append((next_x, next_y))
+                                    visited.add((next_x, next_y))
+                            elif r < color_threshold and g < color_threshold:
+                                if is_blue:
+                                    queue.append((next_x, next_y))
+                                    visited.add((next_x, next_y))
+                            elif b < color_threshold and r < color_threshold:
+                                if is_green:
+                                    queue.append((next_x, next_y))
+                                    visited.add((next_x, next_y))
     return
 
 if __name__ == "__main__":
-    image_path = 'map.png'
-    color_threshold = 100
+
+    image_path = IMAGE_NAME
+    color_threshold = 150
+
+    top_corner_pix = (1035,100)
+    top_corner_real = (-76.70788,39.25668)
+    bottom_corner_pix = (237, 559)
+    bottom_corner_real = ( -76.71470, 39.25363)
+
     try:
         # Open the image file
         img = Image.open(image_path).convert('RGB')
@@ -71,45 +122,43 @@ if __name__ == "__main__":
         pixels = img.load()
         #stores all the mpo found, this is a 2d list
         mpo_list =[]
+        bounds = get_bounds([top_corner_pix, bottom_corner_pix], [top_corner_real, bottom_corner_real], width, height)
+        print(get_real_cord(bottom_corner_pix,width,height,bounds))
 
-        """
-        once you find the second red pixels you can copy this code and just replace x and y with the cords, thie will change the second red pixel to blue
-        pixels[x,y] = (0, 0, 255)
-
-        """
-        #this section is specificaly for the test1.png so that it works
-        pixels[876,480] = (0, 0, 255)
-        pixels[922,514] = (0, 0, 255)
-        pixels[973,496] = (0, 0, 255)
         # Iterate over all pixels
         for i in range(width):
             for j in range(height):
 
                 # Get the RGB tuple of the current pixel
                 r, g, b = pixels[i, j]
-                # Check if the pixel is predominantly red
 
-                if r > color_threshold and r > g and r > b:
-                    curr_cord = (i , j)
-                    #use this to 1st find all the second red pixles for the mpo then commet it out if you want the second time
-                    print(curr_cord)
-                    #array of tuples that holds the cords of the building mpo(map polygram object)
-                    #array that stores the coords for each mpo
-                    mpo_cords = []
-                    mpo_cords.append(curr_cord)
-                    find_blue(pixels, color_threshold, width, height, mpo_cords, curr_cord)
-                    mpo_list.append(mpo_cords)
+                #check to make sure white is ingnored
+                if g < color_threshold and b < color_threshold:
+                     # Check if the pixel is predominantly red
+                    if r > color_threshold and r > g and r > b:
 
+                        curr_cord = (i , j)
+                        print(curr_cord)
+                        print(get_real_cord(curr_cord,width,height,bounds))
+                        #array that stores the coords for each mpo
+                        #print(curr_cord) #for testing
+                        mpo_cords = []
+                        mpo_cords.append(curr_cord)
+                        find_blue(pixels, color_threshold, width, height, mpo_cords, curr_cord)
+                        mpo_list.append(mpo_cords)
+                        #print(len(mpo_cords)) #for testing
+        #only used for a santiy check and making sure the right pixels were found
 
         for i in range(len(mpo_list)):
             for j in range(len(mpo_list[i])):
-                pixels[mpo_list[i][j]] = (255, 255, 255) #used to change red and blue to white
+                pixels[mpo_list[i][j]] =(255,50+j,0) #used to change red and green to orange
 
-        #used dislay the green pixels turned black, only for testing to see if ti worked properly
-        img.save("black", format="png")
+        #used dislay the green and red pixels turned orange, only for testing to see if it worked properly
+        img.save("orange", format="png")
         img.show()
 
     except FileNotFoundError:
         print(f"Error: The file at {image_path} was not found.")
     except Exception as e:
         print(f"An error occurred: {e}")
+

@@ -15,7 +15,8 @@ Reccommendation:
 """
 from collections import deque
 from PIL import Image
-IMAGE_NAME = "map.png"
+IMAGE_NAME = "map_bw.png"
+
 # used to find the blue lines that connect the green dot(corners of the buildings)
 #only used to find 1 buulding at a time
 def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
@@ -82,6 +83,10 @@ def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
 if __name__ == "__main__":
     image_path = IMAGE_NAME
     color_threshold = 150
+    top_corner_pix = (3082,68)
+    top_corner_real = (39.25691,-76.70872)
+    bottom_corner_pix = (783, 1935)
+    bottom_corner_real = (39.25366, -76.71472)
     try:
         # Open the image file
         img = Image.open(image_path).convert('RGB')
@@ -105,22 +110,22 @@ if __name__ == "__main__":
                     if r > color_threshold and r > g and r > b:
                         curr_cord = (i , j)
                         #array that stores the coords for each mpo
-                        #print(curr_cord) #for testing
+                        print(curr_cord) #for testing
                         mpo_cords = []
                         mpo_cords.append(curr_cord)
                         find_blue(pixels, color_threshold, width, height, mpo_cords, curr_cord)
                         mpo_list.append(mpo_cords)
-                        #print(len(mpo_cords)) #for testing
+                        print(len(mpo_cords)) #for testing
         #only used for a santiy check and making sure the right pixels were found
-        """
+
         for i in range(len(mpo_list)):
             for j in range(len(mpo_list[i])):
-                pixels[mpo_list[i][j]] =(255,165,0) #used to change red and green to orange
+                pixels[mpo_list[i][j]] =(255,50+(j*25),0) #used to change red and green to orange
 
         #used dislay the green and red pixels turned orange, only for testing to see if it worked properly
         img.save("orange", format="png")
         img.show()
-        """
+
     except FileNotFoundError:
         print(f"Error: The file at {image_path} was not found.")
     except Exception as e:
