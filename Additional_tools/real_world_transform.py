@@ -1,6 +1,6 @@
 
 """"
-Reads in a picture, needs to be a png in black and white with whatever object you want to get the outline of need to have a red pixel to indicate the starting point, preferbely at a corner, green pixels for important points like corner, curves, etc, and blue pixels to trace the border
+Reads in a picture(north need to be up), needs to be a png in black and white with whatever object you want to get the outline of need to have a red pixel to indicate the starting point, preferbely at a corner, green pixels for important points like corner, curves, etc, and blue pixels to trace the border, you need to only hav the red pixel connected to a blue pixel on one side so the coords are found in order
 
 Takes the image and finds all the mpo objects marked by the green and red pixels and stores all the mpo coordinates for each mpo, this is stores in a 2d list
 
@@ -12,12 +12,22 @@ Reccommendation:
 - blue outline just needs to connect the red and green pixels so they dont need to be very accurate
 - start by outline in blue first then placing red and green dots on the outline,
 - keep point to a minuimum, no more then 38 since it going to be a pain to input
+- should use a screen shoot of google maps/ application where you wiil get real world corrds from
 """
 from collections import deque
 from PIL import Image
-IMAGE_NAME = "test.png"
+IMAGE_NAME = "map_mpo.png"
+#you need to already know the real location of the pixel, the conversion will be based on this so make it as accurate as possible
+TOP_RIGHT_PIX = (1035,99)
+TOP_RIGHT_REAL = (-76.70786,39.25668)
+#TOP_RIGHT_PIX = (980,26)
+#TOP_RIGHT_REAL = (-76.70832,39.25717)
+BOTTOM_LEFT_PIX = (27, 815)
+BOTTOM_LEFT_REAL = ( -76.71651, 39.25193)
+FILE_NAMES =["Art_&_Humanaties.txt", "ITE.txt", "Engineering.txt", "FArt.txt", "Sherman.txt", "UC.txt", "Admin.txt", "Chem_main.txt", "Sondheim.txt", "Chem_2.txt", "RAC.txt", "Math.txt", "LIB.text", "Bio.txt", "Lect_1.txt", "Commons.txt", "ILSB.txt", "Physics.txt", "PUB.txt"]
 
 
+# gets the bounds of the real word coords
 def get_bounds(pixel_pair, corrd_pair, width, height):
     pixel_pair[0] = (pixel_pair[0][0],height - pixel_pair[0][1])
     pixel_pair[1] = (pixel_pair[1][0],height - pixel_pair[1][1])
@@ -29,9 +39,9 @@ def get_bounds(pixel_pair, corrd_pair, width, height):
     top_bound = bottom_bound + w_e_y
     return [(left_bound, bottom_bound), (right_bound, top_bound)]
 
+#gets the real world cord from a pixel
 def get_real_cord(pixel_cord,width,height,bounds):
     pixel_cord = (pixel_cord[0],height-pixel_cord[1])
-
     percent_x = pixel_cord[0]/width
     percent_y = pixel_cord[1]/height
     bound_width = bounds[1][0] - bounds[0][0]
@@ -105,15 +115,8 @@ def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
     return
 
 if __name__ == "__main__":
-
     image_path = IMAGE_NAME
     color_threshold = 150
-
-    top_corner_pix = (1035,100)
-    top_corner_real = (-76.70788,39.25668)
-    bottom_corner_pix = (237, 559)
-    bottom_corner_real = ( -76.71470, 39.25363)
-
     try:
         # Open the image file
         img = Image.open(image_path).convert('RGB')
@@ -122,40 +125,39 @@ if __name__ == "__main__":
         pixels = img.load()
         #stores all the mpo found, this is a 2d list
         mpo_list =[]
-        bounds = get_bounds([top_corner_pix, bottom_corner_pix], [top_corner_real, bottom_corner_real], width, height)
-        print(get_real_cord(bottom_corner_pix,width,height,bounds))
+        bounds = get_bounds([TOP_RIGHT_PIX, BOTTOM_LEFT_PIX], [TOP_RIGHT_REAL, BOTTOM_LEFT_REAL], width, height)
 
         # Iterate over all pixels
         for i in range(width):
             for j in range(height):
-
                 # Get the RGB tuple of the current pixel
                 r, g, b = pixels[i, j]
-
                 #check to make sure white is ingnored
                 if g < color_threshold and b < color_threshold:
                      # Check if the pixel is predominantly red
                     if r > color_threshold and r > g and r > b:
-
                         curr_cord = (i , j)
-                        print(curr_cord)
-                        print(get_real_cord(curr_cord,width,height,bounds))
                         #array that stores the coords for each mpo
-                        #print(curr_cord) #for testing
                         mpo_cords = []
                         mpo_cords.append(curr_cord)
                         find_blue(pixels, color_threshold, width, height, mpo_cords, curr_cord)
                         mpo_list.append(mpo_cords)
                         #print(len(mpo_cords)) #for testing
-        #only used for a santiy check and making sure the right pixels were found
 
         for i in range(len(mpo_list)):
+            file = open(FILE_NAMES[i], "w")
             for j in range(len(mpo_list[i])):
-                pixels[mpo_list[i][j]] =(255,50+j,0) #used to change red and green to orange
-
+                pixels[mpo_list[i][j]] =(255,0+(j*25),0) #used to change red and green to orange
+                real_coord = get_real_cord(mpo_list[i][j], width, height, bounds)
+                round_x = round(real_coord[0], 5)
+                round_y = round(real_coord[1], 5)
+                mpo_list[i][j] = (round_x, round_y)
+                text = str(j) + " " + str(mpo_list[i][j]) + "\n"
+                file.write(text)
+            file.close
         #used dislay the green and red pixels turned orange, only for testing to see if it worked properly
-        img.save("orange", format="png")
-        img.show()
+        #img.save("orange", format="png")
+        #img.show()
 
     except FileNotFoundError:
         print(f"Error: The file at {image_path} was not found.")
