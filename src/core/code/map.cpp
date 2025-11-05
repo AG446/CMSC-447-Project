@@ -171,9 +171,10 @@ void remove_building_alias_name(building_t * building,const char * alias_name,er
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return;//invalid parameters
 	}
-	if(building->n_possible_names == 0){
-		ctx->flags |= ERROR_OBJECT_NOT_FOUND;
-		return;//array is empty
+	if(building->n_possible_names <= 1){
+		//buildings must have at least 1 name
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return;
 	}
 	
 	bool found = false;
@@ -1908,47 +1909,6 @@ void clear_saved_paths(saved_paths_t * saved_paths){
 	}
 }
 
-/*
- * convert a map polygon object into a stream of bytes
- */
-static uint8_t * convert_mpo_to_binary(const mpo_t * mpo,size_t * buffer_size){
-	*buffer_size = sizeof(uint8_t)+sizeof(size_t)+sizeof(cord_t)*mpo->n_cords;
-	uint8_t * buffer = (uint8_t *) malloc(*buffer_size);
-	
-	size_t current_offset = 0;
-	
-	memcpy(buffer+current_offset,&(mpo->type),sizeof(uint8_t));
-	current_offset += sizeof(uint8_t);
-	
-	memcpy(buffer+current_offset,&(mpo->n_cords),sizeof(size_t));
-	current_offset += sizeof(size_t);
-	
-	memcpy(buffer+current_offset,mpo->cords,sizeof(cord_t)*mpo->n_cords);
-	
-	return buffer;
-}
-
-/*
- * convert a stream of bytes into a map polygon object
- */
-static mpo_t * convert_binary_to_mpo(const uint8_t * buffer){
-	mpo_t * out = (mpo_t*) malloc(sizeof(mpo_t));
-	
-	size_t current_offset = 0;
-	
-	memcpy(&(out->type),buffer+current_offset,sizeof(uint8_t));
-	current_offset += sizeof(uint8_t);
-	
-	memcpy(&(out->n_cords),buffer+current_offset,sizeof(size_t));
-	current_offset += sizeof(size_t);
-	
-	out->cords = (cord_t*) malloc(sizeof(cord_t)*out->n_cords);
-	
-	memcpy(out->cords,buffer+current_offset,sizeof(cord_t)*out->n_cords);
-	
-	return out;
-}
-
 
 /*
  * get index of node
@@ -1956,110 +1916,3 @@ static mpo_t * convert_binary_to_mpo(const uint8_t * buffer){
 size_t get_node_index(map_node_t * node,map_node_t ** all_nodes){
 	return ((size_t)node-((size_t)&(all_nodes[0])))/sizeof(map_node_t);
 }
-
-/*
- * convert a map edge object into a stream of bytes
- */
-static uint8_t * convert_map_edge_to_binary(const map_edge_t * edge,map_node_t ** all_nodes,size_t * buffer_size){
-	*buffer_size = sizeof(uint8_t)+sizeof(size_t)+sizeof(size_t);
-	uint8_t * buffer = (uint8_t *) malloc(*buffer_size);
-	
-	size_t current_offset = 0;
-	
-	memcpy(buffer+current_offset,&(edge->type),sizeof(uint8_t));
-	current_offset += sizeof(uint8_t);
-	
-	size_t node_a_index = get_node_index(edge->a,all_nodes);
-	memcpy(buffer+current_offset,&(node_a_index),sizeof(size_t));
-	current_offset += sizeof(size_t);
-	
-	size_t node_b_index = get_node_index(edge->b,all_nodes);
-	memcpy(buffer+current_offset,&(node_b_index),sizeof(size_t));
-	
-	return buffer;
-}
-
-/*
- * convert a stream of bytes into an edge object
- */
-static map_edge_t * convert_binary_to_map_edge(const uint8_t * buffer,map_node_t ** all_nodes){
-	map_edge_t * out = (map_edge_t*) malloc(sizeof(map_edge_t));
-	
-	size_t current_offset = 0;
-	
-	memcpy(&(out->type),buffer+current_offset,sizeof(uint8_t));
-	current_offset += sizeof(uint8_t);
-	
-	size_t index;
-	memcpy(&(index),buffer+current_offset,sizeof(size_t));
-	out->a = all_nodes[index];
-	current_offset += sizeof(size_t);
-	
-	memcpy(&(index),buffer+current_offset,sizeof(size_t));
-	out->b = all_nodes[index];
-	
-	return out;
-}
-
-/*
-void file_save_test(){
-	FILE *write_ptr;
-	
-	mpo_t mpo_test;
-	mpo_test.type = MPO_TYPE_TREE;
-	mpo_test.n_cords = 4;
-	mpo_test.cords = (cord_t*) malloc(sizeof(cord_t)*mpo_test.n_cords);
-	mpo_test.cords[0] = {0.0,0.0};
-	mpo_test.cords[1] = {0.0,1.0};
-	mpo_test.cords[2] = {1.0,1.0};
-	mpo_test.cords[3] = {1.0,0.0};
-	
-	size_t buffer_size;
-	uint8_t * buffer = convert_mpo_to_binary(&mpo_test,&buffer_size);
-	
-	write_ptr = fopen("test.bin","wb");  // w for write, b for binary
-
-	fwrite(buffer,buffer_size,1,write_ptr); // write 10 bytes from our buffer
-	
-	free(mpo_test.cords);
-	
-	fclose(write_ptr);
-}
-
-void file_open_test(){
-	FILE *read_ptr;
-	
-	mpo_t * mpo_test;
-	
-	read_ptr = fopen("test.bin","rb");
-
-	uint8_t buffer[256];
-	for(int i = 0;i < 256;i++) buffer[i] = 0;
-	
-	size_t file_size;
-	
-	fseek(read_ptr, 0, SEEK_END); // seek to end of file
-	file_size = ftell(read_ptr); // get current file pointer
-	fseek(read_ptr, 0, SEEK_SET);
-	
-	fread(buffer,file_size,1,read_ptr);
-	
-	mpo_test = convert_binary_to_mpo(buffer);
-	
-	
-	//printf("%d %ld\n",mpo_test->type,mpo_test->n_cords);
-	//for(size_t i = 0;i < mpo_test->n_cords;i++){
-	//	printf("(%lf %lf),\n",mpo_test->cords[i].longitude,mpo_test->cords[i].latitude);
-	//}
-	
-	//mpo_to_string(mpo_test, stdout);
-	
-	fclose(read_ptr);
-}
-*/
-
-/*
-map_node_t ** filter_locations(const char * location_name,const map_t * map_ref,size_t max_results){
-	
-}
-*/

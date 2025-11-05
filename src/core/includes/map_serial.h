@@ -5,6 +5,15 @@
 #include <stdlib.h>
 #include "map.h"
 
+/*
+ * A simplified representation of an edge
+ */
+struct Edge_Representation{
+	size_t index_a;
+	size_t index_b;
+	uint8_t type;
+};
+
 uint8_t * convert_size_t_to_binary(size_t number,size_t * n_bytes_out);
 
 size_t convert_binary_to_size_t(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out);
@@ -13,7 +22,7 @@ uint8_t * convert_string_to_binary(const char * string,size_t * n_bytes_out);
 
 char * convert_binary_to_string(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out);
 
-uint8_t * convert_string_array_to_binary(const char ** strings,size_t n_strings,size_t * n_bytes_out);
+uint8_t * convert_string_array_to_binary(char ** strings,size_t n_strings,size_t * n_bytes_out);
 
 char ** convert_binary_to_string_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_strings_out);
 
@@ -33,16 +42,40 @@ uint8_t * convert_mpo_to_binary(const mpo_t * mpo,size_t * n_bytes_out);
 
 mpo_t * convert_binary_to_mpo(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,err_ctx_t * ctx);
 
+uint8_t * convert_mpo_array_to_binary(mpo_t ** mpos,size_t n_mpos,size_t * n_bytes_out);
+
+mpo_t ** convert_binary_to_mpo_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_mpos_out,err_ctx_t * ctx);
+
 uint8_t * convert_building_to_binary(const building_t * building,size_t * n_bytes_out);
 
 building_t * convert_binary_to_building(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,err_ctx_t * ctx);
 
+uint8_t * convert_building_array_to_binary(building_t ** buildings,size_t n_buildings,size_t * n_bytes_out);
+
+building_t ** convert_binary_to_building_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_buildings_out,err_ctx_t * ctx);
+
 uint8_t * convert_edge_to_binary(const map_edge_t * edge,size_t * n_bytes_out);
 
-map_edge_t * convert_binary_to_edge(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,map_node_t ** nodes_ref,err_ctx_t * ctx);
+struct Edge_Representation convert_binary_to_edge_representation(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,err_ctx_t * ctx);
+
+uint8_t * convert_edge_array_to_binary(map_edge_t ** edges,size_t n_edges,size_t * n_bytes_out);
+
+struct Edge_Representation * convert_binary_to_edge_representation_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_edges_out,err_ctx_t * ctx);
 
 uint8_t * convert_node_to_binary(const map_node_t * node,size_t * n_bytes_out);
 
-map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,building_t ** buildings_ref,err_ctx_t * ctx);//TODO
+map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,building_t ** buildings_ref,err_ctx_t * ctx);
+
+uint8_t * convert_node_array_to_binary(map_node_t ** nodes,size_t n_nodes,size_t * n_bytes_out);
+
+map_node_t ** convert_binary_to_node_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,building_t ** buildings_ref,size_t * n_nodes_out,err_ctx_t * ctx);
+
+uint8_t * convert_map_to_binary(map_t * map,size_t * n_bytes_out);
+
+map_t init_map_from_binary(const uint8_t * bytes,size_t n_bytes,err_ctx_t * ctx);
+
+void save_map_to_file(map_t * map,const char * file_name);
+
+map_t load_map_from_file(const char * file_name,err_ctx_t * ctx);
 
 #endif

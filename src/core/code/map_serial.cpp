@@ -55,7 +55,7 @@ char * convert_binary_to_string(const uint8_t * bytes,size_t n_bytes,size_t * by
 	}
 	
 	size_t at = 0;
-	size_t string_len = convert_binary_to_size_t(bytes,sizeof(size_t),&at);
+	size_t string_len = convert_binary_to_size_t(bytes+at,n_bytes-at,&at);
 	
 	if(n_bytes < at+string_len){
 		*bytes_read_out = 0;
@@ -73,7 +73,7 @@ char * convert_binary_to_string(const uint8_t * bytes,size_t n_bytes,size_t * by
 	return out;
 }
 
-uint8_t * convert_string_array_to_binary(const char ** strings,size_t n_strings,size_t * n_bytes_out){
+uint8_t * convert_string_array_to_binary(char ** strings,size_t n_strings,size_t * n_bytes_out){
 	size_t total_byte_count = 0;
 	
 	size_t n_strings_size_t_n_bytes = 0;
@@ -113,22 +113,11 @@ uint8_t * convert_string_array_to_binary(const char ** strings,size_t n_strings,
 	return out;
 }
 
-static char ** create_empty_string_arr(void){
-	char ** strings_arr_out = (char**) malloc(0);
-	return strings_arr_out;
-}
-
 char ** convert_binary_to_string_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_strings_out){
-	if(n_bytes < sizeof(size_t)){
-		*bytes_read_out = 0;
-		*n_strings_out = 0;
-		return create_empty_string_arr();
-	}
-	
 	size_t at = 0;
 	
 	size_t n_strings_n_bytes_read = 0;
-	size_t n_strings = convert_binary_to_size_t(bytes+at,sizeof(size_t),&n_strings_n_bytes_read);
+	size_t n_strings = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_strings_n_bytes_read);
 	at += n_strings_n_bytes_read;
 	
 	*n_strings_out = n_strings;
@@ -136,11 +125,12 @@ char ** convert_binary_to_string_array(const uint8_t * bytes,size_t n_bytes,size
 	char ** out = (char**) malloc(sizeof(char*) * n_strings);
 	for(size_t i = 0;i < n_strings;i++) out[i] = create_empty_string();//set dummy strings
 	
+	if(n_strings_n_bytes_read == 0){
+		*bytes_read_out = 0;
+		return out;
+	}
+	
 	for(size_t i = 0;i < n_strings;i++){
-		if(!(at < n_bytes)){
-			*bytes_read_out = 0;
-			return out;
-		}
 		
 		size_t n_bytes_read_for_string = 0;
 		char * string = convert_binary_to_string(bytes+at,n_bytes-at,&n_bytes_read_for_string);
@@ -240,22 +230,11 @@ uint8_t * convert_cord_array_to_binary(const cord_t * cords,size_t n_cords,size_
 	return out;
 }
 
-static cord_t * create_empty_cord_arr(){
-	cord_t * out = (cord_t*) malloc(0);
-	return out;
-}
-
 cord_t * convert_binary_to_cord_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_cords_out){
-	if(n_bytes < sizeof(size_t)){
-		*bytes_read_out = 0;
-		*n_cords_out = 0;
-		return create_empty_cord_arr();
-	}
-	
 	size_t at = 0;
 	
 	size_t n_cords_size_t_n_bytes_read = 0;
-	size_t n_cords = convert_binary_to_size_t(bytes+at,sizeof(size_t),&n_cords_size_t_n_bytes_read);
+	size_t n_cords = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_cords_size_t_n_bytes_read);
 	at += n_cords_size_t_n_bytes_read;
 	
 	*n_cords_out = n_cords;
@@ -263,11 +242,12 @@ cord_t * convert_binary_to_cord_array(const uint8_t * bytes,size_t n_bytes,size_
 	cord_t * out = (cord_t*) malloc(sizeof(cord_t) * n_cords);
 	for(size_t i = 0;i < n_cords;i++) out[i] = create_cord(0.0,0.0);//set dummy values
 	
+	if(n_cords_size_t_n_bytes_read == 0){
+		*bytes_read_out = 0;
+		return out;
+	}
+	
 	for(size_t i = 0;i < n_cords;i++){
-		if(!(at < n_bytes)){
-			*bytes_read_out = 0;
-			return out;
-		}
 		
 		size_t n_bytes_read_for_cord = 0;
 		cord_t cord = convert_binary_to_cord(bytes+at,n_bytes-at,&n_bytes_read_for_cord);
@@ -332,7 +312,7 @@ mpo_t * convert_binary_to_mpo(const uint8_t * bytes,size_t n_bytes,size_t * byte
 	cord_t * cord_arr = convert_binary_to_cord_array(bytes+at,n_bytes-at,&n_bytes_read_for_cords,&n_cords);
 	at += n_bytes_read_for_cords;
 	
-	if(n_bytes_read_for_cords == 0 || !(at < n_bytes)){
+	if(n_bytes_read_for_cords == 0){
 		*bytes_read_out = 0;
 		free(cord_arr);
 		return NULL;
@@ -340,12 +320,6 @@ mpo_t * convert_binary_to_mpo(const uint8_t * bytes,size_t n_bytes,size_t * byte
 	
 	uint8_t type = bytes[at];
 	at += 1;
-	
-	if(!(at < n_bytes)){
-		*bytes_read_out = 0;
-		free(cord_arr);
-		return NULL;
-	}
 	
 	size_t n_bytes_read_for_name = 0;
 	char * name = convert_binary_to_string(bytes+at,n_bytes-at,&n_bytes_read_for_name);
@@ -381,7 +355,7 @@ uint8_t * convert_building_to_binary(const building_t * building,size_t * n_byte
 	uint8_t * rect_bytes = convert_rect_to_binary(building->building_bounding_box,&rect_n_bytes);
 	
 	size_t names_n_bytes = 0;
-	uint8_t * names_bytes = convert_string_array_to_binary((const char **)building->possible_names,building->n_possible_names,&names_n_bytes);
+	uint8_t * names_bytes = convert_string_array_to_binary(building->possible_names,building->n_possible_names,&names_n_bytes);
 	
 	uint8_t n_floors_byte = building->n_floors;
 	
@@ -415,7 +389,7 @@ building_t * convert_binary_to_building(const uint8_t * bytes,size_t n_bytes,siz
 	map_rect_t building_rect = convert_binary_to_rect(bytes+at,n_bytes-at,&bytes_read_for_rect);
 	at += bytes_read_for_rect;
 	
-	if(bytes_read_for_rect == 0 || !(at < n_bytes)){
+	if(bytes_read_for_rect == 0){
 		*bytes_read_out = 0;
 		return NULL;
 	}
@@ -425,7 +399,7 @@ building_t * convert_binary_to_building(const uint8_t * bytes,size_t n_bytes,siz
 	char ** names = convert_binary_to_string_array(bytes+at,n_bytes-at,&n_bytes_read_for_names,&n_names);
 	at += n_bytes_read_for_names;
 	
-	if(n_bytes_read_for_names == 0 || !(at < n_bytes)){
+	if(n_bytes_read_for_names == 0){
 		for(size_t i = 0;i < n_names;i++) free(names[i]);
 		free(names);
 		*bytes_read_out = 0;
@@ -481,25 +455,30 @@ uint8_t * convert_edge_to_binary(const map_edge_t * edge,size_t * n_bytes_out){
 	return out;
 }
 
-map_edge_t * convert_binary_to_edge(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,map_node_t ** nodes_ref,err_ctx_t * ctx){
+struct Edge_Representation convert_binary_to_edge_representation(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,err_ctx_t * ctx){
+	struct Edge_Representation out;
+	out.index_a = 0;
+	out.index_b = 0;
+	out.type = 0;
+	
 	size_t at = 0;
 	
 	size_t n_bytes_read_for_index_a = 0;
 	size_t index_a = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_bytes_read_for_index_a);
 	at += n_bytes_read_for_index_a;
 	
-	if(n_bytes_read_for_index_a == 0 || !(at < n_bytes)){
+	if(n_bytes_read_for_index_a == 0){
 		*bytes_read_out = 0;
-		return NULL;
+		return out;
 	}
 	
 	size_t n_bytes_read_for_index_b = 0;
 	size_t index_b = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_bytes_read_for_index_b);
 	at += n_bytes_read_for_index_b;
 	
-	if(n_bytes_read_for_index_b == 0 || !(at < n_bytes)){
+	if(n_bytes_read_for_index_b == 0){
 		*bytes_read_out = 0;
-		return NULL;
+		return out;
 	}
 	
 	uint8_t type = bytes[at];
@@ -507,10 +486,9 @@ map_edge_t * convert_binary_to_edge(const uint8_t * bytes,size_t n_bytes,size_t 
 	
 	*bytes_read_out = at;
 	
-	map_node_t * node_a = nodes_ref[index_a];
-	map_node_t * node_b = nodes_ref[index_b];
-	
-	map_edge_t * out = create_map_edge(type,node_a,node_b,ctx);
+	out.index_a = index_a;
+	out.index_b = index_b;
+	out.type = type;
 	
 	return out;
 }
@@ -593,7 +571,7 @@ map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t 
 	cord_t coordinate = convert_binary_to_cord(bytes+at,n_bytes-at,&n_bytes_read_for_cord);
 	at += n_bytes_read_for_cord;
 	
-	if(n_bytes_read_for_cord == 0 || !(at < n_bytes)){
+	if(n_bytes_read_for_cord == 0){
 		*bytes_read_out = 0;
 		return NULL;
 	}
@@ -602,7 +580,7 @@ map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t 
 	char * name = convert_binary_to_string(bytes+at,n_bytes-at,&n_bytes_read_for_name);
 	at += n_bytes_read_for_name;
 	
-	if(n_bytes_read_for_name == 0 || !(at < n_bytes)){
+	if(n_bytes_read_for_name == 0){
 		*bytes_read_out = 0;
 		free(name);
 		return NULL;
@@ -612,7 +590,7 @@ map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t 
 	char * file_name = convert_binary_to_string(bytes+at,n_bytes-at,&n_bytes_read_for_file_name);
 	at += n_bytes_read_for_file_name;
 	
-	if(n_bytes_read_for_file_name == 0 || !(at < n_bytes)){
+	if(n_bytes_read_for_file_name == 0){
 		*bytes_read_out = 0;
 		free(name);
 		free(file_name);
@@ -622,7 +600,7 @@ map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t 
 	bool has_building = bytes[at] == 1;
 	at++;
 	
-	if(n_bytes_read_for_file_name == 0 || !(at < n_bytes)){
+	if(n_bytes_read_for_file_name == 0){
 		*bytes_read_out = 0;
 		free(name);
 		free(file_name);
@@ -643,13 +621,6 @@ map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t 
 			free(file_name);
 			return NULL;
 		}
-	}
-	
-	if(!(at+1 < n_bytes)){
-		*bytes_read_out = 0;
-		free(name);
-		free(file_name);
-		return NULL;
 	}
 	
 	bool is_selectable = bytes[at] == 1;
@@ -678,6 +649,448 @@ map_node_t * convert_binary_to_node(const uint8_t * bytes,size_t n_bytes,size_t 
 	
 	set_map_node_selectable(out,is_selectable,ctx);
 	set_map_node_floor_number(out,floor_number,ctx);
+	
+	return out;
+}
+
+uint8_t * convert_node_array_to_binary(map_node_t ** nodes,size_t n_nodes,size_t * n_bytes_out){
+	size_t total_byte_count = 0;
+	
+	size_t n_nodes_size_t_n_bytes = 0;
+	uint8_t * n_nodes_size_t_bytes = convert_size_t_to_binary(n_nodes,&n_nodes_size_t_n_bytes);
+	total_byte_count += n_nodes_size_t_n_bytes;
+	
+	size_t * nodes_n_bytes = (size_t*) malloc(sizeof(size_t) * n_nodes);
+	uint8_t ** nodes_bytes = (uint8_t**) malloc(sizeof(uint8_t*) * n_nodes);
+	
+	for(size_t i = 0;i < n_nodes;i++){
+		nodes_bytes[i] = convert_node_to_binary(nodes[i],&(nodes_n_bytes[i]));
+		total_byte_count += nodes_n_bytes[i];
+	}
+	
+	uint8_t * out = (uint8_t*) malloc(total_byte_count);
+	*n_bytes_out = total_byte_count;
+	size_t at = 0;
+	
+	memcpy(out+at,n_nodes_size_t_bytes,n_nodes_size_t_n_bytes);
+	at += n_nodes_size_t_n_bytes;
+	
+	for(size_t i = 0;i < n_nodes;i++){
+		uint8_t * current_node_bytes = nodes_bytes[i];
+		size_t current_node_n_bytes = nodes_n_bytes[i];
+		memcpy(out+at,current_node_bytes,current_node_n_bytes);
+		at += current_node_n_bytes;
+		free(current_node_bytes);
+	}
+	
+	free(n_nodes_size_t_bytes);
+	free(nodes_n_bytes);
+	free(nodes_bytes);
+	
+	return out;
+}
+
+map_node_t ** convert_binary_to_node_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,building_t ** buildings_ref,size_t * n_nodes_out,err_ctx_t * ctx){
+	size_t at = 0;
+	
+	size_t n_nodes_n_bytes_read = 0;
+	size_t n_nodes = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_nodes_n_bytes_read);
+	at += n_nodes_n_bytes_read;
+	
+	*n_nodes_out = n_nodes;
+	
+	
+	map_node_t ** out = (map_node_t**) malloc(sizeof(map_node_t*) * n_nodes);
+	for(size_t i = 0;i < n_nodes;i++) out[i] = NULL;
+	
+	if(n_nodes_n_bytes_read == 0){
+		*bytes_read_out = 0;
+		return out;
+	}
+	
+	for(size_t i = 0;i < n_nodes;i++){
+		
+		size_t n_bytes_read_for_node = 0;
+		map_node_t * node = convert_binary_to_node(bytes+at,n_bytes-at,&n_bytes_read_for_node,buildings_ref,ctx);
+		
+		if(n_bytes_read_for_node == 0){
+			*bytes_read_out = 0;
+			return out;
+		}
+		
+		out[i] = node;
+		
+		at+=n_bytes_read_for_node;
+	}
+	
+	*bytes_read_out = at;
+	
+	return out;
+}
+
+uint8_t * convert_mpo_array_to_binary(mpo_t ** mpos,size_t n_mpos,size_t * n_bytes_out){
+	size_t total_byte_count = 0;
+	
+	size_t n_bytes_for_size = 0;
+	uint8_t * size_bytes = convert_size_t_to_binary(n_mpos,&n_bytes_for_size);
+	total_byte_count += n_bytes_for_size;
+	
+	size_t * mpos_n_bytes = (size_t*) malloc(sizeof(size_t) * n_mpos);
+	uint8_t ** mpos_bytes = (uint8_t**) malloc(sizeof(uint8_t*) * n_mpos);
+	
+	for(size_t i = 0;i < n_mpos;i++){
+		mpos_bytes[i] = convert_mpo_to_binary(mpos[i],&(mpos_n_bytes[i]));
+		total_byte_count += mpos_n_bytes[i];
+	}
+	
+	*n_bytes_out = total_byte_count;
+	uint8_t * out = (uint8_t*) malloc(total_byte_count);
+	
+	size_t at = 0;
+	
+	memcpy(out+at,size_bytes,n_bytes_for_size);
+	at += n_bytes_for_size;
+	
+	for(size_t i = 0;i < n_mpos;i++){
+		size_t current_mpo_n_bytes = mpos_n_bytes[i];
+		uint8_t * current_mpo_bytes = mpos_bytes[i];
+		memcpy(out+at,current_mpo_bytes,current_mpo_n_bytes);
+		at += current_mpo_n_bytes;
+		free(current_mpo_bytes);
+	}
+	
+	free(size_bytes);
+	free(mpos_n_bytes);
+	free(mpos_bytes);
+	
+	return out;
+}
+
+mpo_t ** convert_binary_to_mpo_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_mpos_out,err_ctx_t * ctx){
+	size_t at = 0;
+	
+	size_t n_bytes_read_for_n_mpos = 0;
+	size_t n_mpos = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_bytes_read_for_n_mpos);
+	at += n_bytes_read_for_n_mpos;
+	
+	*n_mpos_out = n_mpos;
+	
+	mpo_t ** out = (mpo_t**) malloc(sizeof(mpo_t*) * n_mpos);
+	for(size_t i = 0;i < n_mpos;i++) out[i] = NULL;
+	
+	if(n_bytes_read_for_n_mpos == 0){
+		*bytes_read_out = 0;
+		return out;
+	}
+	
+	for(size_t i = 0;i < n_mpos;i++){
+		
+		size_t n_bytes_read_for_mpo = 0;
+		mpo_t * mpo = convert_binary_to_mpo(bytes+at,n_bytes-at,&n_bytes_read_for_mpo,ctx);
+		
+		if(n_bytes_read_for_mpo == 0){
+			*bytes_read_out = 0;
+			return out;
+		}
+		
+		out[i] = mpo;
+		
+		at+=n_bytes_read_for_mpo;
+	}
+	
+	*bytes_read_out = at;
+	
+	return out;
+}
+
+uint8_t * convert_building_array_to_binary(building_t ** buildings,size_t n_buildings,size_t * n_bytes_out){
+	size_t total_byte_count = 0;
+	
+	size_t n_bytes_for_size = 0;
+	uint8_t * size_bytes = convert_size_t_to_binary(n_buildings,&n_bytes_for_size);
+	total_byte_count += n_bytes_for_size;
+	
+	size_t * buildings_n_bytes = (size_t*) malloc(sizeof(size_t) * n_buildings);
+	uint8_t ** buildings_bytes = (uint8_t**) malloc(sizeof(uint8_t*) * n_buildings);
+	
+	for(size_t i = 0;i < n_buildings;i++){
+		buildings_bytes[i] = convert_building_to_binary(buildings[i],&(buildings_n_bytes[i]));
+		total_byte_count += buildings_n_bytes[i];
+	}
+	
+	*n_bytes_out = total_byte_count;
+	uint8_t * out = (uint8_t*) malloc(total_byte_count);
+	
+	size_t at = 0;
+	
+	memcpy(out+at,size_bytes,n_bytes_for_size);
+	at += n_bytes_for_size;
+	
+	for(size_t i = 0;i < n_buildings;i++){
+		size_t current_building_n_bytes = buildings_n_bytes[i];
+		uint8_t * current_building_bytes = buildings_bytes[i];
+		memcpy(out+at,current_building_bytes,current_building_n_bytes);
+		at += current_building_n_bytes;
+		free(current_building_bytes);
+	}
+	
+	free(size_bytes);
+	free(buildings_n_bytes);
+	free(buildings_bytes);
+	
+	return out;
+}
+
+building_t ** convert_binary_to_building_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_buildings_out,err_ctx_t * ctx){
+	size_t at = 0;
+	
+	size_t n_bytes_read_for_n_buildings = 0;
+	size_t n_buildings = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_bytes_read_for_n_buildings);
+	at += n_bytes_read_for_n_buildings;
+	
+	*n_buildings_out = n_buildings;
+	
+	building_t ** out = (building_t**) malloc(sizeof(building_t*) * n_buildings);
+	for(size_t i = 0;i < n_buildings;i++) out[i] = NULL;
+	
+	if(n_bytes_read_for_n_buildings == 0){
+		*bytes_read_out = 0;
+		return out;
+	}
+	
+	for(size_t i = 0;i < n_buildings;i++){
+		
+		size_t n_bytes_read_for_building = 0;
+		building_t * building = convert_binary_to_building(bytes+at,n_bytes-at,&n_bytes_read_for_building,ctx);
+		
+		if(n_bytes_read_for_building == 0){
+			*bytes_read_out = 0;
+			return out;
+		}
+		
+		out[i] = building;
+		
+		at+=n_bytes_read_for_building;
+	}
+	
+	*bytes_read_out = at;
+	
+	return out;
+}
+
+uint8_t * convert_edge_array_to_binary(map_edge_t ** edges,size_t n_edges,size_t * n_bytes_out){
+	size_t total_byte_count = 0;
+	
+	size_t n_bytes_for_size = 0;
+	uint8_t * size_bytes = convert_size_t_to_binary(n_edges,&n_bytes_for_size);
+	total_byte_count += n_bytes_for_size;
+	
+	size_t * edges_n_bytes = (size_t*) malloc(sizeof(size_t) * n_edges);
+	uint8_t ** edges_bytes = (uint8_t**) malloc(sizeof(uint8_t*) * n_edges);
+	
+	for(size_t i = 0;i < n_edges;i++){
+		edges_bytes[i] = convert_edge_to_binary(edges[i],&(edges_n_bytes[i]));
+		total_byte_count += edges_n_bytes[i];
+	}
+	
+	*n_bytes_out = total_byte_count;
+	
+	uint8_t * out = (uint8_t*) malloc(total_byte_count);
+	
+	size_t at = 0;
+	
+	memcpy(out+at,size_bytes,n_bytes_for_size);
+	at += n_bytes_for_size;
+	
+	for(size_t i = 0;i < n_edges;i++){
+		size_t current_edge_n_bytes = edges_n_bytes[i];
+		uint8_t * current_edge_bytes = edges_bytes[i];
+		memcpy(out+at,current_edge_bytes,current_edge_n_bytes);
+		at += current_edge_n_bytes;
+		free(current_edge_bytes);
+	}
+	
+	free(size_bytes);
+	free(edges_n_bytes);
+	free(edges_bytes);
+	
+	return out;
+}
+
+struct Edge_Representation * convert_binary_to_edge_representation_array(const uint8_t * bytes,size_t n_bytes,size_t * bytes_read_out,size_t * n_edges_out,err_ctx_t * ctx){
+	size_t at = 0;
+	
+	size_t n_bytes_read_for_n_edges = 0;
+	size_t n_edges = convert_binary_to_size_t(bytes+at,n_bytes-at,&n_bytes_read_for_n_edges);
+	at += n_bytes_read_for_n_edges;
+	
+	*n_edges_out = n_edges;
+	
+	struct Edge_Representation * out = (struct Edge_Representation *) malloc(sizeof(struct Edge_Representation) * n_edges);
+	for(size_t i = 0;i < n_edges;i++){
+		struct Edge_Representation blank;
+		blank.index_a = 0;
+		blank.index_b = 0;
+		blank.type = 0;
+		out[i] = blank;
+	}
+	
+	if(n_bytes_read_for_n_edges == 0){
+		*bytes_read_out = 0;
+		return out;
+	}
+	
+	for(size_t i = 0;i < n_edges;i++){
+		
+		size_t n_bytes_read_for_edge = 0;
+		struct Edge_Representation edge = convert_binary_to_edge_representation(bytes+at,n_bytes-at,&n_bytes_read_for_edge,ctx);
+		
+		if(n_bytes_read_for_edge == 0){
+			*bytes_read_out = 0;
+			return out;
+		}
+		
+		out[i] = edge;
+		
+		at+=n_bytes_read_for_edge;
+	}
+	
+	*bytes_read_out = at;
+	
+	return out;
+}
+
+uint8_t * convert_map_to_binary(map_t * map,size_t * n_bytes_out){
+	for(size_t i = 0;i < map->n_nodes;i++) map->all_nodes[i]->index_temp = i;
+	for(size_t i = 0;i < map->n_buildings;i++) map->all_buildings[i]->index_temp = i;
+	
+	size_t total_byte_count = 0;
+	
+	size_t n_bytes_for_buildings = 0;
+	uint8_t * buildings_bytes = convert_building_array_to_binary(map->all_buildings,map->n_buildings,&n_bytes_for_buildings);
+	total_byte_count += n_bytes_for_buildings;
+	
+	size_t n_bytes_for_nodes = 0;
+	uint8_t * nodes_bytes = convert_node_array_to_binary(map->all_nodes,map->n_nodes,&n_bytes_for_nodes);
+	total_byte_count += n_bytes_for_nodes;
+	
+	size_t n_bytes_for_edges = 0;
+	uint8_t * edges_bytes = convert_edge_array_to_binary(map->all_edges,map->n_edges,&n_bytes_for_edges);
+	total_byte_count += n_bytes_for_edges;
+	
+	size_t n_bytes_for_mpos = 0;
+	uint8_t * mpos_bytes = convert_mpo_array_to_binary(map->all_mpos,map->n_mpos,&n_bytes_for_mpos);
+	total_byte_count += n_bytes_for_mpos;
+	
+	*n_bytes_out = total_byte_count;
+	
+	uint8_t * out = (uint8_t*) malloc(total_byte_count);
+	size_t at = 0;
+	
+	memcpy(out+at,buildings_bytes,n_bytes_for_buildings);
+	at += n_bytes_for_buildings;
+	
+	memcpy(out+at,nodes_bytes,n_bytes_for_nodes);
+	at += n_bytes_for_nodes;
+	
+	memcpy(out+at,edges_bytes,n_bytes_for_edges);
+	at += n_bytes_for_edges;
+	
+	memcpy(out+at,mpos_bytes,n_bytes_for_mpos);
+	at += n_bytes_for_mpos;
+	
+	free(buildings_bytes);
+	free(nodes_bytes);
+	free(edges_bytes);
+	free(mpos_bytes);
+	
+	return out;
+}
+
+map_t init_map_from_binary(const uint8_t * bytes,size_t n_bytes,err_ctx_t * ctx){
+	size_t at = 0;
+	
+	size_t n_bytes_read_for_buildings = 0;
+	size_t n_buildings = 0;
+	building_t ** buildings = convert_binary_to_building_array(bytes+at,n_bytes-at,&n_bytes_read_for_buildings,&n_buildings,ctx);
+	at += n_bytes_read_for_buildings;
+	
+	for(size_t i = 0;i < n_buildings;i++){
+		buildings[i]->index_temp = i;
+	}
+	
+	size_t n_bytes_read_for_nodes = 0;
+	size_t n_nodes = 0;
+	map_node_t ** nodes = convert_binary_to_node_array(bytes+at,n_bytes-at,&n_bytes_read_for_nodes,buildings,&n_nodes,ctx);
+	at += n_bytes_read_for_nodes;
+	
+	for(size_t i = 0;i < n_nodes;i++){
+		nodes[i]->index_temp = i;
+	}
+	
+	size_t n_bytes_read_for_edges = 0;
+	size_t n_edges = 0;
+	struct Edge_Representation * edges = convert_binary_to_edge_representation_array(bytes+at,n_bytes-at,&n_bytes_read_for_edges,&n_edges,ctx);
+	at += n_bytes_read_for_edges;
+	
+	size_t n_bytes_read_for_mpos = 0;
+	size_t n_mpos = 0;
+	mpo_t ** mpos = convert_binary_to_mpo_array(bytes+at,n_bytes-at,&n_bytes_read_for_mpos,&n_mpos,ctx);
+	
+	map_t out = init_map();
+	
+	for(size_t i = 0;i < n_buildings;i++){
+		add_building_to_map(&out,buildings[i],ctx);
+	}
+	free(buildings);
+	
+	for(size_t i = 0;i < n_nodes;i++){
+		add_node_to_map(&out,nodes[i],ctx);
+	}
+	free(nodes);
+	
+	for(size_t i = 0;i < n_edges;i++){
+		connect_nodes_in_map_by_indices(&out,edges[i].index_a,edges[i].index_b,edges[i].type,ctx);
+	}
+	free(edges);
+	
+	for(size_t i = 0;i < n_mpos;i++){
+		add_mpo_to_map(&out,mpos[i],ctx);
+	}
+	free(mpos);
+	
+	return out;
+}
+
+void save_map_to_file(map_t * map,const char * file_name){
+	FILE * write_ptr = fopen(file_name,"wb");
+	if(write_ptr == NULL) return;
+	
+	size_t map_buffer_size = 0;
+	uint8_t * map_buffer = convert_map_to_binary(map,&map_buffer_size);
+	
+	fwrite(map_buffer,map_buffer_size,1,write_ptr);
+	
+	free(map_buffer);
+	fclose(write_ptr);
+}
+
+map_t load_map_from_file(const char * file_name,err_ctx_t * ctx){
+	FILE * read_ptr = fopen(file_name,"rb");
+	if(read_ptr == NULL) return init_map();
+	
+	size_t file_size =  0;
+	fseek(read_ptr, 0, SEEK_END);
+	file_size = ftell(read_ptr);
+	fseek(read_ptr, 0, SEEK_SET);
+	
+	uint8_t * map_buffer = (uint8_t*) malloc(file_size);
+	
+	fread(map_buffer,file_size,1,read_ptr);
+	
+	map_t out = init_map_from_binary(map_buffer,file_size,ctx);
+	free(map_buffer);
+	fclose(read_ptr);
 	
 	return out;
 }

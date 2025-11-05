@@ -12,7 +12,7 @@ test_func_t func_table[N_TESTS] = {
 	{token_matching_test,"Token matching test",SILENT},
 	{phrase_matching_test,"Phrase matching test",SILENT},
 	{basic_serialization_test,"Basic serialization test",SILENT},
-	{serialization_test,"Serialization test",VERBOSE},
+	{serialization_test,"Serialization test",SILENT},
 	{building_data_structure_test,"Building data structure test",SILENT},
 	{mpo_data_structure_test,"Map polygon object data structure test",SILENT},
 	{map_node_data_structure_test,"Map node data structure test",SILENT},
@@ -37,7 +37,7 @@ int main(){
 	//do_thing();
 	//fputs("Press ENTER to continue\n",stdout);
 	//getc(stdin);
-	//start_cli();
+	start_cli();
 }
 
 static void print_bytes(uint8_t * bytes,size_t n_bytes){
@@ -50,65 +50,294 @@ static void print_bytes(uint8_t * bytes,size_t n_bytes){
 bool serialization_test(bool silent){
 	err_ctx_t err_ctx = create_err_ctx();
 	
-	map_node_t * nodes[3] = {create_map_node(create_cord(2.0,3.0)), create_map_node(create_cord(5.0,6.0)), create_map_node(create_cord(8.0,-2.0))};
-	for(size_t i = 0;i < 3;i++) nodes[i]->index_temp = i;
+	{
+		map_node_t * nodes[3] = {create_map_node(create_cord(2.0,3.0)), create_map_node(create_cord(5.0,6.0)), create_map_node(create_cord(8.0,-2.0))};
+		for(size_t i = 0;i < 3;i++) nodes[i]->index_temp = i;
+		
+		
+		map_edge_t * edge = create_map_edge(EDGE_TYPE_DOOR,nodes[1],nodes[2],&err_ctx);
+		
+		if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
+		
+		size_t edge_n_bytes = 0;
+		uint8_t * edge_bytes = convert_edge_to_binary(edge,&edge_n_bytes);
+		if(!silent) print_bytes(edge_bytes,edge_n_bytes);
+		delete_map_edge(edge,&err_ctx);
+		
+		size_t n_bytes_read_for_edge = 0;
+		struct Edge_Representation read_edge = convert_binary_to_edge_representation(edge_bytes,edge_n_bytes,&n_bytes_read_for_edge,&err_ctx);
+		if(n_bytes_read_for_edge != edge_n_bytes) return FAIL;
+		
+		if(!silent){
+			printf("Edge Representation %d %lu %lu\n",read_edge.type,read_edge.index_a,read_edge.index_b);
+		}
+		
+		free(edge_bytes);
+		
+		for(size_t i = 0;i < 3;i++) delete_map_node(nodes[i],&err_ctx);
+	}
+	
+	{
+		building_t * building_arr[3] = {
+			create_building("Math",create_map_rect(create_cord(2.0,3.0),create_cord(5.0,8.0)),7,&err_ctx ),
+			create_building("Art",create_map_rect(create_cord(-2.0,-3.0),create_cord(6.0,2.0)),3,&err_ctx ),
+			create_building("Music",create_map_rect(create_cord(-3.0,-8.0),create_cord(9.0,13.0)),4,&err_ctx )
+		};
+		for(size_t i = 0;i < 3;i++) building_arr[i]->index_temp = i;
+		map_node_t * node_a = create_map_node(create_cord(3.278,7.893));
+		set_map_node_name(node_a,"Node A",&err_ctx);
+		set_map_node_picture(node_a,"Node_A.jpeg",&err_ctx);
+		set_map_node_floor_number(node_a,3,&err_ctx);
+		set_map_node_selectable(node_a,true,&err_ctx);
+		set_map_node_building(node_a,building_arr[2],&err_ctx);
+		
+		if(!silent) map_node_to_output_stream(node_a,0,stdout,NULL);
+		
+		size_t n_node_a_bytes = 0;
+		uint8_t * node_a_bytes = convert_node_to_binary(node_a,&n_node_a_bytes);
+		if(!silent) print_bytes(node_a_bytes,n_node_a_bytes);
+		delete_map_node(node_a,&err_ctx);
+		
+		size_t n_bytes_read_for_node_a = 0;
+		map_node_t * read_node_a = convert_binary_to_node(node_a_bytes,n_node_a_bytes,&n_bytes_read_for_node_a,building_arr,&err_ctx);
+		if(read_node_a == NULL) return FAIL;
+		if(n_bytes_read_for_node_a != n_node_a_bytes) return FAIL;
+		
+		if(!silent) map_node_to_output_stream(read_node_a,0,stdout,NULL);
+		
+		delete_map_node(read_node_a,&err_ctx);
+		
+		free(node_a_bytes);
+		for(size_t i = 0;i < 3;i++) delete_building(building_arr[i],&err_ctx);
+	}
 	
 	
-	map_edge_t * edge = create_map_edge(EDGE_TYPE_DOOR,nodes[1],nodes[2],&err_ctx);
+	{
+		const size_t n_nodes = 5;
+		map_node_t ** nodes = (map_node_t**) malloc(sizeof(map_node_t*) * n_nodes);
+		for(size_t i = 0;i < n_nodes;i++){
+			nodes[i] = create_map_node(create_cord(i,i*2));
+			if(i == 3){
+				set_map_node_name(nodes[i],"Node 3!",&err_ctx);
+			}
+			if(!silent) map_node_to_output_stream(nodes[i],0,stdout,NULL);
+		}
+		
+		size_t n_nodes_bytes = 0;
+		uint8_t * nodes_bytes = convert_node_array_to_binary(nodes,n_nodes,&n_nodes_bytes);
+		if(!silent) print_bytes(nodes_bytes,n_nodes_bytes);
+		
+		size_t n_bytes_read_for_nodes = 0;
+		size_t n_read_nodes = 0;
+		map_node_t ** read_nodes = convert_binary_to_node_array(nodes_bytes,n_nodes_bytes,&n_bytes_read_for_nodes,NULL,&n_read_nodes,&err_ctx);
+		if(read_nodes == NULL) return FAIL;
+		if(n_bytes_read_for_nodes != n_nodes_bytes) return FAIL;
+		if(n_read_nodes != n_nodes) return FAIL;
+		if(!silent){
+			for(size_t i = 0;i < n_read_nodes;i++){
+				map_node_to_output_stream(read_nodes[i],0,stdout,NULL);
+			}
+		}
+		
+		free(nodes_bytes);
+		for(size_t i = 0;i < n_nodes;i++){
+			delete_map_node(nodes[i],&err_ctx);
+			delete_map_node(read_nodes[i],&err_ctx);
+		}
+		free(nodes);
+		free(read_nodes);
+	}
 	
-	if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
+	{
+		cord_t square_cords[4] = {create_cord(0,0), create_cord(0,1), create_cord(1,1), create_cord(1,0)};
+		mpo_t * square_mpo = create_mpo(square_cords,4,MPO_TYPE_WATER,&err_ctx);
+		
+		cord_t triangle_cords[3] = {create_cord(0,0), create_cord(0.5,1), create_cord(1,0)};
+		mpo_t * triangle_mpo = create_mpo(triangle_cords,3,MPO_TYPE_TREE,&err_ctx);
+		set_mpo_name(triangle_mpo,"Triangle Tree!",&err_ctx);
+		
+		cord_t diamond_cords[4] = {create_cord(0.5,0), create_cord(1,0.5), create_cord(0.5,1), create_cord(0,0.5)};
+		mpo_t * diamond_mpo = create_mpo(diamond_cords,4,MPO_TYPE_BUILDING,&err_ctx);
+		
+		mpo_t * mpos[3] = {square_mpo, triangle_mpo, diamond_mpo};
+		if(!silent){
+			for(size_t i = 0;i < 3;i++){
+				mpo_to_output_stream(mpos[i],0,stdout,&err_ctx);
+			}
+		}
+		
+		size_t mpos_n_bytes = 0;
+		uint8_t * mpos_bytes = convert_mpo_array_to_binary(mpos,3,&mpos_n_bytes);
+		for(size_t i = 0;i < 3;i++) delete_mpo(mpos[i],&err_ctx);
+		
+		if(!silent) print_bytes(mpos_bytes,mpos_n_bytes);
+		
+		size_t n_bytes_read_for_mpos = 0;
+		size_t n_read_mpos = 0;
+		mpo_t ** read_mpos = convert_binary_to_mpo_array(mpos_bytes,mpos_n_bytes,&n_bytes_read_for_mpos,&n_read_mpos,&err_ctx);
+		if(read_mpos == NULL) return FAIL;
+		if(n_read_mpos != 3) return FAIL;
+		if(n_bytes_read_for_mpos != mpos_n_bytes) return FAIL;
+		
+		if(!silent){
+			for(size_t i = 0;i < n_read_mpos;i++){
+				mpo_to_output_stream(read_mpos[i],0,stdout,&err_ctx);
+			}
+		}
+		
+		for(size_t i = 0;i < n_read_mpos;i++) delete_mpo(read_mpos[i],&err_ctx);
+		free(read_mpos);
+		
+		free(mpos_bytes);
+	}
 	
-	size_t edge_n_bytes = 0;
-	uint8_t * edge_bytes = convert_edge_to_binary(edge,&edge_n_bytes);
-	if(!silent) print_bytes(edge_bytes,edge_n_bytes);
-	delete_map_edge(edge,&err_ctx);
+	{
+		building_t * math_building = create_building("Math",create_map_rect(create_cord(2.0,3.0),create_cord(5.0,8.0)),7,&err_ctx );
+		
+		building_t * art_building = create_building("Art",create_map_rect(create_cord(-2.0,-3.0),create_cord(6.0,2.0)),3,&err_ctx );
+		add_building_alias_name(art_building,"painting",&err_ctx);
+		add_building_alias_name(art_building,"drawing",&err_ctx);
+		
+		building_t * music_building = create_building("Music",create_map_rect(create_cord(-3.0,-8.0),create_cord(9.0,13.0)),4,&err_ctx );
+		
+		building_t * buildings[3] = {math_building,art_building,music_building};
+		
+		if(!silent){
+			for(size_t i = 0;i < 3;i++){
+				building_to_output_stream(buildings[i],0,stdout,&err_ctx);
+			}
+		}
+		
+		size_t n_buildings_bytes = 0;
+		uint8_t * buildings_bytes = convert_building_array_to_binary(buildings,3,&n_buildings_bytes);
+		
+		if(!silent) print_bytes(buildings_bytes,n_buildings_bytes);
+		for(size_t i = 0;i < 3;i++) delete_building(buildings[i],&err_ctx);
+		
+		
+		size_t n_bytes_read_for_buildings = 0;
+		size_t n_buildings_read = 0;
+		building_t ** read_buildings = convert_binary_to_building_array(buildings_bytes,n_buildings_bytes,&n_bytes_read_for_buildings,&n_buildings_read,&err_ctx);
+		if(read_buildings == NULL) return FAIL;
+		if(n_buildings_read != 3) return FAIL;
+		if(n_bytes_read_for_buildings != n_buildings_bytes) return FAIL;
+		
+		if(!silent){
+			for(size_t i = 0;i < n_buildings_read;i++){
+				building_to_output_stream(read_buildings[i],0,stdout,&err_ctx);
+			}
+		}
+		
+		for(size_t i = 0;i < n_buildings_read;i++) delete_building(read_buildings[i],&err_ctx);
+		free(read_buildings);
+		
+		free(buildings_bytes);
+	}
 	
-	size_t n_bytes_read_for_edge = 0;
-	map_edge_t * read_edge = convert_binary_to_edge(edge_bytes,edge_n_bytes,&n_bytes_read_for_edge,nodes,&err_ctx);
-	if(n_bytes_read_for_edge != edge_n_bytes) return FAIL;
+	{
+		/*
+		map_node_t * nodes[5];
+		for(size_t i = 0;i < 5;i++){
+			nodes[i] = create_map_node(create_cord(i,2*i));
+			char name[2] = {(char)('A'+i),'\0'};
+			set_map_node_name(nodes[i],name,&err_ctx);
+			nodes[i]->index_temp = i;
+		}
+		if(!silent){
+			for(size_t i = 0;i < 5;i++) map_node_to_output_stream(nodes[i],0,stdout,&err_ctx);
+		}
+		
+		map_edge_t * edges[3] = {
+			create_map_edge(EDGE_TYPE_DOOR,nodes[0],nodes[3],&err_ctx),
+			create_map_edge(EDGE_TYPE_HALLWAY,nodes[2],nodes[4],&err_ctx),
+			create_map_edge(EDGE_TYPE_RAMP,nodes[3],nodes[4],&err_ctx)
+		};
+		if(!silent){
+			for(size_t i = 0;i < 3;i++) map_edge_to_output_stream(edges[i],0,stdout,&err_ctx);
+		}
+		
+		size_t total_edges_bytes = 0;
+		uint8_t * edges_bytes = convert_edge_array_to_binary(edges,3,&total_edges_bytes);
+		if(!silent) print_bytes(edges_bytes,total_edges_bytes);
+		for(size_t i = 0;i < 3;i++) delete_map_edge(edges[i],&err_ctx);
+		
+		size_t bytes_read_for_edges = 0;
+		size_t n_edges_read = 0;
+		map_edge_t ** read_edges = convert_binary_to_edge_array(edges_bytes,total_edges_bytes,&bytes_read_for_edges,nodes,&n_edges_read,&err_ctx);
+		if(read_edges == NULL) return FAIL;
+		if(n_edges_read != 3) return FAIL;
+		if(bytes_read_for_edges != total_edges_bytes) return FAIL;
+		
+		if(!silent){
+			for(size_t i = 0;i < n_edges_read;i++) map_edge_to_output_stream(read_edges[i],0,stdout,&err_ctx);
+		}
+		
+		for(size_t i = 0;i < n_edges_read;i++) delete_map_edge(read_edges[i],&err_ctx);
+		free(read_edges);
+		free(edges_bytes);
+		for(size_t i = 0;i < 5;i++) delete_map_node(nodes[i],&err_ctx);
+		*/
+	}
 	
-	if(!silent) map_edge_to_output_stream(read_edge,0,stdout,&err_ctx);
-	
-	free(edge_bytes);
-	
-	delete_map_edge(read_edge,&err_ctx);
-	
-	for(size_t i = 0;i < 3;i++) delete_map_node(nodes[i],&err_ctx);
-	
-	
-	
-	building_t * building_arr[3] = {
-		create_building("Math",create_map_rect(create_cord(2.0,3.0),create_cord(5.0,8.0)),7,&err_ctx ),
-		create_building("Art",create_map_rect(create_cord(-2.0,-3.0),create_cord(6.0,2.0)),3,&err_ctx ),
-		create_building("Music",create_map_rect(create_cord(-3.0,-8.0),create_cord(9.0,13.0)),4,&err_ctx )
-	};
-	for(size_t i = 0;i < 3;i++) building_arr[i]->index_temp = i;
-	map_node_t * node_a = create_map_node(create_cord(3.278,7.893));
-	set_map_node_name(node_a,"Node A",&err_ctx);
-	set_map_node_picture(node_a,"Node_A.jpeg",&err_ctx);
-	set_map_node_floor_number(node_a,3,&err_ctx);
-	set_map_node_selectable(node_a,true,&err_ctx);
-	set_map_node_building(node_a,building_arr[2],&err_ctx);
-	
-	if(!silent) map_node_to_output_stream(node_a,0,stdout,NULL);
-	
-	size_t n_node_a_bytes = 0;
-	uint8_t * node_a_bytes = convert_node_to_binary(node_a,&n_node_a_bytes);
-	if(!silent) print_bytes(node_a_bytes,n_node_a_bytes);
-	delete_map_node(node_a,&err_ctx);
-	
-	size_t n_bytes_read_for_node_a = 0;
-	map_node_t * read_node_a = convert_binary_to_node(node_a_bytes,n_node_a_bytes,&n_bytes_read_for_node_a,building_arr,&err_ctx);
-	if(read_node_a == NULL) return FAIL;
-	if(n_bytes_read_for_node_a != n_node_a_bytes) return FAIL;
-	
-	if(!silent) map_node_to_output_stream(read_node_a,0,stdout,NULL);
-	
-	delete_map_node(read_node_a,&err_ctx);
-	
-	free(node_a_bytes);
-	for(size_t i = 0;i < 3;i++) delete_building(building_arr[i],&err_ctx);
-	
+	{
+		map_t map = init_map();
+		building_t * building_a = create_building("Building A",create_map_rect(create_cord(2,3),create_cord(5,6)),3,&err_ctx);
+		building_t * building_b = create_building("Building B",create_map_rect(create_cord(3,5),create_cord(9,10)),6,&err_ctx);
+		add_building_to_map(&map,building_a,&err_ctx);
+		add_building_to_map(&map,building_b,&err_ctx);
+		
+		map_node_t * node_a = create_map_node(create_cord(2,3));
+		set_map_node_name(node_a,"Node A",&err_ctx);
+		
+		map_node_t * node_b = create_map_node(create_cord(3,8));
+		set_map_node_name(node_b,"Node B",&err_ctx);
+		
+		map_node_t * node_c = create_map_node(create_cord(1,4));
+		set_map_node_name(node_c,"Node C",&err_ctx);
+		
+		map_node_t * node_d = create_map_node(create_cord(-3,8));
+		set_map_node_name(node_d,"Node D",&err_ctx);
+		set_map_node_building(node_c,building_a,&err_ctx);
+		
+		add_node_to_map(&map,node_a,&err_ctx);
+		add_node_to_map(&map,node_b,&err_ctx);
+		add_node_to_map(&map,node_c,&err_ctx);
+		add_node_to_map(&map,node_d,&err_ctx);
+		
+		connect_nodes_in_map(&map,node_a,node_b,EDGE_TYPE_OVERPASS,&err_ctx);
+		connect_nodes_in_map(&map,node_c,node_d,EDGE_TYPE_HALLWAY,&err_ctx);
+		connect_nodes_in_map(&map,node_a,node_d,EDGE_TYPE_AUTO_DOOR,&err_ctx);
+		
+		cord_t square[4] = {create_cord(0,0),create_cord(0,1),create_cord(1,1),create_cord(1,0)};
+		mpo_t * square_lake = create_mpo(square,4,MPO_TYPE_WATER,&err_ctx);
+		set_mpo_name(square_lake,"Square Lake",&err_ctx);
+		add_mpo_to_map(&map,square_lake,&err_ctx);
+		
+		if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+		
+		save_map_to_file(&map,"map_test.map");
+		
+		size_t n_map_bytes = 0;
+		uint8_t * map_bytes = convert_map_to_binary(&map,&n_map_bytes);
+		
+		deinit_map(&map,&err_ctx);
+		
+		if(!silent) print_bytes(map_bytes,n_map_bytes);
+		
+		map = init_map_from_binary(map_bytes,n_map_bytes,&err_ctx);
+		
+		if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+		
+		deinit_map(&map,&err_ctx);
+		
+		free(map_bytes);
+		
+		map = load_map_from_file("map_test.map",&err_ctx);
+		
+		if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
+		
+		deinit_map(&map,&err_ctx);
+	}
 	if(err_encountered(&err_ctx)) return FAIL;
 	
 	return PASS;
@@ -155,7 +384,7 @@ bool basic_serialization_test(bool silent){
 	
 	const char * strings_arr[3] = {"Hi","Hello!","Computer"};
 	size_t n_bytes_for_string_arr = 0;
-	uint8_t * bytes_for_string_arr = convert_string_array_to_binary(strings_arr,3,&n_bytes_for_string_arr);
+	uint8_t * bytes_for_string_arr = convert_string_array_to_binary((char**)strings_arr,3,&n_bytes_for_string_arr);
 	
 	if(!silent){
 		print_bytes(bytes_for_string_arr,n_bytes_for_string_arr);

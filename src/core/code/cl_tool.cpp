@@ -5,6 +5,7 @@
 #include "text_proc.h"
 #include "err_ctx.h"
 #include <ctype.h>
+#include "map_serial.h"
 
 #define DEFAULT_GWO_CAPACITY 4
 
@@ -1160,6 +1161,51 @@ static void set_edge_type_command(map_t * map,err_ctx_t * ctx){
 	}
 }
 
+static void load_map_command(map_t * map,err_ctx_t * ctx){
+	fputs("File Name of Map ",stdout);
+	char * file_name = read_line();
+	
+	deinit_map(map,ctx);
+	*map = load_map_from_file(file_name,ctx);
+	
+	free(file_name);
+}
+
+static void save_map_command(map_t * map){
+	fputs("File Name of Map ",stdout);
+	char * file_name = read_line();
+	
+	save_map_to_file(map,file_name);
+	
+	free(file_name);
+}
+
+static void help_command(void){
+	fputs("List of commands:\n"
+	"\t-[set node property] \t\"Add or set the properties of a node.\"\n"
+	"\t-[set mpo property] \t\"Add or set the properties of an mpo.\"\n"
+	"\t-[set building property] \t\"Add or set the properties of a building.\"\n"
+	"\t-[set edge connection type] \t\"Set the property of an edge.\"\n"
+	"\t-[create cord][cc] \t\"Create a coordinate object in the working set.\"\n"
+	"\t-[create rect] \t\"Create a rectangle object in the working set.\"\n"
+	"\t-[create mpo] \t\"Create an mpo object in the working set.\"\n"
+	"\t-[create node] \t\"Create a node object in the working set.\"\n"
+	"\t-[create building] \t\"Create a building object in the working set\"\n"
+	"\t-[show map] \t\"Show all the data in the map in full detail.\"\n"
+	"\t-[add node] \t\"Add a node from the working set to the map.\"\n"
+	"\t-[add mpo] \t\"Add an mpo object from the working set to the map.\"\n"
+	"\t-[add building] \t\"Add a building object from the working set to the map.\"\n"
+	"\t-[map delete] \t\"Delete an element from the map.\"\n"
+	"\t-[connect nodes] \t\"Connect nodes within the map.\"\n"
+	"\t-[disconnect nodes] \t\"Disconnect nodes within the map.\"\n"
+	"\t-[load map] \t\"Load a map from a file. WARNING: Will delete the currently loaded map.\"\n"
+	"\t-[save map] \t\"Save the map to a file.\"\n"
+	"\t-[delete] \t\"Delete an object within the working set.\"\n"
+	"\t-[clear] \t\"Delete all objects within the working set.\"\n"
+	"\t-[help] \t\"Show this screen.\"\n"
+	,stdout);
+}
+
 void start_cli(){
 	
 	err_ctx_t err_ctx = create_err_ctx();
@@ -1224,6 +1270,10 @@ void start_cli(){
 					connect_nodes_command(&working_map,&err_ctx);
 				}else if(strcmp(tokens[0],"disconnect") == 0 && strcmp(tokens[1],"nodes") == 0){
 					disconnect_nodes_command(&working_map,&err_ctx);
+				}else if(strcmp(tokens[0],"load") == 0 && strcmp(tokens[1],"map") == 0){
+					load_map_command(&working_map,&err_ctx);
+				}else if(strcmp(tokens[0],"save") == 0 && strcmp(tokens[1],"map") == 0){
+					save_map_command(&working_map);
 				}
 			}else if(n_tokens == 1){
 				if(is_deleting_string(tokens[0])){
@@ -1231,6 +1281,10 @@ void start_cli(){
 				}else if(strcmp(tokens[0],"clear") == 0){
 					if(parse_confirmation("Are you Sure?")) clear_gws_objects(&working_set,&err_ctx);
 					else fputs("Not cleared.\n",stdout);
+				}else if(strcmp(tokens[0],"help") == 0){
+					help_command();
+				}else if(strcmp(tokens[0],"cc") == 0){
+					create_cord_command(&working_set,&err_ctx);
 				}
 			}
 			
