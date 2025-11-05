@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "err_ctx.h"
 
 typedef struct Map_Node map_node_t;
 typedef struct Map_Edge map_edge_t;
@@ -43,7 +44,13 @@ struct Coordinate{
 cord_t create_cord(double lon,double lat);
 
 //Print out a coordinate with its longitude and latitude. Tabs value lets you add tabs to every line of output.
-void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream);
+void cord_to_output_stream(cord_t cord,size_t tabs,FILE * stream,err_ctx_t * ctx);
+
+//are two coordinates equal?
+bool are_cords_equal(cord_t a,cord_t b);
+
+//get the distance between coordinates
+double cord_distance(cord_t a,cord_t b);
 
 /*
  * A Rectangle formed by two coordinates
@@ -57,7 +64,7 @@ struct Map_Rect{
 map_rect_t create_map_rect(cord_t bottom_left,cord_t top_right);
 
 //Print out a map rectangle and all of its member data. Tabs value lets you add tabs to every line of output.
-void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream);
+void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream,err_ctx_t * ctx);
 
 
 
@@ -73,6 +80,10 @@ void map_rect_to_output_stream(map_rect_t rect,size_t tabs,FILE * stream);
 //is the object a building
 #define MPO_TYPE_BUILDING 3
 
+#define N_MPO_TYPES 3
+
+extern const char * mpo_type_names[N_MPO_TYPES];
+
 /*
  * A closed polygon formed by a list of coordinates. This will be used to draw buildings, lakes etc.
  */
@@ -84,25 +95,37 @@ struct Map_Polygon_Object{
 };
 
 //create a new map polygon object instance on the heap.
-mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type);
+mpo_t * create_mpo(const cord_t * cord_arry, size_t n_cords, uint8_t type,err_ctx_t * ctx);
 
 //delete a map polygon object from the heap.
-void delete_map_mpo(mpo_t * mpo_ref);
+void delete_mpo(mpo_t * mpo,err_ctx_t * ctx);
 
 //edit a misplaced coordinate
-void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord);
+void set_mpo_cord(mpo_t * mpo,size_t index,cord_t new_cord,err_ctx_t * ctx);
+
+//get the coordinate from a polygon
+cord_t get_mpo_cord(const mpo_t * mpo,size_t index,err_ctx_t * ctx);
 
 //edit type
-void set_mpo_type(mpo_t * mpo,uint8_t new_type);
+void set_mpo_type(mpo_t * mpo,uint8_t new_type,err_ctx_t * ctx);
+
+//get the current mpo type
+uint8_t get_mpo_type(const mpo_t * mpo,err_ctx_t * ctx);
+
+//get the size of the mpo
+size_t get_mpo_size(const mpo_t * mpo,err_ctx_t * ctx);//TODO add test
 
 //Give an MPO a name
-void set_mpo_name(mpo_t * mpo,const char * name);
+void set_mpo_name(mpo_t * mpo,const char * name,err_ctx_t * ctx);
+
+//Get the name of an MPO
+const char * get_mpo_name(const mpo_t * mpo,err_ctx_t * ctx);
 
 //clear the name from an mpo
-void clear_mpo_name(mpo_t * mpo);
+void clear_mpo_name(mpo_t * mpo,err_ctx_t * ctx);
 
 //Print out a map rectangle and all of its member data. Tabs value lets you add tabs to every line of output.
-void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream);
+void mpo_to_output_stream(const mpo_t * mpo,size_t tabs,FILE * stream,err_ctx_t * ctx);
 //---------------------------------------------------------- GEOMETRY PRIMITIVES END --------------------------------------------------
 
 
@@ -119,36 +142,39 @@ struct Building{
 	size_t n_possible_names;
 	size_t possible_names_capacity;
 	
+	//a temporary index which is used for file saving purposes
+	size_t index_temp;
+	
 	//The number of floors in that building.
 	uint8_t n_floors;
 };
 
 //Creating a new building instance in the heap. It will need to be deleted.
-building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors);
+building_t * create_building(const char * primary_name,map_rect_t building_bounding_box,size_t n_floors,err_ctx_t * ctx);
 
 //Delete the building instance on the heap
-void delete_building(building_t * building);
+void delete_building(building_t * building,err_ctx_t * ctx);
 
 //Add an alternative name to a building to make search more effective.
-void add_building_alias_name(building_t * building,const char * alias_name);
+void add_building_alias_name(building_t * building,const char * alias_name,err_ctx_t * ctx);
 
 //Remove an alias name from the alias list. This might be used to removed misspelled text.
-void remove_building_alias_name(building_t * building,const char * alias_name);
+void remove_building_alias_name(building_t * building,const char * alias_name,err_ctx_t * ctx);
 
 //Take an existing name from the alias list and swap it with the primary name
-void change_primary_building_name(building_t * building,const char * primary_name);
+void change_primary_building_name(building_t * building,const char * primary_name,err_ctx_t * ctx);
 
 //Fix an incorrect floor count assignment to a building
-void set_building_floor_count(building_t * building,size_t new_floor_count);
+void set_building_floor_count(building_t * building,size_t new_floor_count,err_ctx_t * ctx);
 
 //change the bounding box of a building if it was incorrect
-void set_building_bounding_box(building_t * building,map_rect_t building_bounding_box);
+void set_building_bounding_box(building_t * building,map_rect_t building_bounding_box,err_ctx_t * ctx);
 
 //Get the main name of a building. (Warning) Might return NULL
-const char * get_primary_building_name(const building_t * building);
+const char * get_primary_building_name(const building_t * building,err_ctx_t * ctx);
 
 //Print out the building object and all of its member data. Tabs value lets you add tabs to every line of output.
-void building_to_output_stream(const building_t * building,size_t tabs,FILE * stream);
+void building_to_output_stream(const building_t * building,size_t tabs,FILE * stream,err_ctx_t * ctx);
 //--------------------------------------------------------------- BUILDING END --------------------------------------------------------
 
 //---------------------------------------------------------- NODES BEGIN --------------------------------------------------------------
@@ -177,12 +203,6 @@ struct Map_Node{
 	//associated building if applicable
 	building_t * associated_building;
 	
-	//floor number of node if applicable
-	int8_t floor_number;
-	
-	//whether or not the node is selectable with the mouse
-	bool selectable;
-	
 	//used for intermediate calculation during A* search
 	double cost_temp;
 	
@@ -191,49 +211,70 @@ struct Map_Node{
 	
 	//used to reconstruct shortest path after A* has finished
 	map_node_t * previous;
+	
+	//whether or not the node is selectable with the mouse
+	bool selectable;
+	
+	//floor number of node if applicable
+	int8_t floor_number;
 };
 
 //Create a map_node_t object in the heap. This will need to be freed.
 map_node_t * create_map_node(cord_t coordinate);
 
 //Delete a map_node_t object.
-void delete_map_node(map_node_t * node);
+void delete_map_node(map_node_t * node,err_ctx_t * ctx);
 
 //Give a node a name.
-void set_map_node_name(map_node_t * node,const char * name);
+void set_map_node_name(map_node_t * node,const char * name,err_ctx_t * ctx);
 
 //clear the name field from a node
-void clear_map_node_name(map_node_t * node);
+void clear_map_node_name(map_node_t * node,err_ctx_t * ctx);
+
+//get the name of the map node
+const char * get_map_node_name(const map_node_t * node,err_ctx_t * ctx);
 
 //Set an image for node based on a file path.
-void set_map_node_picture(map_node_t * node,const char * file_path);
+void set_map_node_picture(map_node_t * node,const char * file_path,err_ctx_t * ctx);
 
 //clear the file name field from a node
-void clear_map_node_picture(map_node_t * node);
+void clear_map_node_picture(map_node_t * node,err_ctx_t * ctx);
+
+//get the file name field from a node
+const char * get_map_node_picture(const map_node_t * node,err_ctx_t * ctx);
 
 //Set a nodes floor number if applicable
-void set_map_node_floor_number(map_node_t * node,int8_t floor_number);
+void set_map_node_floor_number(map_node_t * node,int8_t floor_number,err_ctx_t * ctx);
+
+//get the floor number of a node if applicable
+int8_t get_map_node_floor_number(const map_node_t * node,err_ctx_t * ctx);
 
 //If a node doesn't have a floor number, like those outside then clear it
-void clear_map_node_floor_number(map_node_t * node);
+void clear_map_node_floor_number(map_node_t * node,err_ctx_t * ctx);
 
 //Make a node selectable with the mouse or not.
-void set_map_node_selectable(map_node_t * node,bool selectable);
+void set_map_node_selectable(map_node_t * node,bool selectable,err_ctx_t * ctx);
+
+//get whether or not a node is selectable with a mouse
+bool get_map_node_selectable(const map_node_t * node,err_ctx_t * ctx);
 
 //Set the building in which the node resides.
-void set_map_node_building(map_node_t * node,building_t * building);
+void set_map_node_building(map_node_t * node,building_t * building,err_ctx_t * ctx);
 
 //If you accidently assigned a building to a node you can clear it.
-void clear_map_node_building(map_node_t * node);
+void clear_map_node_building(map_node_t * node,err_ctx_t * ctx);
 
 //edit a misplaced coordinate
-void set_map_node_cord(map_node_t * node,cord_t new_cord);
+void set_map_node_cord(map_node_t * node,cord_t new_cord,err_ctx_t * ctx);
+
+//get the coordinate of the map node
+cord_t get_map_node_cord(const map_node_t * node,err_ctx_t * ctx);
 
 //is the node next to an automatic door?
-bool node_adjacent_to_auto_door(map_node_t * node);
+bool node_adjacent_to_auto_door(map_node_t * node,err_ctx_t * ctx);//TODO TEST
 
 //Print out a map node and show all of its member data. Tabs value lets you add tabs to every line of output.
-void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream);
+void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream,err_ctx_t * ctx);
 //---------------------------------------------------------- NODES END ----------------------------------------------------------------
 
 
@@ -269,6 +310,12 @@ void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream
 //Does the edge use a crosswalk
 #define EDGE_TYPE_CROSSWALK 10
 
+//Is the Edge Blocked by construction
+#define EDGE_TYPE_CONSTRUCTION 11
+
+#define N_EDGE_TYPES 11
+extern const char * edge_type_names[N_EDGE_TYPES];
+
 struct Map_Edge{
 	map_node_t * a;
 	map_node_t * b;
@@ -276,30 +323,33 @@ struct Map_Edge{
 };
 
 //Create a map_edge_t object in the heap. This will need to be freed.
-map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b);
+map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b,err_ctx_t * ctx);
 
 //Delete a map_edge_t object.
-void delete_map_edge(map_edge_t * edge);
+void delete_map_edge(map_edge_t * edge,err_ctx_t * ctx);
 
 //change the type of the edge
-void set_map_edge_type(map_edge_t * edge,uint8_t type);
+void set_map_edge_type(map_edge_t * edge,uint8_t type,err_ctx_t * ctx);
+
+//get the type of the edge
+uint8_t get_map_edge_type(const map_edge_t * edge,err_ctx_t * ctx);
+
+//get the Euclidean distance of an edge if applicable
+double get_edge_length(const map_edge_t * edge,err_ctx_t * ctx);
+
+//get the first node of an edge
+const map_node_t * get_edge_node_a(const map_edge_t * edge,err_ctx_t * ctx);
+
+//get the second node of an edge
+const map_node_t * get_edge_node_b(const map_edge_t * edge,err_ctx_t * ctx);
 
 //Print out a map edge and show all of its member data. Tabs value lets you add tabs to every line of output.
-void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream);
+void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream,err_ctx_t * ctx);
 //---------------------------------------------------------- EDGES END ----------------------------------------------------------------
 
 
 
 //---------------------------------------------------------- MAP BEGIN ----------------------------------------------------------------
-struct Search_Filter_Options{
-	char * start_position_text;
-	char * end_position_text;
-	bool exclude_stairs;
-	bool exclude_non_auto_doors;
-	bool exclude_interiors;
-};
-
-
 
 /*
  * The map is all the nodes, all the edges and all the map-polygon-objects
@@ -324,84 +374,109 @@ struct Map{
 	mpo_t ** all_mpos;
 	size_t n_mpos;
 	size_t mpo_capacity;
-	
-	map_node_t * active_start;
-	map_node_t * active_end;
-	map_path_t * active_path;
-	double (*active_edge_cost_function)(const map_edge_t * edge_ref);
 };
 
 //Create a map object. Not on heap.
 map_t init_map(void);
 
 //Clear heap data from within the map.
-void clear_map(map_t * map);
+void deinit_map(map_t * map,err_ctx_t * ctx);
 
 //add building to map
-void add_building_to_map(map_t * map,building_t * building);
+void add_building_to_map(map_t * map,building_t * building,err_ctx_t * ctx);
 
 //remove building from map
-void remove_building_from_map(map_t * map,building_t * building);
+void remove_building_from_map(map_t * map,building_t * building,err_ctx_t * ctx);
 
 //remove building by name
-void remove_building_by_name_from_map(map_t * map,const char * name);
+void remove_building_by_name_from_map(map_t * map,const char * name,err_ctx_t * ctx);
 
 //remove building from the map by index
-void remove_building_from_map_by_index(map_t * map,size_t index);
+void remove_building_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx);
+
+//get building by index
+building_t * get_building_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx);
+
+//get building by name
+building_t * get_building_by_name_from_map(map_t * map, const char * name,err_ctx_t * ctx);
 
 //add node to map
-void add_node_to_map(map_t * map,map_node_t * node);
+void add_node_to_map(map_t * map,map_node_t * node,err_ctx_t * ctx);
 
 //remove node from map
-void remove_node_from_map(map_t * map,map_node_t * node);
+void remove_node_from_map(map_t * map,map_node_t * node,err_ctx_t * ctx);
 
 //remove node from map by name
-void remove_node_by_name_from_map(map_t * map,const char * node_name);
+void remove_node_by_name_from_map(map_t * map,const char * node_name,err_ctx_t * ctx);
 
 //remove node from map by index
-void remove_node_from_map_by_index(map_t * map,size_t index);
+void remove_node_from_map_by_index(map_t * map,size_t index,err_ctx_t * ctx);
+
+//get node by index
+map_node_t * get_node_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx);//TODO add tests
+
+//get node by name
+map_node_t * get_node_by_name_from_map(map_t * map, const char * name,err_ctx_t * ctx);//TODO add tests
 
 //connect two nodes in a map
-void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type);
+void connect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t edge_type,err_ctx_t * ctx);
 
 //connect two nodes in a map by their index
-void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type);
+void connect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t edge_type,err_ctx_t * ctx);
 
 //connect two nodes in a map by their names
-void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type);
+void connect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,uint8_t edge_type,err_ctx_t * ctx);
 
 //disconnect two nodes in a map
-void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b);
+void disconnect_nodes_in_map(map_t * map,map_node_t * node_a,map_node_t * node_b,err_ctx_t * ctx);
 
 //disconnect two nodes in a map by their index
-void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b);
+void disconnect_nodes_in_map_by_indices(map_t * map,size_t index_a,size_t index_b,err_ctx_t * ctx);
 
 //disconnect two nodes in map by their names
-void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b);
+void disconnect_nodes_in_map_by_names(map_t * map,const char * node_a,const char * node_b,err_ctx_t * ctx);
 
 //change the connection edge type by their index
-void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t new_edge_type);
+void set_connection_type_for_nodes_by_indices(map_t * map,size_t index_a,size_t index_b,uint8_t new_edge_type,err_ctx_t * ctx);
 
 //change the connection edge type
-void set_connection_type_for_nodes(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type);
+void set_connection_type_for_nodes(map_t * map,map_node_t * node_a,map_node_t * node_b,uint8_t new_edge_type,err_ctx_t * ctx);
 
 //change the connection edge type by name
-void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const char * node_b,uint8_t new_edge_type);
+void set_connection_type_for_nodes_by_name(map_t * map,const char * node_a,const char * node_b,uint8_t new_edge_type,err_ctx_t * ctx);
 
 //add a map polygon object to the map
-void add_mpo_to_map(map_t * map,mpo_t * mpo);
+void add_mpo_to_map(map_t * map,mpo_t * mpo,err_ctx_t * ctx);
 
 //remove a map polygon object from the map
-void remove_mpo_from_map(map_t * map,mpo_t * mpo);
+void remove_mpo_from_map(map_t * map,mpo_t * mpo,err_ctx_t * ctx);
 
 //remove a map polygon object from the map by name
-void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name);
+void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name,err_ctx_t * ctx);
 
 //remove a map polygon object from map by index
-void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index);
+void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index,err_ctx_t * ctx);
+
+//get map polygon object by index
+mpo_t * get_mpo_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx);//TODO add tests
+
+//get map polygon object by name
+mpo_t * get_mpo_by_name_from_map(map_t * map,const char * name,err_ctx_t * ctx);//TODO add tests
+
+//get the number of nodes in the map
+size_t get_map_node_count(map_t * map,err_ctx_t * ctx);//TODO add tests
+
+//get the number of map polygon objects in the map
+size_t get_map_mpo_count(map_t * map,err_ctx_t * ctx);//TODO add tests
+
+//get the number of buildings in the map
+size_t get_map_building_count(map_t * map,err_ctx_t * ctx);//TODO add tests
+
+//get the number of edges in the map
+size_t get_map_edge_count(map_t * map,err_ctx_t * ctx);//TODO add tests
 
 //Print out a map and all its member data. Tabs value lets you add tabs to every line of output.
-void map_to_output_stream(map_t map,size_t tabs,FILE * stream);//TODO
+void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx);
 
 struct Map_Path{
 	map_node_t ** nodes;//ordered list that defines a path, does not own nodes
@@ -416,12 +491,31 @@ struct Saved_Paths{
 };
 //---------------------------------------------------------- MAP END ------------------------------------------------------------------
 
+//---------------------------------------------------------- SYSTEM BEGIN -------------------------------------------------------------
 
+struct Search_Filter_Options{
+	char * fuzzy_name;
+	uint8_t floor_number;
+	bool exclude_stairs;
+	bool exclude_non_auto_doors;
+	bool exclude_interiors;
+};
 
+struct Search_Results{
+	map_node_t ** results;
+	size_t n_results;
+};
 
+struct Map_System{
+	map_t map;
+	
+	map_node_t * active_start;
+	map_node_t * active_end;
+	map_path_t * active_path;
+	double (*active_edge_cost_function)(const map_edge_t * edge_ref);
+};
 
-
-//---------------------------------------------------------- FUNCTIONS BEGIN ----------------------------------------------------------
+//---------------------------------------------------------- SYSTEM END ---------------------------------------------------------------
 
 
 
