@@ -152,7 +152,10 @@ if __name__ == "__main__":
                 round_x = round(real_coord[0], 5)
                 round_y = round(real_coord[1], 5)
                 mpo_list[i][j] = (round_x, round_y)
-                text = str(j) + " " + str(mpo_list[i][j]) + "\n"
+                spacing = "    "
+                if j < 10:
+                    spacing ="     "
+                text = str(j) + spacing + str(mpo_list[i][j][0]) + "    " + str(mpo_list[i][j][1]) + "\n"
                 file.write(text)
             file.close
         #used dislay the green and red pixels turned orange, only for testing to see if it worked properly
