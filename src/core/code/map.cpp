@@ -14,7 +14,7 @@
 #define DEFAULT_NODES_CAPACITY 1
 #define DEFAULT_EDGES_CAPACITY 1
 #define DEFAULT_MPO_CAPACITY 1
-
+#define DEFAULT_QUEUE_CAPACITY 1
 
 const char * mpo_type_names[N_MPO_TYPES] = {
 	"Water",
@@ -52,9 +52,13 @@ bool are_cords_equal(cord_t a,cord_t b){
 	return (a.longitude == b.longitude) && (a.latitude == b.latitude);
 }
 
+//this constant is specific to UMBC (TODO make part of map file)
+#define SCALING_X_FACTOR 1.0
+#define SCALING_Y_FACTOR -1.29342421953
+
 double cord_distance(cord_t a,cord_t b){
-	double dlon = b.longitude-a.longitude;
-	double dlat = b.latitude-a.latitude;
+	double dlon = (b.longitude - a.longitude)*SCALING_X_FACTOR;
+	double dlat = (b.latitude - a.latitude)*SCALING_Y_FACTOR;
 	return sqrt(dlon*dlon + dlat*dlat );
 }
 
@@ -320,6 +324,8 @@ map_node_t * create_map_node(cord_t coordinate) {
 	output->cost_temp = 0.0;
 	output->index_temp = 0;
 	output->previous = NULL;
+	output->visited = false;
+	output->approximate_cost_to_goal = 0;
 	
 	return output;
 }
@@ -614,6 +620,16 @@ void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream
 			fprintf(stream,"\t\t%p\n",node->outgoing_edges[i]);
 		}
 	}
+	
+	put_multitab(tabs,stream);
+	fputs("\tCost temp:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%e\n",node->cost_temp);
+	
+	put_multitab(tabs,stream);
+	fputs("\tVisited:\n",stream);
+	put_multitab(tabs,stream);
+	fprintf(stream,"\t\t%d\n",node->visited);
 }
 
 map_edge_t * create_map_edge(uint8_t type,map_node_t * a,map_node_t * b,err_ctx_t * ctx) {
@@ -662,11 +678,11 @@ uint8_t get_map_edge_type(const map_edge_t * edge,err_ctx_t * ctx){
 double get_edge_length(const map_edge_t * edge,err_ctx_t * ctx){
 	if(edge == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
-		return 0.0;
+		return DBL_MAX;
 	}
 	
 	if(edge->a == NULL || edge->b == NULL){
-		return FLT_MAX;
+		return DBL_MAX;
 	}
 	
 	return cord_distance(edge->a->coordinate,edge->b->coordinate);
@@ -1851,7 +1867,8 @@ void do_thing(){
 void delete_map_path(map_path_t * map_path_ref) {
 	if(map_path_ref == NULL) return;
 	free(map_path_ref->nodes);
-	free(map_path_ref->name);
+	free(map_path_ref->edges);
+	if(map_path_ref->name != NULL) free(map_path_ref->name);
 }
 
 map_path_t * copy_map_path(const map_path_t * map_path_ref){
@@ -1915,4 +1932,200 @@ void clear_saved_paths(saved_paths_t * saved_paths){
  */
 size_t get_node_index(map_node_t * node,map_node_t ** all_nodes){
 	return ((size_t)node-((size_t)&(all_nodes[0])))/sizeof(map_node_t);
+}
+
+
+map_sys_t init_map_sys(void){
+	map_sys_t out;
+	
+	out.map = init_map();
+	out.active_start = NULL;
+	out.active_end = NULL;
+	out.active_edge_cost_function = NULL;
+	
+	return out;
+}
+
+double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,err_ctx_t * ctx){
+	double length = get_edge_length(edge_ref,ctx);
+	
+	double scaler = 1.0;
+	uint8_t edge_type = edge_ref->type;
+	
+	if(edge_type == EDGE_TYPE_ROAD){
+		scaler = 5.0;
+	}else if(edge_type == EDGE_TYPE_STAIRS){
+		scaler = DBL_MAX;
+	}else if(edge_type == EDGE_TYPE_RAMP){
+		scaler = 1.2;
+	}else if(edge_type == EDGE_TYPE_DOOR){
+		scaler = 10.0;
+	}else if(edge_type == EDGE_TYPE_AUTO_DOOR){
+		scaler = 1.5;
+	}else if(edge_type == EDGE_TYPE_CROSSWALK){
+		scaler = 1.5;
+	}else if(edge_type == EDGE_TYPE_CONSTRUCTION){
+		scaler = DBL_MAX;
+	}
+	
+	return length*scaler;
+}
+
+prior_q_t create_prior_q(void){
+	prior_q_t out;
+	
+	out.q_capacity = DEFAULT_QUEUE_CAPACITY;
+	out.q_size = 0;
+	out.queue = (map_node_t**) malloc(sizeof(map_node_t*) * out.q_capacity);
+	
+	return out;
+}
+
+void delete_prior_queue(prior_q_t * queue){
+	free(queue->queue);
+}
+
+void enqueue(prior_q_t * prior_queue,map_node_t * node,err_ctx_t * ctx){
+	if(prior_queue->q_size == 0){
+		prior_queue->queue[0] = node;
+		prior_queue->q_size++;
+		return;
+	}
+	
+	for(size_t i = 0;i < prior_queue->q_size;i++){
+		if(prior_queue->queue[i] == node) return;//already in queue
+	}
+	
+	if(prior_queue->q_capacity == prior_queue->q_size){
+		prior_queue->q_capacity *= 2;
+		prior_queue->queue = (map_node_t**) realloc(prior_queue->queue,sizeof(map_node_t*) * prior_queue->q_capacity);
+	}
+	
+	prior_queue->queue[prior_queue->q_size] = node;
+	prior_queue->q_size++;
+}
+
+map_node_t * dequeue(prior_q_t * prior_queue,err_ctx_t * ctx){
+	if(prior_queue->q_size == 0) return NULL;
+	
+	double minimal = DBL_MAX;
+	size_t minimal_index = 0;
+	
+	for(size_t i = 0;i < prior_queue->q_size;i++){
+		map_node_t * node = prior_queue->queue[i];
+		double current_cost = node->cost_temp + node->approximate_cost_to_goal;
+		if(current_cost < minimal){
+			minimal_index = i;
+			minimal = current_cost;
+		}
+	}
+	
+	map_node_t * out = prior_queue->queue[minimal_index];
+	
+	for(size_t i = minimal_index;i < prior_queue->q_size-1;i++){
+		prior_queue->queue[i] = prior_queue->queue[i+1];
+	}
+	prior_queue->q_size--;
+	
+	return out;
+}
+
+static void show_queue(prior_q_t queue,err_ctx_t * ctx){
+	fputs("\n\nQueue State:\n\n",stdout);
+	for(size_t i = 0;i < queue.q_size;i++){
+		map_node_to_output_stream(queue.queue[i],0,stdout,ctx);
+	}
+}
+
+void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx){
+	for(size_t i = 0;i < map_sys->map.n_nodes;i++){
+		map_node_t * current = map_sys->map.all_nodes[i];
+		current->cost_temp = DBL_MAX;
+		current->visited = false;
+		current->previous = NULL;
+		current->approximate_cost_to_goal = cord_distance(current->coordinate,map_sys->active_end->coordinate);
+	}
+	map_sys->active_start->cost_temp = 0;
+	map_sys->active_start->visited = true;
+	
+	prior_q_t prior_q = create_prior_q();
+	enqueue(&prior_q,map_sys->active_start,ctx);
+	
+	while(prior_q.q_size > 0){
+		map_node_t * node = dequeue(&prior_q,ctx);
+		
+		if(node == map_sys->active_end){
+			break;
+		}
+		
+		for(size_t i = 0;i < node->n_outgoing_edges;i++){
+			map_edge_t * edge = node->outgoing_edges[i];
+			map_node_t * adjacent_node = (edge->a == node) ? edge->b : edge->a;
+			
+			double new_cost = node->cost_temp + map_sys->active_edge_cost_function(edge,ctx);
+			double old_cost = adjacent_node->cost_temp;
+			
+			if(!adjacent_node->visited || new_cost < old_cost){
+				adjacent_node->cost_temp = new_cost;
+				adjacent_node->visited = true;
+				adjacent_node->previous = node;
+				
+				enqueue(&prior_q,adjacent_node,ctx);
+			}
+		}
+		
+	}
+	
+	delete_prior_queue(&prior_q);
+	
+	//reconstruct path
+	
+	if(map_sys->active_end->previous == NULL){
+		map_sys->active_path = NULL;
+		return;//no path found
+	}
+	
+	size_t total_nodes = 0;
+	
+	map_node_t * node = map_sys->active_end;
+	while(node->previous != NULL){
+		node = node->previous;
+		total_nodes++;
+	}
+	total_nodes++;
+	
+	size_t total_edges = total_nodes-1;
+	
+	map_path_t * path = (map_path_t*) malloc(sizeof(map_path_t));
+	
+	path->nodes = (map_node_t**) malloc(sizeof(map_node_t*) * total_nodes);
+	path->edges = (map_edge_t**) malloc(sizeof(map_edge_t*) * total_edges);
+	path->n_nodes = total_nodes;
+	path->n_edges = total_edges;
+	path->name = NULL;
+	
+	size_t index = total_nodes-1;
+	node = map_sys->active_end;
+	while(node->previous != NULL){
+		path->nodes[index] = node;
+		
+		for(size_t i = 0;i < node->n_outgoing_edges;i++){
+			map_edge_t * edge = node->outgoing_edges[i];
+			map_node_t * adjacent_node = (edge->a == node) ? edge->b : edge->a;
+			if(adjacent_node == node->previous){
+				path->edges[index-1] = edge;
+				break;
+			}
+		}
+		
+		node = node->previous;
+		index--;
+	}
+	path->nodes[0] = node;
+	
+	for(size_t i = 0;i < path->n_edges;i++){
+		map_edge_to_output_stream(path->edges[i],0,stdout,ctx);
+	}
+	
+	//delete_map_path(path);
 }

@@ -46,4 +46,7 @@ bool map_edge_data_structure_test(bool silent);
  */
 bool basic_map_data_structure_test(bool silent);
 
+//test the A* algorithm
+bool find_path_test(bool silent);
+
 #endif
