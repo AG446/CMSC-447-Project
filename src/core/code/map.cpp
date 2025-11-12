@@ -161,12 +161,8 @@ void add_building_alias_name(building_t * building,const char * alias_name,err_c
 		building->possible_names = (char**) realloc(building->possible_names,sizeof(char*)*building->possible_names_capacity);
 	}
 	
-	size_t alias_length = strlen(alias_name);
-	char * alias_string_cpy = (char*) malloc(alias_length+1);
-	strcpy(alias_string_cpy,alias_name);
-	
 	//add new element to the strings array
-	building->possible_names[building->n_possible_names] = alias_string_cpy;
+	building->possible_names[building->n_possible_names] = strdup(alias_name);
 	building->n_possible_names++;
 }
 
@@ -371,11 +367,7 @@ void set_map_node_name(map_node_t * node,const char * name,err_ctx_t * ctx){
 	
 	if(node->name != NULL) free(node->name);
 	
-	size_t name_length = strlen(name);
-	char * name_cpy = (char*) malloc(name_length+1);
-	strcpy(name_cpy,name);
-	
-	node->name = name_cpy;
+	node->name = strdup(name);
 }
 
 void clear_map_node_name(map_node_t * node,err_ctx_t * ctx){
@@ -403,14 +395,9 @@ void set_map_node_picture(map_node_t * node,const char * file_path,err_ctx_t * c
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return;
 	}
-	
 	if(node->picture_file_path != NULL) free(node->picture_file_path);
 	
-	size_t path_length = strlen(file_path);
-	char * path_cpy = (char*) malloc(path_length+1);
-	strcpy(path_cpy,file_path);
-	
-	node->picture_file_path = path_cpy;
+	node->picture_file_path = strdup(file_path);
 }
 
 void clear_map_node_picture(map_node_t * node,err_ctx_t * ctx){
@@ -768,11 +755,7 @@ void set_mpo_name(mpo_t * mpo,const char * name,err_ctx_t * ctx){
 	
 	if(mpo->name != NULL) free(mpo->name);
 	
-	size_t name_length = strlen(name);
-	char * name_cpy = (char*) malloc(name_length+1);
-	strcpy(name_cpy,name);
-	
-	mpo->name = name_cpy;
+	mpo->name = strdup(name);
 }
 
 const char * get_mpo_name(const mpo_t * mpo,err_ctx_t * ctx){
@@ -1866,12 +1849,13 @@ void do_thing(){
 
 void delete_map_path(map_path_t * map_path_ref) {
 	if(map_path_ref == NULL) return;
-	free(map_path_ref->nodes);
-	free(map_path_ref->edges);
+	if(map_path_ref->nodes != NULL) free(map_path_ref->nodes);
+	if(map_path_ref->edges != NULL) free(map_path_ref->edges);
 	if(map_path_ref->name != NULL) free(map_path_ref->name);
+	free(map_path_ref);
 }
 
-map_path_t * copy_map_path(const map_path_t * map_path_ref){
+map_path_t * copy_map_path(const map_path_t * map_path_ref){//TODO add edges
 	map_path_t * out = (map_path_t*) malloc(sizeof(map_path_t));
 
 	if(map_path_ref == NULL){
@@ -1893,11 +1877,7 @@ map_path_t * copy_map_path(const map_path_t * map_path_ref){
 	}
 
 	if(map_path_ref->name != NULL){
-		size_t ref_name_length = strlen(map_path_ref->name);
-		char * new_string = (char*) malloc(ref_name_length+1);
-		strcpy(new_string,map_path_ref->name);
-
-		out->name = new_string;
+		out->name = strdup(map_path_ref->name);
 	}else{
 		out->name = NULL;
 	}
@@ -1941,9 +1921,17 @@ map_sys_t init_map_sys(void){
 	out.map = init_map();
 	out.active_start = NULL;
 	out.active_end = NULL;
+	out.active_path = NULL;
 	out.active_edge_cost_function = NULL;
 	
 	return out;
+}
+
+void deinit_map_sys(map_sys_t * sys,err_ctx_t * ctx){
+	if(sys->active_path != NULL){
+		delete_map_path(sys->active_path);
+	}
+	deinit_map(&(sys->map),ctx);
 }
 
 double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,err_ctx_t * ctx){
@@ -2030,12 +2018,14 @@ map_node_t * dequeue(prior_q_t * prior_queue,err_ctx_t * ctx){
 	return out;
 }
 
+/*
 static void show_queue(prior_q_t queue,err_ctx_t * ctx){
 	fputs("\n\nQueue State:\n\n",stdout);
 	for(size_t i = 0;i < queue.q_size;i++){
 		map_node_to_output_stream(queue.queue[i],0,stdout,ctx);
 	}
 }
+*/
 
 void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx){
 	for(size_t i = 0;i < map_sys->map.n_nodes;i++){
@@ -2123,9 +2113,5 @@ void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx){
 	}
 	path->nodes[0] = node;
 	
-	for(size_t i = 0;i < path->n_edges;i++){
-		map_edge_to_output_stream(path->edges[i],0,stdout,ctx);
-	}
-	
-	//delete_map_path(path);
+	map_sys->active_path = path;
 }

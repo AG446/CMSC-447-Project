@@ -1,16 +1,16 @@
 #include "tester.h"
 #include "map.h"
-#include "cl_tool.h"
 #include "text_proc.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include "map_serial.h"
+#include <time.h>
 
 #define N_TESTS 10
 test_func_t func_table[N_TESTS] = {
 	{token_matching_test,"Token matching test",SILENT},
-	{phrase_matching_test,"Phrase matching test",SILENT},
+	{phrase_matching_test,"Phrase matching test",VERBOSE},
 	{basic_serialization_test,"Basic serialization test",SILENT},
 	{serialization_test,"Serialization test",SILENT},
 	{building_data_structure_test,"Building data structure test",SILENT},
@@ -18,7 +18,7 @@ test_func_t func_table[N_TESTS] = {
 	{map_node_data_structure_test,"Map node data structure test",SILENT},
 	{map_edge_data_structure_test,"Map edge data structure test",SILENT},
 	{basic_map_data_structure_test,"Basic map data structure test",SILENT},
-	{find_path_test,"Find path test",VERBOSE}
+	{find_path_test,"Find path test",SILENT}
 };
 
 int main(){
@@ -35,10 +35,6 @@ int main(){
 			fputs("\033[31mFAIL\033[0m\n",stdout);
 		}
 	}
-	//do_thing();
-	//fputs("Press ENTER to continue\n",stdout);
-	//getc(stdin);
-	//start_cli();
 }
 
 bool find_path_test(bool silent){
@@ -90,9 +86,21 @@ bool find_path_test(bool silent){
 	sys.active_end = node_g;
 	sys.active_edge_cost_function = calculate_wheelchair_edge_cost;
 	
+	clock_t start_time = clock();
 	find_best_path(&sys,&err_ctx);
+	clock_t end_time = clock();
 	
-	deinit_map(&sys.map,&err_ctx);
+	if(!silent){
+		if(sys.active_path != NULL){
+			for(size_t i = 0; i < sys.active_path->n_nodes;i++){
+				map_node_to_output_stream(sys.active_path->nodes[i],0,stdout,&err_ctx);
+			}
+		}
+	}
+	
+	if(!silent) printf("Path Finder CPU time: %f ms\n",(float)(end_time-start_time) / CLOCKS_PER_SEC*1000.0f);
+	
+	deinit_map_sys(&sys,&err_ctx);
 	if(err_encountered(&err_ctx)) return FAIL;
 	
 	return PASS;

@@ -2,3 +2,4 @@ build/*
 test.bin
 vgcore.*
 *.kate-swp
+*.hmap

@@ -557,6 +557,7 @@ struct Map_System{
 };
 
 map_sys_t init_map_sys(void);
+void deinit_map_sys(map_sys_t * sys,err_ctx_t * ctx);
 
 //---------------------------------------------------------- SYSTEM END ---------------------------------------------------------------
 
