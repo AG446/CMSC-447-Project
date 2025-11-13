@@ -27,6 +27,8 @@ typedef struct Map_Polygon_Object mpo_t;
 typedef struct Map_Path map_path_t;
 typedef struct Saved_Paths saved_paths_t;
 typedef struct Building building_t;
+typedef struct Priority_Queue prior_q_t;
+typedef struct Map_System map_sys_t;
 
 //---------------------------------------------------------- GEOMETRY PRIMITIVES BEGIN ------------------------------------------------
 /*
@@ -206,6 +208,9 @@ struct Map_Node{
 	//used for intermediate calculation during A* search
 	double cost_temp;
 	
+	//used for intermediate calculation during A* search
+	double approximate_cost_to_goal;
+	
 	//a temporary index which is used for file saving purposes
 	size_t index_temp;
 	
@@ -214,6 +219,9 @@ struct Map_Node{
 	
 	//whether or not the node is selectable with the mouse
 	bool selectable;
+	
+	///used for intermediate calculation during A* search
+	bool visited;
 	
 	//floor number of node if applicable
 	int8_t floor_number;
@@ -480,9 +488,28 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx);
 
 struct Map_Path{
 	map_node_t ** nodes;//ordered list that defines a path, does not own nodes
-	size_t n_nodes;//number of elements in this list
+	map_edge_t ** edges;//ordered list off all the edges encoutnered
+	size_t n_nodes;//number of nodes in the list
+	size_t n_edges;//number of edges in the list
 	char * name;//default NULL
 };
+
+/*
+ * give a name to a path
+ */
+void set_map_path_name(map_path_t * map_path_ref,const char * path_name);
+
+/*
+ * Delete the map_path_t object
+ * dev-note: Ensure that the name is freed.
+ */
+void delete_map_path(map_path_t * map_path_ref);
+
+/*
+ * copy a map path object
+ */
+map_path_t * copy_map_path(const map_path_t * map_path_ref);
+
 
 struct Saved_Paths{
 	map_path_t ** paths;
@@ -506,14 +533,31 @@ struct Search_Results{
 	size_t n_results;
 };
 
+struct Priority_Queue{
+	map_node_t ** queue;
+	size_t q_size;
+	size_t q_capacity;
+};
+
+prior_q_t create_prior_q(void);
+
+void delete_prior_queue(prior_q_t * queue);
+
+void enqueue(prior_q_t * prior_queue,map_node_t * node,err_ctx_t * ctx);
+
+map_node_t * dequeue(prior_q_t * prior_queue,err_ctx_t * ctx);
+
 struct Map_System{
 	map_t map;
 	
 	map_node_t * active_start;
 	map_node_t * active_end;
 	map_path_t * active_path;
-	double (*active_edge_cost_function)(const map_edge_t * edge_ref);
+	double (*active_edge_cost_function)(const map_edge_t * edge_ref,err_ctx_t * ctx);
 };
+
+map_sys_t init_map_sys(void);
+void deinit_map_sys(map_sys_t * sys,err_ctx_t * ctx);
 
 //---------------------------------------------------------- SYSTEM END ---------------------------------------------------------------
 
@@ -523,50 +567,31 @@ struct Map_System{
 /*
  * The cost of an edge for people in wheelchairs
  */
-double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref);
+double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,err_ctx_t * ctx);
 
 /*
  * The cost of an edge for a walker
  */
-double calculate_walker_edge_cost(const map_edge_t * edge_ref);
+double calculate_walker_edge_cost(const map_edge_t * edge_ref,err_ctx_t * ctx);
 
 /*
  * The cost of an edge for transfering heavy equipment
  */
-double calculate_deliverer_edge_cost(const map_edge_t * edge_ref);
+double calculate_deliverer_edge_cost(const map_edge_t * edge_ref,err_ctx_t * ctx);
 
 /*
  * The cost of an edge for a driver
  */
-double calculate_driver_edge_cost(const map_edge_t * edge_ref);
+double calculate_driver_edge_cost(const map_edge_t * edge_ref,err_ctx_t * ctx);
 
 /*
  * Find a path which is the least cost given the edge_cost_function. Use Dijkstra's Algorithm
  * the start node is active_start and end node is active_end
  * store best path into active_path
  */
-void find_best_path(map_t * map_ref);
+void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx);
 
 
-
-
-
-
-/*
- * give a name to a path
- */
-void set_map_path_name(map_path_t * map_path_ref,const char * path_name);
-
-/*
- * Delete the map_path_t object
- * dev-note: Ensure that the name is freed.
- */
-void delete_map_path(map_path_t * map_path_ref);
-
-/*
- * copy a map path object
- */
-map_path_t * copy_map_path(const map_path_t * map_path_ref);
 
 
 

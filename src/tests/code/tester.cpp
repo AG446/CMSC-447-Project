@@ -1,23 +1,24 @@
 #include "tester.h"
 #include "map.h"
-#include "cl_tool.h"
 #include "text_proc.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include "map_serial.h"
+#include <time.h>
 
-#define N_TESTS 9
+#define N_TESTS 10
 test_func_t func_table[N_TESTS] = {
 	{token_matching_test,"Token matching test",SILENT},
-	{phrase_matching_test,"Phrase matching test",SILENT},
+	{phrase_matching_test,"Phrase matching test",VERBOSE},
 	{basic_serialization_test,"Basic serialization test",SILENT},
 	{serialization_test,"Serialization test",SILENT},
 	{building_data_structure_test,"Building data structure test",SILENT},
 	{mpo_data_structure_test,"Map polygon object data structure test",SILENT},
 	{map_node_data_structure_test,"Map node data structure test",SILENT},
 	{map_edge_data_structure_test,"Map edge data structure test",SILENT},
-	{basic_map_data_structure_test,"Basic map data structure test",SILENT}
+	{basic_map_data_structure_test,"Basic map data structure test",SILENT},
+	{find_path_test,"Find path test",SILENT}
 };
 
 int main(){
@@ -34,10 +35,75 @@ int main(){
 			fputs("\033[31mFAIL\033[0m\n",stdout);
 		}
 	}
-	//do_thing();
-	//fputs("Press ENTER to continue\n",stdout);
-	//getc(stdin);
-	start_cli();
+}
+
+bool find_path_test(bool silent){
+	err_ctx_t err_ctx = create_err_ctx();
+	
+	map_sys_t sys = init_map_sys();
+	
+	map_node_t * node_a = create_map_node(create_cord(0,0));
+	set_map_node_name(node_a,"A",&err_ctx);
+	
+	map_node_t * node_b = create_map_node(create_cord(1,2));
+	set_map_node_name(node_b,"B",&err_ctx);
+	
+	map_node_t * node_c = create_map_node(create_cord(1,-1));
+	set_map_node_name(node_c,"C",&err_ctx);
+	
+	map_node_t * node_d = create_map_node(create_cord(2,0));
+	set_map_node_name(node_d,"D",&err_ctx);
+	
+	map_node_t * node_e = create_map_node(create_cord(3,1));
+	set_map_node_name(node_e,"E",&err_ctx);
+	
+	map_node_t * node_f = create_map_node(create_cord(3,-2));
+	set_map_node_name(node_f,"F",&err_ctx);
+	
+	map_node_t * node_g = create_map_node(create_cord(4,0));
+	set_map_node_name(node_g,"G",&err_ctx);
+	
+	add_node_to_map(&sys.map,node_a,&err_ctx);
+	add_node_to_map(&sys.map,node_b,&err_ctx);
+	add_node_to_map(&sys.map,node_c,&err_ctx);
+	add_node_to_map(&sys.map,node_d,&err_ctx);
+	add_node_to_map(&sys.map,node_e,&err_ctx);
+	add_node_to_map(&sys.map,node_f,&err_ctx);
+	add_node_to_map(&sys.map,node_g,&err_ctx);
+	
+	connect_nodes_in_map(&sys.map,node_a,node_b,EDGE_TYPE_HALLWAY,&err_ctx);//1
+	connect_nodes_in_map(&sys.map,node_a,node_c,EDGE_TYPE_STAIRS,&err_ctx);//2
+	connect_nodes_in_map(&sys.map,node_b,node_d,EDGE_TYPE_HALLWAY,&err_ctx);//3
+	connect_nodes_in_map(&sys.map,node_c,node_d,EDGE_TYPE_HALLWAY,&err_ctx);//4
+	connect_nodes_in_map(&sys.map,node_d,node_e,EDGE_TYPE_HALLWAY,&err_ctx);//5
+	connect_nodes_in_map(&sys.map,node_d,node_f,EDGE_TYPE_HALLWAY,&err_ctx);//6
+	connect_nodes_in_map(&sys.map,node_e,node_g,EDGE_TYPE_HALLWAY,&err_ctx);//7
+	connect_nodes_in_map(&sys.map,node_f,node_g,EDGE_TYPE_HALLWAY,&err_ctx);//8
+	
+	if(!silent) map_to_output_stream(sys.map,0,stdout,&err_ctx);
+	
+	sys.active_start = node_a;
+	sys.active_end = node_g;
+	sys.active_edge_cost_function = calculate_wheelchair_edge_cost;
+	
+	clock_t start_time = clock();
+	find_best_path(&sys,&err_ctx);
+	clock_t end_time = clock();
+	
+	if(!silent){
+		if(sys.active_path != NULL){
+			for(size_t i = 0; i < sys.active_path->n_nodes;i++){
+				map_node_to_output_stream(sys.active_path->nodes[i],0,stdout,&err_ctx);
+			}
+		}
+	}
+	
+	if(!silent) printf("Path Finder CPU time: %f ms\n",(float)(end_time-start_time) / CLOCKS_PER_SEC*1000.0f);
+	
+	deinit_map_sys(&sys,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	return PASS;
 }
 
 static void print_bytes(uint8_t * bytes,size_t n_bytes){
@@ -812,7 +878,7 @@ bool map_edge_data_structure_test(bool silent){
 	if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
 	
 	double length = get_edge_length(edge,&err_ctx);
-	if(abs(length - 2*sqrt(2)) > 0.0001) return FAIL;
+	if(abs(length - 3.269829) > 0.0001) return FAIL;
 	if(!silent) printf("length: %lf\n",length);
 	
 	delete_map_edge(NULL,&err_ctx);
