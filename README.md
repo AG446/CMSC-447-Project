@@ -24,8 +24,8 @@ We hope you enjoy the UMBC Interactive Accessibility Map!
 
 To run as a developer or administrator, clone the repository. Then:
 
-# To run the CLI:
+To run the CLI:
 - make run_cli
 
-# To run the UI:
+To run the UI:
 - make run_ui
