@@ -1,4 +1,4 @@
-# CMSC-447-Project: UMBC Interactive Accessibility Map
+# UMBC Interactive Accessibility Map
 
 The UMBC Interactive Accessibility Map program is an application designed for Windows and Linux devices that renders the 2025 UMBC Map onto a canvas and displays accessible routes for students and faculty to take.
 
@@ -21,3 +21,11 @@ All map information that is stored is serialized in binary, meaning that all cal
 Therefore, this application will work incredibly quickly and reliably without any need for an Internet connection.
 
 We hope you enjoy the UMBC Interactive Accessibility Map!
+
+To run as a developer or administrator, clone the repository. Then:
+
+# To run the CLI:
+- make run_cli
+
+# To run the UI:
+- make run_ui
