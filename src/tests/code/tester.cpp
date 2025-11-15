@@ -381,7 +381,7 @@ bool serialization_test(bool silent){
 		
 		if(!silent) map_to_output_stream(map,0,stdout,&err_ctx);
 		
-		save_map_to_file(&map,"map_test.map");
+		save_map_to_file(&map,"map_test.hmap");
 		
 		size_t n_map_bytes = 0;
 		uint8_t * map_bytes = convert_map_to_binary(&map,&n_map_bytes);

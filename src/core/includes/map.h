@@ -524,7 +524,7 @@ struct Search_Filter_Options{
 	char * fuzzy_name;
 	uint8_t floor_number;
 	bool exclude_stairs;
-	bool exclude_non_auto_doors;
+	bool hide_non_auto_doors;
 	bool exclude_interiors;
 };
 
@@ -642,16 +642,6 @@ void save_saved_paths(const saved_paths_t * saved_paths_ref,FILE * file);
  * initialize the saved_paths_t object from file
  */
 void init_saved_paths_from_file(saved_paths_t * saved_paths_ref,FILE * file);
-
-/*
- * initialized a map from a file
- */
-void init_map_from_file(map_t * map_ref,FILE * file);
-
-/*
- * Save a map to a file
- */
-void save_map_to_file(const map_t * map_ref,FILE * file);
 
 
 //---------------------------------------------------------- FUNCTIONS END ------------------------------------------------------------

@@ -5,7 +5,7 @@ EXTERNAL_LIBRARIES := gtk4
 DEBUG := -g
 #OPTIMIZATIONS := -O2
 WARNING_FLAGS := -Wall
-SHARED_CFLAGS := $(OPTIMIZATIONS) $(DEBUG) -fmax-errors=10
+SHARED_CFLAGS := $(OPTIMIZATIONS) $(DEBUG) -fmax-errors=10 -Wno-deprecated-declarations
 SHARED_LDFLAGS := -lm
 
 #location of .o files
@@ -100,3 +100,4 @@ clean:
 -include $(CORE_OBJS:.o=.d)
 -include $(TESTS_OBJS:.o=.d)
 -include $(CLI_OBJS:.o=.d)
+-include $(UI_OBJS:.o=.d)

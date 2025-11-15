@@ -1,0 +1,182 @@
+#location-frame {
+	color: black;
+	background-color: #FFFF99;
+	background-image: linear-gradient(#666600, transparent, #666600);
+	border: 5px solid black;
+	padding:5px;
+}
+
+#location-frame-image {
+	background-color: black;
+	padding:10px;
+	margin:5px;
+	border-radius:10px;
+}
+
+.frame-label {
+	color: white;
+	background-color: black;
+	padding-left:50px;
+	padding-right:50px;
+	padding-top:10px;
+	padding-bottom:10px;
+	margin:5px;
+	border-radius:5px;
+	font-size:20px;
+	background-image: linear-gradient(to right, transparent,#222222,transparent);
+	box-shadow: 0px 2px 5px 3px rgba(0,0,0,0.4);
+}
+	
+#options-frame {
+	background-color: #333333;
+	background-image: linear-gradient(transparent, #111111);
+	padding:10px;
+	border:none;
+}
+	
+#map-frame {
+	background-color: black;
+	background-image: linear-gradient(to right, transparent,#444444,transparent);
+}
+
+#map-frame-label {
+	color: white;
+	margin:5px;
+	border-radius:10px;
+	font-size:20px;
+	text-shadow: 0px 2px 6px black;
+}
+	
+.location-entries {
+	border: 5px solid black;
+	background-color:white;
+	color:black;margin:5px;
+	box-shadow: 0px 2px 5px 3px rgba(0,0,0,0.6);
+}
+
+.location-labels {
+	color: yellow;
+	background-color: black;
+	border-radius:5px;
+	padding:10px;
+	margin-top:5px;
+	margin-bottom:5px;
+}
+
+window{
+	font-family: "Arial", sans-serif;
+	font-weight: bold;
+}
+	
+button{
+	color: black;
+	background-image:none;
+	transition: 0.2s;
+	border:none;
+	background-image: radial-gradient(at center 20%, transparent, rgba(0,0,0,0.5));
+}
+
+#help-button:hover{
+	transform: scale(1.1);
+}
+
+#help-button:active{
+	background-color:black;
+}
+
+.find-buttons{
+	color: black;
+	background-color:rgb(128,255,128);
+	margin:5px;
+	box-shadow: 0px 2px 7px 3px rgba(0,0,0,0.4);
+	font-size:20px;
+}
+.find-buttons:hover{
+	transform: scale(1.05);
+}
+.find-buttons:active{
+	color: white;
+	background-color:black;
+}
+
+button:hover{
+	transition: 0.2s;
+}
+
+.big-buttons{
+	padding:10px;
+}
+
+.big-buttons:hover{
+	transform: scale(1.05);
+}
+
+button:active{
+	transition: 0.1s;
+	color:white;
+}
+	
+dropdown{
+	background-color:yellow;
+	transition: 0.2s;
+	border-radius:5px;
+}
+
+dropdown:hover{
+	background-color:#FFFFCC;
+	transition: 0.2s;
+}
+
+dropdown:active{
+	background-color:#444400;
+	transition: 0.2s;
+}
+	
+#go-button{
+	color: black;
+	background-color: #44FF44;
+}
+
+#go-button:hover{
+	background-color: #AAFFAA;
+}
+
+#go-button:active{
+	background-color: #226622;
+	color: white;
+}
+	
+#clear-button{
+	color: black;
+	background-color: #FF4444;
+}
+
+#clear-button:hover{
+	background-color: #FFAAAA;
+}
+
+#clear-button:active{
+	background-color: #662222;
+	color: white;
+}
+	
+switch {
+	background-color:black;
+	transition: 0.2s;
+	outline:none;
+	border:none;
+	box-shadow: 0px 2px 7px 3px rgba(0,0,0,0.2);
+}
+
+switch slider{
+	background-color:yellow;
+	background-image:none;
+	outline:none;
+	border:none;
+	background-image:radial-gradient(at top right, rgba(255,255,255,0.9), rgba(0,0,0,0.4));
+	box-shadow: 0px 2px 7px 3px rgba(0,0,0,0.4);
+}
+
+switch:checked{
+	background-color:#00FF00;
+}
