@@ -1,3 +1,15 @@
+/*
+ * CMSC-447-Project
+ * 
+ * UMBC Student Accessibility Map Program.
+ * Copyright 2025.
+ * This program is property of University of Maryland Baltimore County (UMBC).
+ * 
+ * Program Devloped By:
+ * - Benjamin Currie 
+ * - Jack Xu
+ */
+
 #include "map.h"
 #include <string.h>
 #include <stdio.h>
