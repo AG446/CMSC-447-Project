@@ -14,23 +14,46 @@
 #define MAP_RENDER_H
 
 #include <gtk/gtk.h>
+#include "map.h"
 
 typedef struct In_Map_Button in_map_button_t;
 typedef struct Map_Data_State map_data_state_t;
+typedef struct Node_Popup node_popup_t;
 
 struct In_Map_Button{
 	double x;
 	double y;
 	double width;
 	double height;
-	bool mouse_on;
-	void (*draw_func)(in_map_button_t * button,map_data_state_t * mds);
 	double transition;
 	bool was_pressed;
+	bool mouse_on;
+	bool pressed_on;
+	bool visible;
 };
 
-in_map_button_t * init_map_button(double width,double height,void (*draw_func)(in_map_button_t * button,map_data_state_t * mds));
-void update_button(in_map_button_t * button,map_data_state_t * mds);
+in_map_button_t * create_map_button(double width,double height,map_data_state_t * mds);
+
+struct Node_Popup{
+	double x;
+	double y;
+	double full_width;
+	double full_height;
+	double width;
+	double height;
+	
+	double transition;
+	
+	map_node_t * node_reference;
+	
+	in_map_button_t * close_button;
+	in_map_button_t * set_start_button;
+	in_map_button_t * set_end_button;
+	
+	bool visible;
+};
+
+node_popup_t * create_node_popup(double width,double height,map_data_state_t * mds);
 
 struct Map_Data_State{
 	cairo_surface_t * surface;
@@ -44,9 +67,13 @@ struct Map_Data_State{
 	
 	in_map_button_t * zoom_in_button;
 	in_map_button_t * zoom_out_button;
+	in_map_button_t * home_button;
+	
+	node_popup_t * node_popup;
 	
 	in_map_button_t ** buttons;
 	size_t n_buttons;
+	size_t buttons_capacity;
 };
 
 map_data_state_t init_map_data_state(void);
