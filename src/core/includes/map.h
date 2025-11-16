@@ -510,6 +510,10 @@ void delete_map_path(map_path_t * map_path_ref);
  */
 map_path_t * copy_map_path(const map_path_t * map_path_ref);
 
+/*
+ * make output text from path
+ */
+char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx);
 
 struct Saved_Paths{
 	map_path_t ** paths;
@@ -645,8 +649,5 @@ void init_saved_paths_from_file(saved_paths_t * saved_paths_ref,FILE * file);
 
 
 //---------------------------------------------------------- FUNCTIONS END ------------------------------------------------------------
-
-
-void do_thing();
 
 #endif

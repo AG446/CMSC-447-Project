@@ -7,10 +7,10 @@
 #include "map_serial.h"
 #include <time.h>
 
-#define N_TESTS 10
+#define N_TESTS 12
 test_func_t func_table[N_TESTS] = {
 	{token_matching_test,"Token matching test",SILENT},
-	{phrase_matching_test,"Phrase matching test",VERBOSE},
+	{phrase_matching_test,"Phrase matching test",SILENT},
 	{basic_serialization_test,"Basic serialization test",SILENT},
 	{serialization_test,"Serialization test",SILENT},
 	{building_data_structure_test,"Building data structure test",SILENT},
@@ -18,7 +18,9 @@ test_func_t func_table[N_TESTS] = {
 	{map_node_data_structure_test,"Map node data structure test",SILENT},
 	{map_edge_data_structure_test,"Map edge data structure test",SILENT},
 	{basic_map_data_structure_test,"Basic map data structure test",SILENT},
-	{find_path_test,"Find path test",SILENT}
+	{find_path_test,"Find path test",SILENT},
+    {path_string_test,"Output text test",VERBOSE},
+    {path_string_test2,"Output text test 2", VERBOSE}
 };
 
 int main(){
@@ -1268,6 +1270,327 @@ bool building_data_structure_test(bool silent){
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
 	delete_building(building,&err_ctx);
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	return PASS;
+}
+
+bool path_string_test(bool silent) {
+	err_ctx_t err_ctx = create_err_ctx();
+	
+	map_sys_t sys = init_map_sys();
+	
+	// --- Create a more robust map for testing ---
+	
+	// Use realistic Lat/Lon coordinates to fix distance calculations
+	// 1 unit of (x,y) from the original test is ~0.0001 degrees
+	const double BASE_LAT = 39.33000;
+	const double BASE_LON = -76.62000;
+	const double SCALE_LAT = 0.00010; // ~36.5 ft
+	const double SCALE_LON = 0.00012; // ~36.5 ft at this latitude
+
+	// --- Create mock buildings using the API from building_data_structure_test ---
+	map_rect_t bbox_A = create_map_rect(
+		create_cord(BASE_LAT - 0.001, BASE_LON - 0.001), 
+		create_cord(BASE_LAT + 0.001, BASE_LON + 0.001)
+	);
+	building_t * building_A = create_building("Library", bbox_A, 2, &err_ctx);
+
+	map_rect_t bbox_B = create_map_rect(
+		create_cord(BASE_LAT - 0.001, BASE_LON + 0.003), 
+		create_cord(BASE_LAT + 0.001, BASE_LON + 0.005)
+	);
+	building_t * building_B = create_building("Science Center", bbox_B, 5, &err_ctx);
+
+	if (err_encountered(&err_ctx)) {
+		if (!silent) fprintf(stderr, "Error creating buildings for test.\n");
+		if (building_A) delete_building(building_A, &err_ctx);
+		if (building_B) delete_building(building_B, &err_ctx);
+		deinit_map_sys(&sys,&err_ctx);
+		return FAIL;
+	}
+	
+	// A(0,0) - Inside Building A, Floor 1
+	map_node_t * node_a = create_map_node(create_cord(BASE_LAT, BASE_LON));
+	set_map_node_name(node_a,"A (Library Entrance)",&err_ctx);
+	node_a->associated_building = building_A; // Use pointer directly
+	node_a->floor_number = 1;
+	
+	// B(1,2) - Outside
+	map_node_t * node_b = create_map_node(create_cord(BASE_LAT + 2*SCALE_LAT, BASE_LON + 1*SCALE_LON));
+	set_map_node_name(node_b,"B (Sidewalk)",&err_ctx);
+	
+	// C(1,-1) - Outside
+	map_node_t * node_c = create_map_node(create_cord(BASE_LAT - 1*SCALE_LAT, BASE_LON + 1*SCALE_LON));
+	set_map_node_name(node_c,"C (Stairs)",&err_ctx);
+	
+	// D(2,0) - Outside
+	map_node_t * node_d = create_map_node(create_cord(BASE_LAT, BASE_LON + 2*SCALE_LON));
+	set_map_node_name(node_d,"D (Corner)",&err_ctx);
+	
+	// E(3,1) - Outside
+	map_node_t * node_e = create_map_node(create_cord(BASE_LAT + 1*SCALE_LAT, BASE_LON + 3*SCALE_LON));
+	set_map_node_name(node_e,"E (Crosswalk)",&err_ctx);
+	
+	// F(3,-2) - Outside
+	map_node_t * node_f = create_map_node(create_cord(BASE_LAT - 2*SCALE_LAT, BASE_LON + 3*SCALE_LON));
+	set_map_node_name(node_f,"F (Alt Path)",&err_ctx);
+	
+	// G(4,0) - Inside Building B, Floor 1
+	map_node_t * node_g = create_map_node(create_cord(BASE_LAT, BASE_LON + 4*SCALE_LON));
+	set_map_node_name(node_g,"G (Science Ctr Entrance)",&err_ctx);
+	node_g->associated_building = building_B; // Use pointer directly
+	node_g->floor_number = 1;
+
+	// Add nodes for elevator test
+	// H (Elevator Lobby Floor 1)
+	map_node_t * node_h = create_map_node(create_cord(BASE_LAT + 0.1*SCALE_LAT, BASE_LON + 4.1*SCALE_LON));
+	set_map_node_name(node_h,"H (Elevator F1)",&err_ctx);
+	node_h->associated_building = building_B; // Use pointer directly
+	node_h->floor_number = 1;
+	
+	// I (Elevator Lobby Floor 4)
+	map_node_t * node_i = create_map_node(create_cord(BASE_LAT + 0.1*SCALE_LAT, BASE_LON + 4.1*SCALE_LON));
+	set_map_node_name(node_i,"I (Elevator F4)",&err_ctx);
+	node_i->associated_building = building_B; // Use pointer directly
+	node_i->floor_number = 4;
+
+	
+	add_node_to_map(&sys.map,node_a,&err_ctx);
+	add_node_to_map(&sys.map,node_b,&err_ctx);
+	add_node_to_map(&sys.map,node_c,&err_ctx);
+	add_node_to_map(&sys.map,node_d,&err_ctx);
+	add_node_to_map(&sys.map,node_e,&err_ctx);
+	add_node_to_map(&sys.map,node_f,&err_ctx);
+	add_node_to_map(&sys.map,node_g,&err_ctx);
+	add_node_to_map(&sys.map,node_h,&err_ctx);
+	add_node_to_map(&sys.map,node_i,&err_ctx);
+	
+	// Connect nodes (Assuming SIDEWALK=0, HALLWAY=4, STAIRS=2, ELEVATOR_SHAFT=5)
+	// These values must match your map.h and edge_type_names array
+	connect_nodes_in_map(&sys.map,node_a,node_b,EDGE_TYPE_SIDEWALK,&err_ctx); // A->B (Exit Bldg A)
+	connect_nodes_in_map(&sys.map,node_a,node_c,EDGE_TYPE_STAIRS,&err_ctx);  // A->C (Wheelchair will avoid)
+	connect_nodes_in_map(&sys.map,node_b,node_d,EDGE_TYPE_SIDEWALK,&err_ctx); // B->D
+	connect_nodes_in_map(&sys.map,node_c,node_d,EDGE_TYPE_SIDEWALK,&err_ctx); // C->D
+	connect_nodes_in_map(&sys.map,node_d,node_e,EDGE_TYPE_SIDEWALK,&err_ctx); // D->E
+	connect_nodes_in_map(&sys.map,node_d,node_f,EDGE_TYPE_SIDEWALK,&err_ctx); // D->F
+	connect_nodes_in_map(&sys.map,node_e,node_g,EDGE_TYPE_DOOR,&err_ctx);     // E->G (Enter Bldg B)
+	connect_nodes_in_map(&sys.map,node_f,node_g,EDGE_TYPE_RAMP,&err_ctx);     // F->G
+	
+	// Elevator path
+	connect_nodes_in_map(&sys.map,node_g,node_h,EDGE_TYPE_HALLWAY,&err_ctx);      // G->H (To elevator)
+	connect_nodes_in_map(&sys.map,node_h,node_i,EDGE_TYPE_ELEVATOR_SHAFT,&err_ctx); // H->I (Elevator)
+
+	
+	// --- Find the path ---
+	sys.active_start = node_a;
+	sys.active_end = node_i; // Go all the way to Floor 4
+	// We're using the wheelchair cost function, which should avoid the STAIRS (node C)
+	sys.active_edge_cost_function = calculate_wheelchair_edge_cost;
+	
+	find_best_path(&sys,&err_ctx);
+
+	if (err_encountered(&err_ctx)) {
+		if (!silent) fprintf(stderr, "Error finding path.\n");
+		delete_building(building_A, &err_ctx); // Clean up buildings
+		delete_building(building_B, &err_ctx); // Clean up buildings
+		deinit_map_sys(&sys,&err_ctx);
+		return FAIL;
+	}
+
+	if (sys.active_path == NULL) {
+		if (!silent) printf("No path found.\n");
+		delete_building(building_A, &err_ctx); // Clean up buildings
+		delete_building(building_B, &err_ctx); // Clean up buildings
+		deinit_map_sys(&sys,&err_ctx);
+		return FAIL; // No path found is a failure for this test
+	}
+
+	// --- Convert path to string (the new part) ---
+	if (!silent) {
+		printf("\n--- Path String Test ---\n");
+		printf("Path found from %s to %s with %zu nodes.\n", 
+			sys.active_start->name, sys.active_end->name, sys.active_path->n_nodes);
+		
+		printf("Path nodes: ");
+		for(size_t i = 0; i < sys.active_path->n_nodes; i++) {
+			printf("%s(%d) ", sys.active_path->nodes[i]->name, (int)sys.active_path->nodes[i]->floor_number);
+		}
+		printf("\n");
+	}
+	
+	char * directions = convert_path_to_directions_str(sys.active_path, &err_ctx);
+
+	if (err_encountered(&err_ctx) || directions == NULL) {
+		if (!silent) fprintf(stderr, "Error converting path to string.\n");
+		free(directions); // Free directions even if NULL (which is safe)
+		delete_building(building_A, &err_ctx); // Clean up buildings
+		delete_building(building_B, &err_ctx); // Clean up buildings
+		deinit_map_sys(&sys,&err_ctx);
+		return FAIL;
+	}
+
+	if (!silent) {
+		printf("\n--- GENERATED DIRECTIONS ---\n");
+		printf("%s", directions);
+		printf("----------------------------\n\n");
+	}
+	
+	free(directions);
+	delete_building(building_A, &err_ctx); // Clean up buildings
+	delete_building(building_B, &err_ctx); // Clean up buildings
+	deinit_map_sys(&sys,&err_ctx);
+	
+	if(err_encountered(&err_ctx)) return FAIL;
+	
+	return PASS;
+}
+
+bool path_string_test2(bool silent) {
+	err_ctx_t err_ctx = create_err_ctx();
+	
+	map_sys_t sys = init_map_sys();
+	
+	// --- Create a more robust map for testing ---
+	
+	const double BASE_LAT = 39.33000;
+	const double BASE_LON = -76.62000;
+	const double SCALE_LAT = 0.00010; // ~36.5 ft
+	const double SCALE_LON = 0.00012; // ~36.5 ft at this latitude
+
+	// --- Create mock buildings ---
+	map_rect_t bbox_A = create_map_rect(
+		create_cord(BASE_LAT - 0.001, BASE_LON - 0.001), 
+		create_cord(BASE_LAT + 0.001, BASE_LON + 0.001)
+	);
+	building_t * building_A = create_building("Library", bbox_A, 2, &err_ctx);
+
+	map_rect_t bbox_B = create_map_rect(
+		create_cord(BASE_LAT - 0.001, BASE_LON + 0.003), 
+		create_cord(BASE_LAT + 0.001, BASE_LON + 0.005)
+	);
+	building_t * building_B = create_building("Science Center", bbox_B, 5, &err_ctx);
+
+	if (err_encountered(&err_ctx)) {
+		if (!silent) fprintf(stderr, "Error creating buildings for test.\n");
+		if (building_A) delete_building(building_A, &err_ctx);
+		if (building_B) delete_building(building_B, &err_ctx);
+		deinit_map_sys(&sys,&err_ctx);
+		return FAIL;
+	}
+	
+	// A(0,0) - Inside Building A, Floor 1
+	map_node_t * node_a = create_map_node(create_cord(BASE_LAT, BASE_LON));
+	set_map_node_name(node_a,"A (Library Entrance)",&err_ctx);
+	node_a->associated_building = building_A; 
+	node_a->floor_number = 1;
+	
+	// B(1,2) - Outside, Sidewalk
+	map_node_t * node_b = create_map_node(create_cord(BASE_LAT + 1*SCALE_LAT, BASE_LON + 2*SCALE_LON));
+	set_map_node_name(node_b,"B (Sidewalk Corner)",&err_ctx);
+	
+	// D(2,0) - Outside, Corner
+	map_node_t * node_d = create_map_node(create_cord(BASE_LAT + 2*SCALE_LAT, BASE_LON));
+	set_map_node_name(node_d,"D (Path Start)",&err_ctx);
+	
+	// M(3,0) - Outside, Road start
+	map_node_t * node_m = create_map_node(create_cord(BASE_LAT + 3*SCALE_LAT, BASE_LON));
+	set_map_node_name(node_m,"M (Road Start)",&err_ctx);
+	
+	// N(3,1) - Outside, Road End (Turn)
+	map_node_t * node_n = create_map_node(create_cord(BASE_LAT + 3*SCALE_LAT, BASE_LON + 1*SCALE_LON));
+	set_map_node_name(node_n,"N (Road End)",&err_ctx);
+	
+	// G(4,1.5) - Inside Building B, Floor 1 (Entrance)
+	map_node_t * node_g = create_map_node(create_cord(BASE_LAT + 4*SCALE_LAT, BASE_LON + 1.5*SCALE_LON));
+	set_map_node_name(node_g,"G (Science Ctr Entrance)",&err_ctx);
+	node_g->associated_building = building_B; 
+	node_g->floor_number = 1;
+
+	// J(5,2) - Inside Building B, Floor 1 (Office)
+	map_node_t * node_j = create_map_node(create_cord(BASE_LAT + 5*SCALE_LAT, BASE_LON + 2*SCALE_LON));
+	set_map_node_name(node_j,"J (Office F1)",&err_ctx);
+	node_j->associated_building = building_B; 
+	node_j->floor_number = 1;
+
+
+	
+	add_node_to_map(&sys.map,node_a,&err_ctx);
+	add_node_to_map(&sys.map,node_b,&err_ctx);
+	add_node_to_map(&sys.map,node_d,&err_ctx);
+	add_node_to_map(&sys.map,node_m,&err_ctx);
+	add_node_to_map(&sys.map,node_n,&err_ctx);
+	add_node_to_map(&sys.map,node_g,&err_ctx);
+	add_node_to_map(&sys.map,node_j,&err_ctx);
+	
+	// Connect nodes (Path: A -> B -> D -> M -> N -> G -> J)
+	// These values must match your map.h and edge_type_names array
+	connect_nodes_in_map(&sys.map,node_a,node_b,EDGE_TYPE_SIDEWALK,&err_ctx); 
+	connect_nodes_in_map(&sys.map,node_b,node_d,EDGE_TYPE_SIDEWALK,&err_ctx); 
+	connect_nodes_in_map(&sys.map,node_d,node_m,EDGE_TYPE_ROAD,&err_ctx); // Change in type
+	connect_nodes_in_map(&sys.map,node_m,node_n,EDGE_TYPE_ROAD,&err_ctx); // Turn at M->N
+	connect_nodes_in_map(&sys.map,node_n,node_g,EDGE_TYPE_DOOR,&err_ctx); // Door (Enter Bldg B)
+	connect_nodes_in_map(&sys.map,node_g,node_j,EDGE_TYPE_HALLWAY,&err_ctx); // Interior Hallway
+	
+	// --- Find the path ---
+	sys.active_start = node_a;
+	sys.active_end = node_j; // Go all the way to Floor 1 Office
+	// Set cost function (even though we're just testing path string conversion)
+	sys.active_edge_cost_function = calculate_wheelchair_edge_cost; 
+	
+	find_best_path(&sys,&err_ctx);
+
+	if (err_encountered(&err_ctx)) {
+		if (!silent) fprintf(stderr, "Error finding path.\n");
+		delete_building(building_A, &err_ctx); // Clean up buildings
+		delete_building(building_B, &err_ctx); // Clean up buildings
+		deinit_map_sys(&sys,&err_ctx);
+		return FAIL;
+	}
+
+	if (sys.active_path == NULL) {
+		if (!silent) printf("No path found.\n");
+		delete_building(building_A, &err_ctx); 
+		delete_building(building_B, &err_ctx); 
+		deinit_map_sys(&sys,&err_ctx);
+		return FAIL; 
+	}
+
+	// --- Convert path to string (the new part) ---
+	if (!silent) {
+		printf("\n--- Path String Test 2 ---\n");
+		printf("Path found from %s to %s with %zu nodes.\n", 
+			sys.active_start->name, sys.active_end->name, sys.active_path->n_nodes);
+		
+		printf("Path nodes: ");
+		for(size_t i = 0; i < sys.active_path->n_nodes; i++) {
+			printf("%s(%d) ", sys.active_path->nodes[i]->name, (int)sys.active_path->nodes[i]->floor_number);
+		}
+		printf("\n");
+	}
+	
+	char * directions = convert_path_to_directions_str(sys.active_path, &err_ctx);
+
+	if (err_encountered(&err_ctx) || directions == NULL) {
+		if (!silent) fprintf(stderr, "Error converting path to string.\n");
+		free(directions); 
+		delete_building(building_A, &err_ctx); 
+		delete_building(building_B, &err_ctx); 
+		deinit_map_sys(&sys,&err_ctx);
+		return FAIL;
+	}
+
+	if (!silent) {
+		printf("\n--- GENERATED DIRECTIONS (Test 2) ---\n");
+		printf("%s", directions);
+		printf("-------------------------------------\n\n");
+	}
+	
+	free(directions);
+	delete_building(building_A, &err_ctx); 
+	delete_building(building_B, &err_ctx); 
+	deinit_map_sys(&sys,&err_ctx);
+	
 	if(err_encountered(&err_ctx)) return FAIL;
 	
 	return PASS;
