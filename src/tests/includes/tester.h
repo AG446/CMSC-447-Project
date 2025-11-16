@@ -49,4 +49,10 @@ bool basic_map_data_structure_test(bool silent);
 //test the A* algorithm
 bool find_path_test(bool silent);
 
+// test the output text
+bool path_string_test(bool silent);
+
+// test the output text
+bool path_string_test2(bool silent);
+
 #endif

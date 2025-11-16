@@ -1814,51 +1814,6 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx){
 	}
 }
 
-void do_thing(){
-	err_ctx_t ctx = create_err_ctx();
-	
-	map_t map = init_map();
-	
-	building_t * building_a = create_building(
-		"Building A",//primary building name
-		create_map_rect(create_cord(-5,-5),create_cord(5,5)),//bounding box of building
-		5,//n floors
-		&ctx
-	);
-	add_building_alias_name(building_a,"Build B",&ctx);
-	
-	cord_t cord_arr[4] = {create_cord(0,0), create_cord(0,1), create_cord(1,1), create_cord(1,0) };
-	mpo_t * square_mpo = create_mpo(cord_arr,4,MPO_TYPE_WATER,&ctx);
-	set_mpo_name(square_mpo,"Square Lake",&ctx);
-	add_mpo_to_map(&map,square_mpo,&ctx);
-	
-	add_building_to_map(&map,building_a,&ctx);
-	
-	map_node_t * a = create_map_node(create_cord(2,3));
-	set_map_node_name(a,"Node A",&ctx);
-	set_map_node_building(a,building_a,&ctx);
-	add_node_to_map(&map,a,&ctx);
-	
-	map_node_t * b = create_map_node(create_cord(4,6));
-	set_map_node_name(b,"Node B",&ctx);
-	add_node_to_map(&map,b,&ctx);
-	
-	connect_nodes_in_map(&map,a,b,EDGE_TYPE_CROSSWALK,&ctx);
-	
-	map_node_t * c = create_map_node(create_cord(-1,-3));
-	set_map_node_name(c,"Node C",&ctx);
-	add_node_to_map(&map,c,&ctx);
-	
-	connect_nodes_in_map_by_names(&map,"Node A","Node C",EDGE_TYPE_STAIRS,&ctx);
-	
-	map_to_output_stream(map,0,stdout,&ctx);
-	
-	remove_node_from_map(&map,a,&ctx);
-	
-	map_to_output_stream(map,0,stdout,&ctx);
-	deinit_map(&map,&ctx);
-}
-
 void delete_map_path(map_path_t * map_path_ref) {
 	if(map_path_ref == NULL) return;
 	if(map_path_ref->nodes != NULL) free(map_path_ref->nodes);
