@@ -2,7 +2,7 @@
 
 The UMBC Interactive Accessibility Map program is an application designed for Windows and Linux devices that renders the 2025 UMBC Map onto a canvas and displays accessible routes for students and faculty to take.
 
-For Administrators, the application provides built-in tools via a CLI that allows for the creation, modification, or deletion of any in-built map parameters to modify the program's image and logic. Refer to the CLI Program in the attached files.
+For Administrators, the application provides built-in tools via a CLI that allows for the creation, modification, or deletion of any in-built map parameters and features. Refer to the CLI Program in the attached files.
 
 For users, the UI application includes the ability to pathfind across campus by inputting start and end locations.
 Begin by either selecting a starting position on the map, or typing in a more specific location in the search bar above.
@@ -25,7 +25,8 @@ We hope you enjoy the UMBC Interactive Accessibility Map!
 To run as a developer or administrator, clone the repository. Then:
 
 To run the CLI:
-- make run_cli
+- `make run_cli`
 
 To run the UI:
-- make run_ui
+- Ensure you have gtk4 installed.
+- `make run_ui`
