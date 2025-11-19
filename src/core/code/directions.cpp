@@ -1,12 +1,9 @@
 /*
  * CMSC-447-Project
- * 
- * UMBC Student Accessibility Map Program.
+ * * UMBC Student Accessibility Map Program.
  * Copyright 2025.
  * This program is property of University of Maryland Baltimore County (UMBC).
- * 
- * 
- * Program Devloped By:
+ * * * Program Devloped By:
  * - Alex Gallagher
  */
 
@@ -17,6 +14,10 @@
 #include "text_proc.h"
 #include <float.h>
 #include <math.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 /**
  * @brief Safely appends a string to a dynamic buffer, handling realloc and NULL dest.
@@ -47,8 +48,10 @@ static int safe_str_append(char **dest, size_t *dest_len, const char *src) {
 
 /**
  * @brief Calculates the initial bearing (0-360 degrees) from node A to node B.
+ * Uses standard Lat/Lon math. 0=N, 90=E.
  */
 static double get_bearing_deg(map_node_t * a, map_node_t * b) {
+	// Convert to radians
 	double lat1_rad = a->coordinate.latitude * M_PI / 180.0;
 	double lon1_rad = a->coordinate.longitude * M_PI / 180.0;
 	double lat2_rad = b->coordinate.latitude * M_PI / 180.0;
@@ -68,9 +71,10 @@ static double get_bearing_deg(map_node_t * a, map_node_t * b) {
 
 /**
  * @brief Converts a degree bearing to a cardinal direction index (0-7).
+ * 0=North, 1=NE, 2=East, etc.
  */
 static int get_cardinality_idx(double bearing_deg) {
-	// (N, NE, E, SE, S, SW, W, NW) -> (0, 1, 2, 3, 4, 5, 6, 7)
+	// Offset by 22.5 to center the "North" sector on 0/360
 	return (int)((bearing_deg + 22.5) / 45.0) & 7;
 }
 
@@ -78,7 +82,6 @@ static int get_cardinality_idx(double bearing_deg) {
  * @brief Calculates the distance between two nodes in feet using Haversine.
  */
 static double calculate_distance_feet(map_node_t * a, map_node_t * b) {
-	// Radius of the Earth in feet (average value)
 	const double R_EARTH_FEET = 20902231.0;
 	
 	double lat1_rad = a->coordinate.latitude * M_PI / 180.0;
@@ -99,19 +102,26 @@ static double calculate_distance_feet(map_node_t * a, map_node_t * b) {
 }
 
 /**
+ * @brief Calculates the smallest difference between two bearings.
+ * Result is in range [-180, 180]. Positive = Right turn, Negative = Left turn.
+ */
+static double get_angle_diff(double b1, double b2) {
+	double diff = b2 - b1;
+	while (diff <= -180.0) diff += 360.0;
+	while (diff > 180.0) diff -= 360.0;
+	return diff;
+}
+
+/**
  * @brief Determines turn type (straight=0, left=1, right=2) at `curr` node.
  */
 static int get_turn_type(map_node_t * prev, map_node_t * curr, map_node_t * next) {
 	double bearing1 = get_bearing_deg(prev, curr);
 	double bearing2 = get_bearing_deg(curr, next);
+	double diff = get_angle_diff(bearing1, bearing2);
 
-	double diff = bearing2 - bearing1;
-
-	// Normalize diff to the range [-180, 180]
-	while (diff <= -180.0) diff += 360.0;
-	while (diff > 180.0) diff -= 360.0;
-
-	// Angle threshold for a "turn" vs "straight" movement (45 degrees used here)
+	// Angle threshold for a "turn" vs "straight" movement
+	// 45 degrees is a standard threshold for "Slight" vs "Turn"
 	if (fabs(diff) < 45.0) {
 		return 0; // Straight
 	} else if (diff > 0.0) {
@@ -141,7 +151,7 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 	// Format strings
 	const char * const F_START_BUILDING = "You are in the %s building on floor %d.\n";
 	const char * const F_START_OUTSIDE = "You are outside.\n";
-	const char * const F_ELEVATOR = "Locate the elevator and take it to floor %d.\n";
+	const char * const F_ELEVATOR = "Take the elevator to floor %d.\n"; 
 	const char * const F_TRAVEL = "Travel %s along the %s.\n";
 	const char * const F_CONTINUE = "Continue along the %s for %.0f feet.\n";
 	const char * const F_TURN = "Turn %s to face %s.\n";
@@ -180,6 +190,7 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 	int turn_type = 0;
 	double next_bearing = 0.0;
 	int next_card_idx = 0;
+	double segment_bearing = 0.0;
 
 	map_node_t * prev_node = NULL; 
 	
@@ -203,14 +214,11 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 	}
 	
 	if (start_building_name != NULL && start_node->floor_number != NODE_FLOOR_NUMBER_NONE) {
-		// Start in Building: "You are in the <NAME> building on floor <FLOOR>."
 		snprintf(buf, sizeof(buf), F_START_BUILDING, start_building_name, start_node->floor_number);
 		if (safe_str_append(&final_message, &final_len, buf) == -1) { free(final_message); return NULL; }
 	} else {
-		// Start Outside: "You are outside."
 		if (safe_str_append(&final_message, &final_len, F_START_OUTSIDE) == -1) { free(final_message); return NULL; }
 	}
-
 
 	// --- 2. Main Segment-by-Segment Loop ---
 	current_node_idx = 0;
@@ -221,10 +229,9 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 		curr_edge = path->edges[current_node_idx];
 		current_edge_type = curr_edge->type;
 		
-		
 		// --- A. Building Transition Check (Exit/Enter) ---
 		
-		// 1. Check for EXITING a building 
+		// 1. Check for EXITING
 		if (curr_node->associated_building != NULL && next_node->associated_building == NULL) {
 			name = get_primary_building_name(curr_node->associated_building, ctx);
 			if (name) {
@@ -232,7 +239,7 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 				if (safe_str_append(&final_message, &final_len, buf) == -1) { free(final_message); return NULL; }
 			}
 		} 
-		// 2. Check for ENTERING a building
+		// 2. Check for ENTERING
 		else if (curr_node->associated_building == NULL && next_node->associated_building != NULL) {
 			name = get_primary_building_name(next_node->associated_building, ctx);
 			if (name) {
@@ -241,69 +248,55 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 			}
 		}
 
-
-		// --- B. Mutual Exclusion Segment Handling (Elevator, Doors, or General) ---
+		// --- B. Mutual Exclusion Segment Handling ---
 		
-		// 1. Handle Elevator Shaft (Highest Priority)
+		// 1. Handle Elevator Shaft (Highest Priority) - SKIPS INTERMEDIATE FLOORS
 		if (current_edge_type == EDGE_TYPE_ELEVATOR_SHAFT) {
 			elevator_end_idx = current_node_idx;
+			// Look ahead: consume all sequential elevator edges
 			while (elevator_end_idx < path->n_edges &&
 				   path->edges[elevator_end_idx]->type == EDGE_TYPE_ELEVATOR_SHAFT) {
 				elevator_end_idx++;
 			}
-			// The node *after* the last elevator edge is our destination
 			dest_node = path->nodes[elevator_end_idx];
 			
 			if (dest_node->floor_number != NODE_FLOOR_NUMBER_NONE) {
-				// "Locate the elevator and take it to floor <FLOOR>."
 				snprintf(buf, sizeof(buf), F_ELEVATOR, dest_node->floor_number);
 				if (safe_str_append(&final_message, &final_len, buf) == -1) { free(final_message); return NULL; }
-				
-				// Jump the index past this entire elevator segment
 				current_node_idx = elevator_end_idx;
 			} else {
-				// Safety fallback if floor is unknown, just advance one step
 				current_node_idx++;
 			}
 		}
 		
-		// 2. Handle Doors/Stairs (Single-step, non-aggregatable transitions)
+		// 2. Handle Doors/Stairs (Single-step)
 		else if (current_edge_type == EDGE_TYPE_DOOR ||
 			current_edge_type == EDGE_TYPE_AUTO_DOOR ||
 			current_edge_type == EDGE_TYPE_STAIRS) {
 			current_node_idx++;
 		}
 
-		// 3. Handle Aggregatable Travel Segments (General Travel/Aggregation)
+		// 3. Handle Aggregatable Travel Segments
 		else {
-			// C. Start of a new Travel Segment (Travel Instruction)
-			
-			// Determine the initial direction for this segment
+			// C. Start of a new Travel Segment
 			start_bearing = get_bearing_deg(curr_node, next_node);
 			card_idx = get_cardinality_idx(start_bearing);
 			
-			// *** FIX APPLIED HERE: edge_type_names[current_edge_type - 1] ***
-			// "Travel <CARDINAL DIRECTION> along the <EDGE TYPE (ie road, ramp)>."
 			snprintf(buf, sizeof(buf), F_TRAVEL, card[card_idx], edge_type_names[current_edge_type - 1]);
 			if (safe_str_append(&final_message, &final_len, buf) == -1) { free(final_message); return NULL; }
 			
-			
-			// D. Path Smoothing and Aggregation Loop
-			
+			// D. Path Smoothing Loop
 			accumulated_distance = 0.0;
 			segment_end_idx = current_node_idx + 1;
-
-			// Calculate distance of the first segment
 			accumulated_distance += calculate_distance_feet(curr_node, next_node);
 
 			while (segment_end_idx < path->n_nodes - 1) {
-				node_a = path->nodes[segment_end_idx - 1]; // Node we came from
-				node_b = path->nodes[segment_end_idx];     // Node where we currently are
-				node_c = path->nodes[segment_end_idx + 1]; // Node we are going to
+				node_a = path->nodes[segment_end_idx - 1];
+				node_b = path->nodes[segment_end_idx];
+				node_c = path->nodes[segment_end_idx + 1];
 				edge_b = path->edges[segment_end_idx];
 				
-				// 1. Stop if edge type changes or is special (non-aggregatable)
-				// Crucial: Check for special types here to ensure aggregation breaks correctly before an elevator/door/stairs.
+				// Stop if edge type changes or is special
 				if (edge_b->type != current_edge_type || 
 					edge_b->type == EDGE_TYPE_ELEVATOR_SHAFT ||
 					edge_b->type == EDGE_TYPE_DOOR ||
@@ -312,62 +305,59 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 					break;
 				}
 				
-				// 2. Stop if there's a significant turn
-				if (get_turn_type(node_a, node_b, node_c) != 0) { // 0 == straight
+				// Stop if there's a significant turn
+				if (get_turn_type(node_a, node_b, node_c) != 0) { 
+					break;
+				}
+
+				// Extra Check: Stop if the cumulative curve becomes too large (> 45 deg off start)
+				// This prevents a "C" shape from being called "Straight"
+				segment_bearing = get_bearing_deg(node_b, node_c);
+				if (fabs(get_angle_diff(start_bearing, segment_bearing)) > 45.0) {
 					break;
 				}
 				
-				// The segment continues. Add distance and advance index.
 				accumulated_distance += calculate_distance_feet(node_b, node_c);
 				segment_end_idx++;
 			}
 			
-			// E. Continuation Instruction (if distance is meaningful)
-			if (accumulated_distance > 20.0) { // 20ft threshold
-				// *** FIX APPLIED HERE: edge_type_names[current_edge_type - 1] ***
-				// "Continue along the <EDGE TYPE> for <FEET> feet."
+			// E. Continuation Instruction
+			if (accumulated_distance > 20.0) {
 				snprintf(buf, sizeof(buf), F_CONTINUE, edge_type_names[current_edge_type - 1], accumulated_distance);
 				if (safe_str_append(&final_message, &final_len, buf) == -1) { free(final_message); return NULL; }
 			}
 
-			// F. Check for a Turn *after* the segment we just processed
+			// F. Check for a Turn
 			if (segment_end_idx < path->n_nodes - 1) {
-				prev_node = path->nodes[segment_end_idx - 1]; // Node before the turn
-				curr_node = path->nodes[segment_end_idx];     // Node where the turn occurs
-				next_node = path->nodes[segment_end_idx + 1]; // Node after the turn
+				prev_node = path->nodes[segment_end_idx - 1];
+				curr_node = path->nodes[segment_end_idx];
+				next_node = path->nodes[segment_end_idx + 1];
 				
 				turn_type = get_turn_type(prev_node, curr_node, next_node);
 				
-				// Only print a turn if it's not "straight"
 				if (turn_type != 0) { 
 					next_bearing = get_bearing_deg(curr_node, next_node);
 					next_card_idx = get_cardinality_idx(next_bearing);
 					
-					// "Turn <LEFT–RIGHT> to face <CARDINAL DIRECTION>."
 					snprintf(buf, sizeof(buf), F_TURN, dir[turn_type], card[next_card_idx]);
 					if (safe_str_append(&final_message, &final_len, buf) == -1) { free(final_message); return NULL; }
 				}
 			}
 
-			// Advance the main loop index to the end of the segment we just processed
 			current_node_idx = segment_end_idx;
-		} // End of else (Aggregatable Travel Segment)
+		} 
 	}
 
 	// --- 3. Final Arrival Message ---
 	last_node = path->nodes[path->n_nodes - 1];
 	
-	// Final building entry check (this handles the rare case where the LAST edge is the entry point)
+	// Fallback "Enter" check if the loop ended exactly at a building entrance
 	if (path->n_nodes > 1) {
 		prev_last_node = path->nodes[path->n_nodes - 2];
-		// This should only print if the transition wasn't captured in the main loop, 
-		// but we still check the edge leading to the final node: prev_last_node -> last_node
 		if(prev_last_node->associated_building == NULL && last_node->associated_building != NULL &&
 		   path->edges[path->n_nodes - 2]->type != EDGE_TYPE_DOOR && 
 		   path->edges[path->n_nodes - 2]->type != EDGE_TYPE_AUTO_DOOR)
 		{
-			// If the arrival is inside a building, but the final edge wasn't a door,
-			// assume we need a final enter instruction if the main loop missed it.
 			name = get_primary_building_name(last_node->associated_building, ctx);
 			if (name) {
 				snprintf(buf, sizeof(buf), F_ENTER, name); 
@@ -382,7 +372,6 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 		arrival_building_name = get_primary_building_name(last_node->associated_building, ctx);
 	}
 	
-	// Print arrival message based on available data
 	if (arrival_name != NULL) {
 		if (last_node->floor_number != NODE_FLOOR_NUMBER_NONE) {
 			snprintf(buf, sizeof(buf), F_ARRIVE_FULL, arrival_name, last_node->floor_number);
@@ -401,7 +390,5 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 	
 	if (safe_str_append(&final_message, &final_len, buf) == -1) { free(final_message); return NULL; }
 
-
-	// Final Check and Return
 	return final_message;
 }

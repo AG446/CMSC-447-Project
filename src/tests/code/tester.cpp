@@ -1280,25 +1280,22 @@ bool path_string_test(bool silent) {
 	
 	map_sys_t sys = init_map_sys();
 	
-	// --- Create a more robust map for testing ---
-	
 	// Use realistic Lat/Lon coordinates to fix distance calculations
-	// 1 unit of (x,y) from the original test is ~0.0001 degrees
 	const double BASE_LAT = 39.33000;
 	const double BASE_LON = -76.62000;
-	const double SCALE_LAT = 0.00010; // ~36.5 ft
-	const double SCALE_LON = 0.00012; // ~36.5 ft at this latitude
+	// Define scale for realistic movement and aggregation distance
+	const double SCALE_UNIT = 0.0001; 
 
-	// --- Create mock buildings using the API from building_data_structure_test ---
+	// --- Create mock buildings ---
 	map_rect_t bbox_A = create_map_rect(
-		create_cord(BASE_LAT - 0.001, BASE_LON - 0.001), 
-		create_cord(BASE_LAT + 0.001, BASE_LON + 0.001)
+		create_cord(BASE_LAT - 0.002, BASE_LON - 0.002), 
+		create_cord(BASE_LAT + 0.002, BASE_LON + 0.002)
 	);
 	building_t * building_A = create_building("Library", bbox_A, 2, &err_ctx);
 
 	map_rect_t bbox_B = create_map_rect(
-		create_cord(BASE_LAT - 0.001, BASE_LON + 0.003), 
-		create_cord(BASE_LAT + 0.001, BASE_LON + 0.005)
+		create_cord(BASE_LAT - 0.002, BASE_LON + 0.008), 
+		create_cord(BASE_LAT + 0.002, BASE_LON + 0.012)
 	);
 	building_t * building_B = create_building("Science Center", bbox_B, 5, &err_ctx);
 
@@ -1310,111 +1307,138 @@ bool path_string_test(bool silent) {
 		return FAIL;
 	}
 	
-	// A(0,0) - Inside Building A, Floor 1
-	map_node_t * node_a = create_map_node(create_cord(BASE_LAT, BASE_LON));
-	set_map_node_name(node_a,"A (Library Entrance)",&err_ctx);
-	node_a->associated_building = building_A; // Use pointer directly
+	// --- Define Nodes for a Long Path with Sequential Elevator ---
+	
+	// 1. Starting Node (Library, Floor 1)
+	map_node_t * node_a = create_map_node(create_cord(BASE_LAT + 0.5 * SCALE_UNIT, BASE_LON + 0.5 * SCALE_UNIT));
+	set_map_node_name(node_a, "Start: Library Desk", &err_ctx);
+	node_a->associated_building = building_A;
 	node_a->floor_number = 1;
 	
-	// B(1,2) - Outside
-	map_node_t * node_b = create_map_node(create_cord(BASE_LAT + 2*SCALE_LAT, BASE_LON + 1*SCALE_LON));
-	set_map_node_name(node_b,"B (Sidewalk)",&err_ctx);
+	// 2. Library Exit Door (Floor 1)
+	map_node_t * node_j = create_map_node(create_cord(BASE_LAT + 1.0 * SCALE_UNIT, BASE_LON + 1.0 * SCALE_UNIT));
+	set_map_node_name(node_j, "Library Exit Door", &err_ctx);
+	node_j->associated_building = building_A;
+	node_j->floor_number = 1;
+
+	// 3-7. Outdoor Path Nodes (J -> K -> L -> M -> N) - Used for Aggregation & Turns
+	map_node_t * node_k = create_map_node(create_cord(BASE_LAT + 1.0 * SCALE_UNIT, BASE_LON + 3.0 * SCALE_UNIT));
+	set_map_node_name(node_k, "Corner 1 (Straight)", &err_ctx);
+	map_node_t * node_l = create_map_node(create_cord(BASE_LAT + 3.0 * SCALE_UNIT, BASE_LON + 3.0 * SCALE_UNIT));
+	set_map_node_name(node_l, "Corner 2 (Left Turn)", &err_ctx);
+	map_node_t * node_m = create_map_node(create_cord(BASE_LAT + 3.0 * SCALE_UNIT, BASE_LON + 6.0 * SCALE_UNIT));
+	set_map_node_name(node_m, "Corner 3 (Right Turn)", &err_ctx);
+	map_node_t * node_n = create_map_node(create_cord(BASE_LAT + 5.0 * SCALE_UNIT, BASE_LON + 6.0 * SCALE_UNIT));
+	set_map_node_name(node_n, "Science Ctr Approach", &err_ctx);
 	
-	// C(1,-1) - Outside
-	map_node_t * node_c = create_map_node(create_cord(BASE_LAT - 1*SCALE_LAT, BASE_LON + 1*SCALE_LON));
-	set_map_node_name(node_c,"C (Stairs)",&err_ctx);
-	
-	// D(2,0) - Outside
-	map_node_t * node_d = create_map_node(create_cord(BASE_LAT, BASE_LON + 2*SCALE_LON));
-	set_map_node_name(node_d,"D (Corner)",&err_ctx);
-	
-	// E(3,1) - Outside
-	map_node_t * node_e = create_map_node(create_cord(BASE_LAT + 1*SCALE_LAT, BASE_LON + 3*SCALE_LON));
-	set_map_node_name(node_e,"E (Crosswalk)",&err_ctx);
-	
-	// F(3,-2) - Outside
-	map_node_t * node_f = create_map_node(create_cord(BASE_LAT - 2*SCALE_LAT, BASE_LON + 3*SCALE_LON));
-	set_map_node_name(node_f,"F (Alt Path)",&err_ctx);
-	
-	// G(4,0) - Inside Building B, Floor 1
-	map_node_t * node_g = create_map_node(create_cord(BASE_LAT, BASE_LON + 4*SCALE_LON));
-	set_map_node_name(node_g,"G (Science Ctr Entrance)",&err_ctx);
-	node_g->associated_building = building_B; // Use pointer directly
+	// 8. Science Center Entrance (Floor 1)
+	map_node_t * node_g = create_map_node(create_cord(BASE_LAT + 5.0 * SCALE_UNIT, BASE_LON + 8.0 * SCALE_UNIT));
+	set_map_node_name(node_g, "Science Ctr Entrance", &err_ctx);
+	node_g->associated_building = building_B;
 	node_g->floor_number = 1;
-
-	// Add nodes for elevator test
-	// H (Elevator Lobby Floor 1)
-	map_node_t * node_h = create_map_node(create_cord(BASE_LAT + 0.1*SCALE_LAT, BASE_LON + 4.1*SCALE_LON));
-	set_map_node_name(node_h,"H (Elevator F1)",&err_ctx);
-	node_h->associated_building = building_B; // Use pointer directly
+	
+	// 9. Elevator Lobby (Floor 1)
+	map_node_t * node_h = create_map_node(create_cord(BASE_LAT + 5.1 * SCALE_UNIT, BASE_LON + 8.1 * SCALE_UNIT));
+	set_map_node_name(node_h, "Elevator Lobby F1", &err_ctx);
+	node_h->associated_building = building_B;
 	node_h->floor_number = 1;
+
+	// 10-11. Intermediate Elevator Nodes (Same coordinates, different floors)
+	map_node_t * node_p = create_map_node(create_cord(BASE_LAT + 5.1 * SCALE_UNIT, BASE_LON + 8.1 * SCALE_UNIT));
+	set_map_node_name(node_p, "Elevator Shaft F2", &err_ctx);
+	node_p->associated_building = building_B;
+	node_p->floor_number = 2;
+
+	map_node_t * node_o = create_map_node(create_cord(BASE_LAT + 5.1 * SCALE_UNIT, BASE_LON + 8.1 * SCALE_UNIT));
+	set_map_node_name(node_o, "Elevator Shaft F3", &err_ctx);
+	node_o->associated_building = building_B;
+	node_o->floor_number = 3;
 	
-	// I (Elevator Lobby Floor 4)
-	map_node_t * node_i = create_map_node(create_cord(BASE_LAT + 0.1*SCALE_LAT, BASE_LON + 4.1*SCALE_LON));
-	set_map_node_name(node_i,"I (Elevator F4)",&err_ctx);
-	node_i->associated_building = building_B; // Use pointer directly
+	// 12. Elevator Exit Lobby (Floor 4)
+	map_node_t * node_q = create_map_node(create_cord(BASE_LAT + 5.1 * SCALE_UNIT, BASE_LON + 8.1 * SCALE_UNIT));
+	set_map_node_name(node_q, "Elevator Exit F4", &err_ctx);
+	node_q->associated_building = building_B;
+	node_q->floor_number = 4;
+
+	// 13. Final Destination (Floor 4)
+	map_node_t * node_i = create_map_node(create_cord(BASE_LAT + 5.0 * SCALE_UNIT, BASE_LON + 8.5 * SCALE_UNIT));
+	set_map_node_name(node_i, "Destination: Lab 401", &err_ctx);
+	node_i->associated_building = building_B;
 	node_i->floor_number = 4;
+	
+	// --- Add Nodes to Map ---
+	add_node_to_map(&sys.map, node_a, &err_ctx);
+	add_node_to_map(&sys.map, node_j, &err_ctx);
+	add_node_to_map(&sys.map, node_k, &err_ctx);
+	add_node_to_map(&sys.map, node_l, &err_ctx);
+	add_node_to_map(&sys.map, node_m, &err_ctx);
+	add_node_to_map(&sys.map, node_n, &err_ctx);
+	add_node_to_map(&sys.map, node_g, &err_ctx);
+	add_node_to_map(&sys.map, node_h, &err_ctx);
+	add_node_to_map(&sys.map, node_p, &err_ctx); // F2
+	add_node_to_map(&sys.map, node_o, &err_ctx); // F3
+	add_node_to_map(&sys.map, node_q, &err_ctx); // F4
+	add_node_to_map(&sys.map, node_i, &err_ctx);
 
+	// --- Connect Nodes (Path: A -> J -> K -> L -> M -> N -> G -> H -> P -> O -> Q -> I) ---
 	
-	add_node_to_map(&sys.map,node_a,&err_ctx);
-	add_node_to_map(&sys.map,node_b,&err_ctx);
-	add_node_to_map(&sys.map,node_c,&err_ctx);
-	add_node_to_map(&sys.map,node_d,&err_ctx);
-	add_node_to_map(&sys.map,node_e,&err_ctx);
-	add_node_to_map(&sys.map,node_f,&err_ctx);
-	add_node_to_map(&sys.map,node_g,&err_ctx);
-	add_node_to_map(&sys.map,node_h,&err_ctx);
-	add_node_to_map(&sys.map,node_i,&err_ctx);
+	// Inside Library (Hallway & Exit)
+	connect_nodes_in_map(&sys.map, node_a, node_j, EDGE_TYPE_HALLWAY, &err_ctx); // 1. Start -> Door
 	
-	// Connect nodes (Assuming SIDEWALK=0, HALLWAY=4, STAIRS=2, ELEVATOR_SHAFT=5)
-	// These values must match your map.h and edge_type_names array
-	connect_nodes_in_map(&sys.map,node_a,node_b,EDGE_TYPE_SIDEWALK,&err_ctx); // A->B (Exit Bldg A)
-	connect_nodes_in_map(&sys.map,node_a,node_c,EDGE_TYPE_STAIRS,&err_ctx);  // A->C (Wheelchair will avoid)
-	connect_nodes_in_map(&sys.map,node_b,node_d,EDGE_TYPE_SIDEWALK,&err_ctx); // B->D
-	connect_nodes_in_map(&sys.map,node_c,node_d,EDGE_TYPE_SIDEWALK,&err_ctx); // C->D
-	connect_nodes_in_map(&sys.map,node_d,node_e,EDGE_TYPE_SIDEWALK,&err_ctx); // D->E
-	connect_nodes_in_map(&sys.map,node_d,node_f,EDGE_TYPE_SIDEWALK,&err_ctx); // D->F
-	connect_nodes_in_map(&sys.map,node_e,node_g,EDGE_TYPE_DOOR,&err_ctx);     // E->G (Enter Bldg B)
-	connect_nodes_in_map(&sys.map,node_f,node_g,EDGE_TYPE_RAMP,&err_ctx);     // F->G
+	// Outside Travel (J -> K -> L -> M -> N)
+	connect_nodes_in_map(&sys.map, node_j, node_k, EDGE_TYPE_SIDEWALK, &err_ctx); // 2. Exit Door -> K (Long straight)
+	connect_nodes_in_map(&sys.map, node_k, node_l, EDGE_TYPE_SIDEWALK, &err_ctx); // 3. K -> L (Straight turn)
+	connect_nodes_in_map(&sys.map, node_l, node_m, EDGE_TYPE_SIDEWALK, &err_ctx); // 4. L -> M (Left turn)
+	connect_nodes_in_map(&sys.map, node_m, node_n, EDGE_TYPE_SIDEWALK, &err_ctx); // 5. M -> N (Right turn)
 	
-	// Elevator path
-	connect_nodes_in_map(&sys.map,node_g,node_h,EDGE_TYPE_HALLWAY,&err_ctx);      // G->H (To elevator)
-	connect_nodes_in_map(&sys.map,node_h,node_i,EDGE_TYPE_ELEVATOR_SHAFT,&err_ctx); // H->I (Elevator)
+	// Enter Science Center
+	connect_nodes_in_map(&sys.map, node_n, node_g, EDGE_TYPE_DOOR, &err_ctx);    // 6. N -> Entrance (Door)
+	
+	// Inside Science Center (F1)
+	connect_nodes_in_map(&sys.map, node_g, node_h, EDGE_TYPE_HALLWAY, &err_ctx); // 7. Entrance -> Elevator F1
 
+	// *** ELEVATOR SHAFT CHAIN TEST *** (H -> P -> O -> Q)
+	connect_nodes_in_map(&sys.map, node_h, node_p, EDGE_TYPE_ELEVATOR_SHAFT, &err_ctx); // 8. F1 -> F2
+	connect_nodes_in_map(&sys.map, node_p, node_o, EDGE_TYPE_ELEVATOR_SHAFT, &err_ctx); // 9. F2 -> F3
+	connect_nodes_in_map(&sys.map, node_o, node_q, EDGE_TYPE_ELEVATOR_SHAFT, &err_ctx); // 10. F3 -> F4
+	
+	// Inside Science Center (F4)
+	connect_nodes_in_map(&sys.map, node_q, node_i, EDGE_TYPE_HALLWAY, &err_ctx); // 11. Elevator Exit F4 -> Destination F4
 	
 	// --- Find the path ---
 	sys.active_start = node_a;
-	sys.active_end = node_i; // Go all the way to Floor 4
-	// We're using the wheelchair cost function, which should avoid the STAIRS (node C)
+	sys.active_end = node_i;
 	sys.active_edge_cost_function = calculate_wheelchair_edge_cost;
 	
-	find_best_path(&sys,&err_ctx);
+	find_best_path(&sys, &err_ctx);
 
 	if (err_encountered(&err_ctx)) {
 		if (!silent) fprintf(stderr, "Error finding path.\n");
-		delete_building(building_A, &err_ctx); // Clean up buildings
-		delete_building(building_B, &err_ctx); // Clean up buildings
-		deinit_map_sys(&sys,&err_ctx);
+		delete_building(building_A, &err_ctx);
+		delete_building(building_B, &err_ctx);
+		deinit_map_sys(&sys, &err_ctx);
 		return FAIL;
 	}
 
 	if (sys.active_path == NULL) {
 		if (!silent) printf("No path found.\n");
-		delete_building(building_A, &err_ctx); // Clean up buildings
-		delete_building(building_B, &err_ctx); // Clean up buildings
-		deinit_map_sys(&sys,&err_ctx);
-		return FAIL; // No path found is a failure for this test
+		delete_building(building_A, &err_ctx);
+		delete_building(building_B, &err_ctx);
+		deinit_map_sys(&sys, &err_ctx);
+		return FAIL;
 	}
 
-	// --- Convert path to string (the new part) ---
+	// --- Convert path to string (Test Execution) ---
 	if (!silent) {
-		printf("\n--- Path String Test ---\n");
-		printf("Path found from %s to %s with %zu nodes.\n", 
-			sys.active_start->name, sys.active_end->name, sys.active_path->n_nodes);
+		printf("\n--- Path String Test (Elevator Skip) ---\n");
+		printf("Path found from %s (F%d) to %s (F%d) with %zu nodes.\n", 
+			sys.active_start->name, sys.active_start->floor_number, 
+			sys.active_end->name, sys.active_end->floor_number, 
+			sys.active_path->n_nodes);
 		
-		printf("Path nodes: ");
+		printf("Path nodes (F=Floor): ");
 		for(size_t i = 0; i < sys.active_path->n_nodes; i++) {
-			printf("%s(%d) ", sys.active_path->nodes[i]->name, (int)sys.active_path->nodes[i]->floor_number);
+			printf("%s(F%d) ", sys.active_path->nodes[i]->name, (int)sys.active_path->nodes[i]->floor_number);
 		}
 		printf("\n");
 	}
@@ -1423,23 +1447,25 @@ bool path_string_test(bool silent) {
 
 	if (err_encountered(&err_ctx) || directions == NULL) {
 		if (!silent) fprintf(stderr, "Error converting path to string.\n");
-		free(directions); // Free directions even if NULL (which is safe)
-		delete_building(building_A, &err_ctx); // Clean up buildings
-		delete_building(building_B, &err_ctx); // Clean up buildings
-		deinit_map_sys(&sys,&err_ctx);
+		free(directions);
+		delete_building(building_A, &err_ctx);
+		delete_building(building_B, &err_ctx);
+		deinit_map_sys(&sys, &err_ctx);
 		return FAIL;
 	}
 
 	if (!silent) {
-		printf("\n--- GENERATED DIRECTIONS ---\n");
+		printf("\n--- GENERATED DIRECTIONS (EXPECT 1 ELEVATOR INSTRUCTION) ---\n");
 		printf("%s", directions);
-		printf("----------------------------\n\n");
+		printf("-----------------------------------------------------------\n\n");
 	}
 	
+	// NOTE: The resulting directions string should contain "Take the elevator to floor 4." exactly once.
+	
 	free(directions);
-	delete_building(building_A, &err_ctx); // Clean up buildings
-	delete_building(building_B, &err_ctx); // Clean up buildings
-	deinit_map_sys(&sys,&err_ctx);
+	delete_building(building_A, &err_ctx);
+	delete_building(building_B, &err_ctx);
+	deinit_map_sys(&sys, &err_ctx);
 	
 	if(err_encountered(&err_ctx)) return FAIL;
 	
