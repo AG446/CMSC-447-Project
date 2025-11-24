@@ -1,0 +1,53 @@
+part top right -76.71463  39.25522
+part bot left  -76.25519  39.25519
+
+fart top right -76.71319  39.25539
+fart bot left  -76.71412  39.25501
+
+eng top right  -76.71354  39.25472
+eng bot left  -76.71441  39.25501
+
+ite top right   -76.71387  39.25404
+ite bot left  -76.71471  39.25367
+
+sherman top right  -76.71296  39.25356
+sherman bot left   -76.71388  39.25350
+
+admin top right    -76.71328  39.25320
+admin bot left     -76.71372  39.25304
+
+sondh top right    -76.71255  39.25371
+sondh bot left     -76.71304  39.25324
+
+math top right     -76.71223  39.25436
+math bot left      -76.1270   39.25389
+
+uc top right       -76.71298  39.25457
+uc bot left        -76.71360  39.25410
+
+chem top right     -76.71236  39.25517
+chem bot left      -76.71329  39.25476
+
+bio top right      -76.71172  39.25539
+bio bot left       -76.71244  39.25457
+
+lect1 top right    -76.71164  39.25491
+lect1 bot left     -76.71201  39.25475
+-last
+com top right      -76.71049  39.25505
+com bot left       -76.71169  39.25484
+
+rac top right      -76.71183  39.25324
+rac bot left       -76.71320  39.25257
+
+ilsb top right     -76.71037  39.25407
+ilsb bot left      -76.71130  39.25384
+
+phy top right      -76.70925  39.25468
+phy bot left       -76.70991  39.25428
+
+pub top            -76.70874  39.25524
+pub bot            -76.70949  39.25520
+
+lib top right    -76.71135   39.25719 
+lib bot left     -76.71190   39.25670 

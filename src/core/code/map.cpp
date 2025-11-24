@@ -611,7 +611,7 @@ void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream
 		fputs("\tOutgoing edges:\n",stream);
 		for(size_t i = 0;i < node->n_outgoing_edges;i++){
 			put_multitab(tabs,stream);
-			fprintf(stream,"\t\t%p\n",node->outgoing_edges[i]);
+			fprintf(stream,"\t\t %s %s -> %s\n",edge_type_names[node->outgoing_edges[i]->type-1],node->outgoing_edges[i]->a->name, node->outgoing_edges[i]->b->name);
 		}
 	}
 }
@@ -1775,7 +1775,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx){
 		fprintf(stream,"\t\t%lu\n",i);
 		map_edge_to_output_stream(map.all_edges[i],tabs+2,stream,ctx);
 	}
-	
+
 	put_multitab(tabs,stream);
 	fputs("\tN Buildings:\n",stream);
 	put_multitab(tabs,stream);
@@ -1788,6 +1788,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx){
 		fprintf(stream,"\t\t%lu\n",i);
 		building_to_output_stream(map.all_buildings[i],tabs+2,stream,ctx);
 	}
+
 	
 	put_multitab(tabs,stream);
 	fputs("\tN Map Polygon Objects:\n",stream);
@@ -1801,6 +1802,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx){
 		fprintf(stream,"\t\t%lu\n",i);
 		mpo_to_output_stream(map.all_mpos[i],tabs+2,stream,ctx);
 	}
+
 }
 
 void do_thing(){

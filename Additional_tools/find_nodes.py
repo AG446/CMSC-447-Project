@@ -1,6 +1,6 @@
 
 """"
-Reads in a picture, needs to be a png in black and white with whatever object you want to get the outline of need to have a red pixel to indicate the starting point, preferbely at a corner, green pixels for important points like corner, curves, etc, and blue pixels to trace the border
+Reads in a picture(north need to be up), needs to be a png in black and white with whatever object you want to get the outline of need to have a red pixel to indicate the starting point, preferbely at a corner, green pixels for important points like corner, curves, etc, and blue pixels to trace the border, you need to only hav the red pixel connected to a blue pixel on one side so the coords are found in order
 
 Takes the image and finds all the mpo objects marked by the green and red pixels and stores all the mpo coordinates for each mpo, this is stores in a 2d list
 
@@ -12,10 +12,43 @@ Reccommendation:
 - blue outline just needs to connect the red and green pixels so they dont need to be very accurate
 - start by outline in blue first then placing red and green dots on the outline,
 - keep point to a minuimum, no more then 38 since it going to be a pain to input
+- should use a screen shoot of google maps/ application where you wiil get real world corrds from
 """
 from collections import deque
-from PIL import Image
-IMAGE_NAME = "map_bw.png"
+from PIL import Image,  ImageDraw, ImageFont
+IMAGE_NAME = "most_main_campus.png"
+#you need to already know the real location of the pixel, the conversion will be based on this so make it as accurate as possible
+TOP_RIGHT_PIX = (1723,92)
+TOP_RIGHT_REAL = (-76.70919,39.25589)
+
+BOTTOM_LEFT_PIX = (443, 764)
+BOTTOM_LEFT_REAL = ( -76.71473, 39.25365)
+
+
+
+# gets the bounds of the real word coords
+def get_bounds(pixel_pair, corrd_pair, width, height):
+    pixel_pair[0] = (pixel_pair[0][0],height - pixel_pair[0][1])
+    pixel_pair[1] = (pixel_pair[1][0],height - pixel_pair[1][1])
+    w_e_x= (corrd_pair[1][0] - corrd_pair[0][0])/((pixel_pair[1][0] - pixel_pair[0][0])/width)
+    w_e_y= (corrd_pair[1][1] - corrd_pair[0][1])/((pixel_pair[1][1] - pixel_pair[0][1])/height)
+    left_bound = corrd_pair[0][0] - pixel_pair[0][0]*(w_e_x/width)
+    right_bound = left_bound + w_e_x
+    bottom_bound =corrd_pair[0][1] - pixel_pair[0][1]*(w_e_y/height)
+    top_bound = bottom_bound + w_e_y
+    return [(left_bound, bottom_bound), (right_bound, top_bound)]
+
+#gets the real world cord from a pixel
+def get_real_cord(pixel_cord,width,height,bounds):
+    pixel_cord = (pixel_cord[0],height-pixel_cord[1])
+    percent_x = pixel_cord[0]/width
+    percent_y = pixel_cord[1]/height
+    bound_width = bounds[1][0] - bounds[0][0]
+    bound_height = bounds[1][1] - bounds[0][1]
+    x_cord_out = bounds[0][0] + percent_x * bound_width
+    y_cord_out = bounds[0][1] + percent_y * bound_height
+    return (x_cord_out,y_cord_out)
+
 
 # used to find the blue lines that connect the green dot(corners of the buildings)
 #only used to find 1 buulding at a time
@@ -83,10 +116,6 @@ def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
 if __name__ == "__main__":
     image_path = IMAGE_NAME
     color_threshold = 150
-    top_corner_pix = (3082,68)
-    top_corner_real = (39.25691,-76.70872)
-    bottom_corner_pix = (783, 1935)
-    bottom_corner_real = (39.25366, -76.71472)
     try:
         # Open the image file
         img = Image.open(image_path).convert('RGB')
@@ -95,32 +124,44 @@ if __name__ == "__main__":
         pixels = img.load()
         #stores all the mpo found, this is a 2d list
         mpo_list =[]
-
+        bounds = get_bounds([TOP_RIGHT_PIX, BOTTOM_LEFT_PIX], [TOP_RIGHT_REAL, BOTTOM_LEFT_REAL], width, height)
 
         # Iterate over all pixels
         for i in range(width):
             for j in range(height):
-
                 # Get the RGB tuple of the current pixel
                 r, g, b = pixels[i, j]
-
                 #check to make sure white is ingnored
                 if g < color_threshold and b < color_threshold:
                      # Check if the pixel is predominantly red
                     if r > color_threshold and r > g and r > b:
                         curr_cord = (i , j)
                         #array that stores the coords for each mpo
-                        print(curr_cord) #for testing
                         mpo_cords = []
                         mpo_cords.append(curr_cord)
                         find_blue(pixels, color_threshold, width, height, mpo_cords, curr_cord)
                         mpo_list.append(mpo_cords)
-                        print(len(mpo_cords)) #for testing
-        #only used for a santiy check and making sure the right pixels were found
 
+                        print(len(mpo_cords)) #for testing
+        draw = ImageDraw.Draw(img)
         for i in range(len(mpo_list)):
             for j in range(len(mpo_list[i])):
-                pixels[mpo_list[i][j]] =(255,50+(j*25),0) #used to change red and green to orange
+                number_to_write = i + 737;
+                x = mpo_list[i][0] + 1
+                y = mpo_list[i][1]
+                draw.text((x, y), str(number_to_write), fill = (255,150,0))
+                file = open("fuck", "w")
+                pixels[mpo_list[i][j]] =(255,0+(j*25),0) #used to change red and green to orange
+                real_coord = get_real_cord(mpo_list[i][j], width, height, bounds)
+                round_x = round(real_coord[0], 5)
+                round_y = round(real_coord[1], 5)
+                mpo_list[i] = (round_x, round_y)
+                spacing = "    "
+                if j < 10:
+                    spacing ="     "
+                text = str(j+737) + spacing + str(round_x) + "    " + str(round_y) + "\n"
+                file.write(text)
+            file.close
 
         #used dislay the green and red pixels turned orange, only for testing to see if it worked properly
         img.save("orange", format="png")
@@ -130,3 +171,4 @@ if __name__ == "__main__":
         print(f"Error: The file at {image_path} was not found.")
     except Exception as e:
         print(f"An error occurred: {e}")
+

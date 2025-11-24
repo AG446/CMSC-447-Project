@@ -1,0 +1,75 @@
+0     -76.71238    39.25651     lib fin aid door front
+1     -76.71257    39.25637     lib fin aid door path 1
+2     -76.71269    39.25630     lib fin aid door path 2
+3     -76.71276    39.25636     lib cure path to park 1
+4     -76.71281    39.25642     lib cure path to park 2
+5     -76.71282    39.25647     lib cure path to park 3
+6     -76.71283    39.25652     lib cure path to park 4
+7     -76.71282    39.25665     lib cure path to park 5
+8     -76.71276    39.25670     lib cure path to park 6
+9     -76.71264    39.25676     lib cure path to park 7
+10    -76.71256    39.25633	lib cure path to com 1
+11    -76.71253    39.25629	lib cure path to com 2
+12    -76.71248    39.25627	lib cure path to com 3
+13    -76.71244    39.25625	lib cure path to com 4
+14    -76.71242    39.25622	lib cure path to com 5
+15    -76.71243    39.25619	lib cure path to com 6
+16    -76.71256    39.25625	lib cure path to com 7
+17    -76.71295    39.25625	lib path to fart 1
+18    -76.71303    39.25616	lib path to fart 2
+19    -76.71292    39.25588	lib path to fart 3
+20    -76.71293    39.25580	lib path to fart 4
+21    -76.71296    39.25564	lib path to fart fork right
+22    -76.71314    39.25568	lib path to fart fork left
+23    -76.71377    39.25575	fart path to cop 
+24    -76.71388    39.25557	fart to corner intersect
+25    -76.71347    39.25546	fart to bottom at top 1
+26    -76.71344    39.25553	fart to bottom curve 1
+27    -76.71343    39.25561	fart to bottom curve 2
+28    -76.71347    39.25565	fart to bottom curve 3
+29    -76.71352    39.25568	fart to bottom curve 4
+30    -76.71344    39.25544	fart to bottom at top 2
+31    -76.71305    39.25533	fart to bottom at top 3
+32    -76.71311    39.25522	front of fart 1
+33    -76.71329    39.25488	front of fart 2
+34    -76.71269    39.25523	fart to bottom at top 4
+35    -76.71240    39.25515	fart to bottom at top 5
+36    -76.71229    39.25503	act row from fart
+37    -76.71211    39.25502	bio ground to com
+38    -76.71225    39.25512	act row from lib 3
+39    -76.71206    39.25550	dont need
+40    -76.71201    39.25558	act row from lib 2
+41    -76.71186    39.25596	act row from lib 1
+42    -76.71203    39.25615	lib ungrade front
+43    -76.71168    39.25608	act row to lib stair
+44    -76.71150    39.25619	lib big circle
+45    -76.71154    39.25630	lib front door
+46    -76.71070    39.25674	lib path towards erckson 1
+47    -76.71063    39.25679	lib path towards erckson 2
+48    -76.71031    39.25669	lib path towards erckson 3
+49    -76.71028    39.25671	lib path towards erckson 4
+50    -76.70927    39.25640	erckson to road 
+51    -76.70912    39.25636	wellbeing front 1
+52    -76.70924    39.25609
+53    -76.70942    39.25560
+54    -76.70940    39.25545
+55    -76.70950    39.25522
+56    -76.70973    39.25513
+57    -76.70984    39.25486
+58    -76.70958    39.25543
+59    -76.70953    39.25549
+60    -76.70976    39.25556
+61    -76.70954    39.25589
+62    -76.70948    39.25594
+63    -76.71096    39.25592
+64    -76.71106    39.25595
+65    -76.71140    39.25603
+66    -76.71132    39.25588
+67    -76.71109    39.25589
+68    -76.71097    39.25589
+69    -76.71024    39.25536
+70    -76.71002    39.25492
+71    -76.71051    39.25505
+72    -76.71057    39.25511
+73    -76.71094    39.25521
+74    -76.71119    39.25568

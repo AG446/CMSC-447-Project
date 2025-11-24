@@ -326,6 +326,7 @@ static bool is_halting_string(const char * str){
 	if(strcmp(str,"quit") == 0) return true;
 	if(strcmp(str,"exit") == 0) return true;
 	if(strcmp(str,"cancel") == 0) return true;
+	if(strcmp(str,"e") == 0) return true;
 	
 	return false;
 }
@@ -677,7 +678,7 @@ static map_node_t * fetch_node(map_t * map,gws_t * gws,err_ctx_t * ctx){
 			"Find By Index"
 		};
 		
-		size_t chosen_option = parse_among_options("Choose How to Find Node",options,n_options,&canceled);
+		size_t chosen_option =  parse_among_options("Choose How to Find Node",options,n_options,&canceled);
 		if(canceled) return NULL;
 		
 		if(chosen_option == 1){
@@ -810,7 +811,7 @@ static void set_node_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
 		"Clear Associated Building",
 		"Clear Floor Number"
 	};
-	size_t chosen_option = parse_among_options("Choose which property to edit",options,n_options,&canceled);
+	size_t chosen_option = parse_among_options("Choose which property to edit(enter number)",options,n_options,&canceled);
 	if(canceled) return;
 	
 	if(chosen_option == 1){
@@ -904,7 +905,7 @@ static void set_mpo_property_command(map_t * map,gws_t * gws,err_ctx_t * ctx){
 		"Clear Name"
 	};
 	
-	size_t chosen_option = parse_among_options("Choose which property to edit",options,n_options,&canceled);
+	size_t chosen_option = parse_among_options("Choose which property to edit(enter number)",options,n_options,&canceled);
 	if(canceled) return;
 	
 	if(chosen_option == 1){
@@ -1182,24 +1183,24 @@ static void save_map_command(map_t * map){
 
 static void help_command(void){
 	fputs("List of commands:\n"
-	"\t-[set node property] \t\"Add or set the properties of a node.\"\n"
-	"\t-[set mpo property] \t\"Add or set the properties of an mpo.\"\n"
-	"\t-[set building property] \t\"Add or set the properties of a building.\"\n"
-	"\t-[set edge connection type] \t\"Set the property of an edge.\"\n"
+	"\t-[set node property] [snp] \t\"Add or set the properties of a node.\"\n"
+	"\t-[set mpo property] [smp] \t\"Add or set the properties of an mpo.\"\n"
+	"\t-[set building property] [sbp]\t\"Add or set the properties of a building.\"\n"
+	"\t-[set edge connection type] [sect] \t\"Set the property of an edge.\"\n"
 	"\t-[create cord][cc] \t\"Create a coordinate object in the working set.\"\n"
-	"\t-[create rect] \t\"Create a rectangle object in the working set.\"\n"
+	"\t-[create rect] [cr]\t\"Create a rectangle object in the working set.\"\n"
 	"\t-[create mpo] \t\"Create an mpo object in the working set.\"\n"
-	"\t-[create node] \t\"Create a node object in the working set.\"\n"
-	"\t-[create building] \t\"Create a building object in the working set\"\n"
+	"\t-[create node] [cn] \t\"Create a node object in the working set.\"\n"
+	"\t-[create building] [cb] \t\"Create a building object in the working set\"\n"
 	"\t-[show map] \t\"Show all the data in the map in full detail.\"\n"
-	"\t-[add node] \t\"Add a node from the working set to the map.\"\n"
+	"\t-[add node] [an]\t\"Add a node from the working set to the map.\"\n"
 	"\t-[add mpo] \t\"Add an mpo object from the working set to the map.\"\n"
-	"\t-[add building] \t\"Add a building object from the working set to the map.\"\n"
+	"\t-[add building] [ab]\t\"Add a building object from the working set to the map.\"\n"
 	"\t-[map delete] \t\"Delete an element from the map.\"\n"
-	"\t-[connect nodes] \t\"Connect nodes within the map.\"\n"
-	"\t-[disconnect nodes] \t\"Disconnect nodes within the map.\"\n"
-	"\t-[load map] \t\"Load a map from a file. WARNING: Will delete the currently loaded map.\"\n"
-	"\t-[save map] \t\"Save the map to a file.\"\n"
+	"\t-[connect nodes] [con] \t\"Connect nodes within the map.\"\n"
+	"\t-[disconnect nodes] [dis]\t\"Disconnect nodes within the map.\"\n"
+	"\t-[load map] [l]\t\"Load a map from a file. WARNING: Will delete the currently loaded map.\"\n"
+	"\t-[save map] [s]\t\"Save the map to a file.\"\n"
 	"\t-[delete] \t\"Delete an object within the working set.\"\n"
 	"\t-[clear] \t\"Delete all objects within the working set.\"\n"
 	"\t-[help] \t\"Show this screen.\"\n"
@@ -1212,7 +1213,7 @@ void start_cli(){
 	map_t working_map = init_map();
 	
 	gws_t working_set = init_generic_working_set();
-	
+	bool temp = false;
 	bool running = true;
 	while(running){
 		clear_terminal_screen();
@@ -1254,6 +1255,7 @@ void start_cli(){
 					}
 				}else if(strcmp(tokens[0],"show") == 0){
 					if(strcmp(tokens[1],"map") == 0){
+						temp = true;
 						show_map_command(working_map,&err_ctx);
 					}
 				}else if(strcmp(tokens[0],"add") == 0){
@@ -1268,12 +1270,20 @@ void start_cli(){
 					delete_from_map_command(&working_map,&err_ctx);
 				}else if(strcmp(tokens[0],"connect") == 0 && strcmp(tokens[1],"nodes") == 0){
 					connect_nodes_command(&working_map,&err_ctx);
+				}else if(strcmp(tokens[0],"con") == 0) {
+					connect_nodes_command(&working_map,&err_ctx);
 				}else if(strcmp(tokens[0],"disconnect") == 0 && strcmp(tokens[1],"nodes") == 0){
+					disconnect_nodes_command(&working_map,&err_ctx);
+				}else if(strcmp(tokens[0],"dis") == 0){
 					disconnect_nodes_command(&working_map,&err_ctx);
 				}else if(strcmp(tokens[0],"load") == 0 && strcmp(tokens[1],"map") == 0){
 					load_map_command(&working_map,&err_ctx);
 				}else if(strcmp(tokens[0],"save") == 0 && strcmp(tokens[1],"map") == 0){
 					save_map_command(&working_map);
+				}else if(strcmp(tokens[0],"s") == 0){
+					save_map_command(&working_map);
+				}else if(strcmp(tokens[0],"l") == 0){
+					load_map_command(&working_map,&err_ctx);
 				}
 			}else if(n_tokens == 1){
 				if(is_deleting_string(tokens[0])){
@@ -1282,10 +1292,38 @@ void start_cli(){
 					if(parse_confirmation("Are you Sure?")) clear_gws_objects(&working_set,&err_ctx);
 					else fputs("Not cleared.\n",stdout);
 				}else if(strcmp(tokens[0],"help") == 0){
+					temp = true;
 					help_command();
 				}else if(strcmp(tokens[0],"cc") == 0){
 					create_cord_command(&working_set,&err_ctx);
+				}else if (strcmp(tokens[0],"cn") == 0){
+					create_node_command(&working_set,&err_ctx);
+				}else if (strcmp(tokens[0],"snp") == 0) {
+					set_node_property_command(&working_map,&working_set,&err_ctx);
+				}else if (strcmp(tokens[0],"sect") == 0) {
+					set_edge_type_command(&working_map,&err_ctx);
+				}else if (strcmp(tokens[0],"smp") == 0) {
+					set_mpo_property_command(&working_map,&working_set,&err_ctx);
+				}else if (strcmp(tokens[0],"an") == 0) {
+					add_node_to_map_command(&working_map,&working_set,&err_ctx);
+				}else if (strcmp(tokens[0],"cr") == 0) {
+					create_rect_command(&working_set,&err_ctx);
+				}else if (strcmp(tokens[0],"sbp") == 0){
+					set_building_property_command(&working_map,&working_set,&err_ctx);
+				}else if (strcmp(tokens[0], "cb") == 0) {
+					create_building_command(&working_set,&err_ctx);
+				}else if (strcmp(tokens[0], "ab") == 0) {
+					add_building_to_map_command(&working_map,&working_set,&err_ctx);
+				}else if(strcmp(tokens[0],"dis") == 0){
+					disconnect_nodes_command(&working_map,&err_ctx);
+				}else if(strcmp(tokens[0],"con") == 0) {
+					connect_nodes_command(&working_map,&err_ctx);
+				}else if(strcmp(tokens[0],"s") == 0){
+					save_map_command(&working_map);
+				}else if(strcmp(tokens[0],"l") == 0){
+					load_map_command(&working_map,&err_ctx);
 				}
+
 			}
 			
 			delete_tokens(tokens,n_tokens);
@@ -1294,11 +1332,13 @@ void start_cli(){
 		
 		errs_to_output_stream(&err_ctx,stdout);
 		reset_err_ctx(&err_ctx);
-		
-		if(running){
+
+		if(running && (temp)){
+			temp = false;
 			fputs("Press ENTER to continue\n",stdout);
 			getc(stdin);
 		}
+
 	}
 	
 	deinit_generic_working_set(&working_set,&err_ctx);

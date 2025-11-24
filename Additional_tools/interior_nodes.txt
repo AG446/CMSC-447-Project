@@ -1,0 +1,461 @@
+---------------------------Bio-------------------------------------------
+719    -76.71188    39.25502 bio main right door outside near commons 
+503    -76.71209    39.25507  bio main lift 1 -done
+510    -76.71181    39.25518  bio2 lift 1 -done
+287    -76.71206    39.25496  bio main door near lec1 1fl -done
+717    -76.71239    39.25456  bio main bot door    1fl
+720    -76.71192    39.25504  bio main right door 1fl -done
+501    -76.71217    39.25504  bio main top door  1fl -done
+507    -76.71201    39.25519  bio2 bot door  1fl -done
+504    -76.71210    39.25499  1fl -done
+506    -76.71205    39.25506  1fl -done
+508    -76.71203    39.25524  1fl -done
+509    -76.71193    39.25544  bio2 top door left  1fl -done
+512    -76.71176    39.25539  bio2 top door right 1fl -done
+634    -76.71209    39.25507 Bio main elvate 2 -done
+635    -76.71181    39.25518 Bio2 elvate 2 -done
+910(509    -76.71195    39.25538 bio2 top door left good 2fl -done
+911(512    -76.71177    39.25533 bio2 top door right good 2fl -done
+912(504    -76.71210    39.25499  2fl -done
+913    -76.71218    39.25502 2fl -done
+914    -76.71239    39.25456 bio main bot door 2fl -done
+636    -76.71209    39.25507 Bio main elvate 3 -done 
+637    -76.71181    39.25518 Bio2 elvate 3 -done
+915(508    -76.71203    39.25524  3fl -done
+916(504    -76.71210    39.25499  3fl -done
+917     -76.71218    39.25502 3fl -done
+918    -76.71239    39.25456 bio main bot door 3fl -done
+638    -76.71209    39.25507 Bio main elvate 4 -done   
+639    -76.71181    39.25518 Bio2 elvate 4 -done
+273     -76.71235    39.25452  bio sky bridge math 4fl -done
+277     -76.71240    39.25459  bio sky bridge 4fl -done
+919(509    -76.71195    39.25533 bio2 top door left good 4fl -done
+920(512    -76.71182    39.25531 bio2 top door right good 4fl -done
+921(508    -76.71203    39.25524  4fl -done
+922(504    -76.71210    39.25499  4fl -done
+923     -76.71218    39.25502 4fl -done
+640    -76.71209    39.25507 Bio main elvate B -done
+641    -76.71181    39.25518 Bio2 elvate B -done
+908(287)     -76.71206    39.25496 bio underground con to lect1 -done
+718    -76.71227    39.25454 bio ground door B level -done
+858(509    -76.71195    39.25533 bio2 top door left good Bfl -done
+924(508    -76.71203    39.25524  Bfl -done
+485    -76.71218    39.25502 Bfl -done
+----------------------Lect1-----------------------------------------------
+291     -76.71196    39.25481  lect 1 top door -done
+293     -76.71199    39.25484  lect1 top lower levl door -done
+769    -76.71180    39.25472  lect G auto door-done
+755    -76.71170    39.25488  lect1 room door -done
+909(289)     -76.71193    39.25491 lect1 underground -done
+---------------------------Math-----------------------------------------
+254     -76.71267    39.25383  math bot 1fl door outside  
+269    -76.71244    39.25441 math top elvate 1 -done
+261    -76.71268    39.25390 math bot elvate 1 -done
+257     -76.71266    39.25385  math door 1levl bot -done
+262     -76.71265    39.25391  math 1levl door auto on bottom -done
+497    -76.71244    39.25436  math 1lev door top -done
+681    -76.71244    39.25441 math top elvate 2 -done
+682    -76.71268    39.25390 math bot elvate 2 -done
+683    -76.71244    39.25441 math top elvate 3 -done
+684    -76.71268    39.25390 math bot elvate 3 -done
+685    -76.71244    39.25441 math top elvate 4 -done
+686    -76.71268    39.25390 math bot elvate 4 -done
+258     -76.71266    39.25388  math sky bridge sondh -done 
+271     -76.71240    39.25441  math sky bridge bio -done
+687    -76.71244    39.25441 math top elvate G -done
+688    -76.71268    39.25390 math bot elvate G -done
+716    -76.71230    39.25435 math  top G lev door -done
+251     -76.71256    39.25382  math bot G levl door -done
+253     -76.71263    39.25381  math bot G levl auto door -done
+255     -76.71263    39.25385  math door before underground -done
+---------------------------Chem-----------------------------------------
+280     -76.71252    39.25463  outside between bio chem bot
+281     -76.71241    39.25482  outsie chem2
+489    -76.71314    39.25479 chem bot lift 1 -done
+492    -76.71297    39.25529 chem top lift 1 -done
+222     -76.71300    39.25464  chem 1fl bot door -done
+494    -76.71267    39.25467  1fl -done
+496    -76.71246    39.25511  1fl -done
+642    -76.71314    39.25479 chem bot elvat 2 -done
+643    -76.71297    39.25529 chem top elvat 2 -done
+901(494)    -76.71267    39.25467  2fl -done
+902(496)    -76.71246    39.25511 2fl -done
+644    -76.71314    39.25479 chem bot elvat 3 -done
+645    -76.71297    39.25529 chem top elvat 3 -done
+276     -76.71264    39.25466  chem sky bridge 3fl -done
+903(496)    -76.71246    39.25511 3fl -done
+646    -76.71314    39.25479 chem bot elvat 4 -done
+647    -76.71297    39.25529 chem top elvat 4 -done
+904(494)    -76.71267    39.25467  4fl -done
+905(496)    -76.71246    39.25511 4fl -done
+648    -76.71314    39.25479 chem bot elvat 5 
+649    -76.71297    39.25529 chem top elvat 5 
+906(494)    -76.71267    39.25467  5fl
+907(496)    -76.71246    39.25511 5fl
+650    -76.71314    39.25479 chem bot elvat B -done
+651    -76.71297    39.25529 chem top elvat B -done
+275     -76.71260    39.25462  chem main bot G levl door 0fl? -done
+285     -76.71246    39.25504  chem main top G levl door 0fl? -done
+279     -76.71251    39.25482  chem2 bot door 0fl? -done
+283     -76.71248    39.25487  chem 2 top door 0fl? -done
+----------------------------FArt-----------------------------------------
+879	-76.71331	39.25533 fart top right G -done
+880	-76.71353	39.25497 fart bot right G -done
+213     -76.71342    39.25495 12 fart G levl bot door -done
+217     -76.71328    39.25525 16 Part G levl top door -done
+680    -76.71353    39.25542 Fart top elvate G -done
+679    -76.71373    39.25499 Fart bot elvate G -done
+881	-76.71388	39.25546 fart top left 1 -done
+882	-76.71331	39.25533 fart top right 1 -done
+883	-76.71404	39.25509 fart bot left 1 -done
+884	-76.71353	39.25497 fart bot right 1 -done
+211     -76.71377    39.25492 10 Fart bot 1levl door -done
+219     -76.71347    39.25541 18 FArt top 1levl door -done
+221    -76.71353    39.25542 fart top lift 1 -done
+214    -76.71373    39.25499 fart bot lift 1 -done
+885	-76.71388	39.25546 fart top left 2 -done
+886	-76.71331	39.25533 fart top right 2 -done
+887	-76.71404	39.25509 fart bot left 2 -done
+888	-76.71353	39.25497 fart bot right 2 -done
+132     -76.71369    39.25510  Fart midd door 2fl -done
+672    -76.71353    39.25542 Fart top elvate 2 -done
+671    -76.71373    39.25499 Fart bot elvate 2 -done
+889	-76.71388	39.25546 fart top left 3 -done
+890	-76.71331	39.25533 fart top right 3 -done
+891	-76.71404	39.25509 fart bot left 3 -done
+892	-76.71353	39.25497 fart bot right 3 -done
+674    -76.71353    39.25542 Fart top elvate 3  -done
+673    -76.71373    39.25499 Fart bot elvate 3  -done
+893	-76.71388	39.25546 fart top left 4 -done
+894	-76.71331	39.25533 fart top right 4 -done
+895	-76.71404	39.25509 fart bot left 4 -done
+896	-76.71353	39.25497 fart bot right 4 -done
+676    -76.71353    39.25542 Fart top elvate 4 -done
+675    -76.71373    39.25499 Fart bot elvate 4 -done
+897	-76.71388	39.25546 fart top left 5 -done
+898	-76.71331	39.25533 fart top right 5 -done
+899	-76.71404	39.25509 fart bot left 5 -done
+900	-76.71353	39.25497 fart bot right 5 -done
+678    -76.71353    39.25542 Fart top elvate 5 -done
+677    -76.71373    39.25499 Fart bot elvate 5 -done
+----------------------------ILSB-----------------------------------------
+861 	-76.71115	39.25401 ilsb lift front 1 -done
+862 	-76.71119	39.25390 ilsb bot building 1 -done
+335    -76.71053    39.25408  ilsb top right door good  -done
+355    -76.71110    39.25412  ilsb top left door  -done
+358    -76.71111    39.25399  ilsb lift 1 -done
+863	-76.71115	39.25401 ilsb lift front 2 -done
+864	-76.71119	39.25390 ilsb bot building 2 -done
+865     -76.71053       39.25408  ilsb top right door -done
+875     -76.71110    39.25412  ilsb top left door  -done
+667    -76.71111    39.25399 ilsb elvate 2   -done
+866 	-76.71115	39.25401 ilsb lift front 3 -done
+867 	-76.71119	39.25390 ilsb bot building 3 -done
+868     -76.71053       39.25408  ilsb top right door -done
+876     -76.71110    39.25412  ilsb top left door -done
+668    -76.71111    39.25399 ilsb elvate 3  -done
+869 	-76.71115	39.25401 ilsb lift front 4 -done
+870 	-76.71119	39.25390 ilsb bot building 4 -done
+871     -76.71053       39.25408  ilsb top right door -done
+877     -76.71110    39.25412  ilsb top left door -done
+669    -76.71111    39.25399 ilsb elvate 4 -done
+872 	-76.71115	39.25401 ilsb lift front LL -done
+873 	-76.71119	39.25390 ilsb bot building LL -done
+874     -76.71053       39.25408  ilsb top right door -done
+878     -76.71110    39.25412  ilsb top left door  -done
+670    -76.71111    39.25399 ilsb elvate LL  LL =63 -done
+----------------------------Sondheim-----------------------------------
+697    -76.71277    39.25373 sodh top elvate B rename -done?
+698    -76.71287    39.25329 sodh bot elvate B rename -done?
+244    -76.71269    39.25372 sonheim under ground -done?
+714    -76.71290    39.25325 sondh bot boor 1fl  -done    
+246    -76.71277    39.25373 sodh top lift 1 -done
+263    -76.71287    39.25329 sondh bot elvate 1 -done
+243    -76.71269    39.25374 sondh top door -done
+689    -76.71277    39.25373 sodh top elvate 2 -done
+690    -76.71287    39.25329 sodh bot elvate 2 -done
+789    -76.71269    39.25374 sondh top door 2 -done
+691    -76.71277    39.25373 sodh top elvate 3 -done
+692    -76.71287    39.25329 sodh bot elvate 3 -done
+790    -76.71269    39.25374 sondh top door 3 -done
+693    -76.71277    39.25373 sodh top elvate 4 -done
+694    -76.71287    39.25329 sodh bot elvate 4 -done
+241    -76.71272    39.25375  4fl sondh sky bridge -done
+695    -76.71277    39.25373 sodh top elvate 5 -done
+696    -76.71287    39.25329 sodh bot elvate 5 -done
+791    -76.71269    39.25374 sondh top door-done
+-----------------------------Pub Policy-----------------------------------
+814         -76.70939    39.25533 pub top left 1 -done
+815         -76.70926    39.25518 pub bot mid 1 -done
+816         -76.70922    39.25529 pub top mid 1 -done
+817         -76.70880    39.25508 pub bot right 1 -done 
+818         -76.70883    39.25517 pub top right 1 -done
+819         -76.70939    39.25533 pub top left 2 -done
+820         -76.70926    39.25518 pub bot mid 2 -done
+821         -76.70922    39.25529 pub top mid 2   -done
+822         -76.70880    39.25508 pub bot right 2 -done
+823         -76.70883    39.25517 pub top right 2 -done
+824         -76.70945    39.25522 pub door 2 -done
+825         -76.70939    39.25533 pub top left 3 - done
+826         -76.70926    39.25518 pub bot mid 3 -done
+827         -76.70922    39.25529 pub top mid 3 -done
+828         -76.70880    39.25508 pub bot right 3 -done
+829         -76.70883    39.25517 pub top right 3 -done
+830         -76.70945    39.25522 pub door 3 -done
+831         -76.70939    39.25533 pub top left 4 -done
+832         -76.70926    39.25518 pub bot mid 4 -done
+833         -76.70922    39.25529 pub top mid 4 -done
+834         -76.70880    39.25508 pub bot right 4 -done
+835         -76.70883    39.25517 pub top right 4 -done
+836         -76.70945    39.25522 pub door 4 -done
+837         -76.70926    39.25518 pub bot mid B -done
+838         -76.70922    39.25529 pub top mid B -done
+839         -76.70880    39.25508 pub bot right B -done
+840         -76.70883    39.25517 pub top right B -done
+-------------------------------Physics-----------------------------------
+799         -76.70964    39.25478 phy top door outside -done
+777    	    -76.70945    39.25471 phy lift front 1 -done
+800         -76.70966    39.25477 phy top auto door 1 -done
+801         -76.70928    39.25466 top right phy door 1 -done
+662    -76.70946    39.25469 pysic elvat 1   -done
+802         -76.70966    39.25477 phy top auto door 2 -done
+759         -76.70945    39.25471 phy lift front 2 -done
+803         -76.70928    39.25466 phy right door 2 -done
+804         -76.70988    39.25429 phy door 2 -done
+663    -76.70946    39.25469 pysic elvat 2  -done
+805         -76.70966    39.25477 phy top auto door 3 -done
+731    	    -76.70945    39.25471 phy lift front 3  -done
+806         -76.70928    39.25466 phy right door 3 -done
+807         -76.70988    39.25429 phy door 3 -done
+664    -76.70946    39.25469 pysic elvat 3  -d
+one
+808         -76.70966    39.25477 phy top auto door 4 -done
+732    	    -76.70945    39.25471 phy lift front 4 -done
+809         -76.70928    39.25466 phy right door 4 -done
+810         -76.70988    39.25429 phy door 4 -done
+665         -76.70946    39.25469 pysic elvat 4  -done
+811         -76.70966    39.25477 phy top auto door B -done
+513         -76.70945    39.25471 phy lift front B -done
+812         -76.70928    39.25466 phy right door B -done
+813         -76.70988    39.25429 phy door B -done
+666    -76.70946    39.25469 pysic elvat B  -done
+-------------------------------UC-----------------------------------------
+487    -76.71311    39.25434 uc lift  -done
+491    -76.71307    39.25412 UC food door 1fl -done
+486    -76.71323    39.25415 uc 1fl -done
+490    -76.71307    39.25450 UC 1levl door -done
+632    -76.71311    39.25434 UC elvate 2    -done
+734    -76.71324    39.25408 UC 2levl bot door  -done    
+735    -76.71306    39.25450 UC 2levl top door  -done  
+633    -76.71311    39.25434 UC elvate 3 -done 
+729    -76.71343    39.25439 uc 3rd top door   -done  
+730    -76.71345    39.25436 uc 3rd bot door   -done 
+488    -76.71331    39.25439 con to 3fl door,lift -done 
+-------------------------------Commons-----------------------------------
+517    -76.71090    39.25505 com top lift 1 -done
+518    -76.71087    39.25464 com bot lift 1 -done
+121    -76.71103    39.25497 coms 2nd 1fl door -done
+760    -76.71158    39.25517 coms 1fl door -done
+514    -76.71102    39.25467 1fl -done
+515    -76.71097    39.25504  1fl -done
+516    -76.71096    39.25483 1fl -done
+847    -76.71149    39.25515 com 1 farthest left -done
+852    -76.71137    39.25527 com top left for 1fl -done
+853    -76.71103    39.25517 com top right for 1fl -done
+658    -76.71090    39.25505 com top elvat L  L=61
+722    -76.71087    39.25519 common top left door -done
+723    -76.71065    39.25514 common top right door -done
+841    -76.71077    39.25517 com top door mid connection -done
+842    -76.71079    39.25514 com L front desk  -done
+843    -76.71082    39.25504 com L below 842 -done
+844    -76.71066    39.25499 com L connect to 843 -done
+845    -76.71069    39.25511 com L connect to 842 -done
+660    -76.71090    39.25505 com top elvat M  M=62 -done
+848    -76.71149    39.25515 com M farthest left -done
+849    -76.71100    39.25507 com M left of lift -done
+850    -76.71102    39.25503 com M before 2fl stair -done
+652    -76.71090    39.25505 com top elvat 2 -done
+653    -76.71087    39.25464 com bot elvat 2 -done
+856(514)    -76.71102    39.25467 for 2fl -done
+857(516)    -76.71096    39.25483  for 2fl -done
+854         -76.71082    39.25504 com L below 842 for 2 -done
+855         -76.71066    39.25499 com L connect to 843 for 2 -done
+654    -76.71090    39.25505 com top elvat 3 -done 
+851    -76.71145    39.25528 top left for 3fl -done
+859    -76.71082    39.25504 com L below 808 also for 3 -done
+860    -76.71066    39.25499 com L connect to 809 also for 3 -done
+657    -76.71087    39.25464 com bot elvat G -done
+353    -76.71113    39.25450  common bot left door -done
+721    -76.71101    39.25446 common bottom level right door -done
+846    -76.71109    39.25450 com bot mid door for G -done
+------------------------------RAC-----------------------------------------
+458    -76.71267    39.25279  rac elvate -done
+397    -76.71295    39.25293  rac door outside -done
+458    -76.71267    39.25279 rac elvate 1 -done
+715    -76.71292    39.25289 rac door -done
+474    -76.71286    39.25271 con to door to lift 1fl -done
+493    -76.71292    39.25254  con to 474 -done
+495    -76.71254    39.25317  con to lift -done
+616    -76.71267    39.25279 RAC elvate 0 -done
+498    -76.71286    39.25271 con to door to lift 0fl -done
+499    -76.71292    39.25254  con to 498 0fl -done
+500    -76.71254    39.25317  con to lift 0fl -done
+617    -76.71267    39.25279 RAC elvate 2 -done
+502    -76.71286    39.25271 con to door to lift 2fl -done
+505    -76.71292    39.25254  con to 502 2fl -done
+511    -76.71254    39.25317  con to lift 2fl -done
+-------------------------------Admin--------------------------------------
+595    -76.71365    39.25305  admin bot left 1fl -done
+596    -76.71354    39.25325  admin top left 1fl -done
+597    -76.71345    39.25299  admin non auto door -done
+598    -76.71340    39.25309  admin elvate  1fl   -done
+599    -76.71335    39.25318  admin top right 1fl -done
+455    -76.71342    39.25303  admin bot door -done
+457    -76.71339    39.25312  admin top door -done
+312     -76.71365    39.25305  admin bot left 2fl -done
+390    -76.71354    39.25325  admin top left 2fl -done
+427    -76.71345    39.25299  admin bot right 2fl -done
+445    -76.71335    39.25318  admin top right 2fl -done
+606    -76.71340    39.25309 admin elvate 2   -done
+420    -76.71365    39.25305  admin bot left 3fl -done
+413    -76.71345    39.25299  admin bot right 3fl -done
+435    -76.71354    39.25325  admin top left 3fl -done
+456    -76.71335    39.25318  admin top right 3fl -done
+607    -76.71340    39.25309 admin elvate 3  -done
+415     -76.71365    39.25305  admin bot left 4fl -done
+414    -76.71345    39.25299  admin bot right 4fl -done
+436    -76.71354    39.25325  admin top left 4fl -done
+482    -76.71335    39.25318  admin top right 4fl -done
+608    -76.71340    39.25309 admin elvate 4  -done
+416     -76.71365    39.25305  admin bot left 5fl  -done
+386    -76.71345    39.25299  admin bot right 5fl  -done
+394    -76.71354    39.25325  admin top left 5fl  -done
+537    -76.71335    39.25318  admin top right 5fl  -done
+609    -76.71340    39.25309 admin elvate 5   -done
+314     -76.71365    39.25305  admin bot left 6fl -done
+392    -76.71345    39.25299  admin bot right 6fl -done
+395    -76.71354    39.25325  admin top left 6fl -done
+541    -76.71335    39.25318  admin top right 6fl -done
+610    -76.71340    39.25309 admin elvate 6  -done
+365     -76.71365    39.25305  admin bot left 7fl -done
+572     -76.71345    39.25299  admin bot right 7fl -done
+396    -76.71354    39.25325  admin top left 7fl -done
+562    -76.71335    39.25318  admin top right 7fl -done
+611    -76.71340    39.25309 admin elvate 7  -done
+370     -76.71365    39.25305  admin bot left 8fl -done
+400    -76.71345    39.25299  admin bot right 8fl -done
+401    -76.71354    39.25325  admin top left 8fl -done
+569    -76.71335    39.25318  admin top right 8fl -done
+612    -76.71340    39.25309 admin elvate 8  -done
+372     -76.71365    39.25305  admin bot left 9fl -done
+447    -76.71345    39.25299  admin bot right 9fl -done
+405    -76.71354    39.25325  admin top left 9fl -done
+591    -76.71335    39.25318  admin top right 9fl -done
+613    -76.71340    39.25309 admin elvate 9   -done
+431     -76.71365    39.25305  admin bot left 10fl -done
+573     -76.71345    39.25299  admin bot right 10fl -done
+424    -76.71354    39.25325  admin top left 10fl -done
+579    -76.71335    39.25318  admin top right 10fl -done
+614    -76.71340    39.25309 admin elvate 10 -done
+-------------------------------PArt---------------------------------------
+229     -76.71491    39.25520 part before the stairs to the 2fl -done
+159     -76.71550    39.25537 part lift 1  -done
+117     -76.71479    39.25524 Part top right door -done
+144     -76.71471    39.25513 PArt right door -done
+464     -76.71592    39.25548 part 1fl far left   -done
+158     -76.71559    39.25538 7 PArt bot door -done
+233     -76.71559    39.25538 Part 2levl bot door -done
+705     -76.71550    39.25537 PArt elvate 2  -done
+135     -76.71534    39.25559 PArt top door 2fl -done
+149     -76.71506    39.25525 part 2fl far right -done
+706     -76.71550    39.25537 PArt elvate 3 -done
+186     -76.71592    39.25548 part 3fl far left  -done
+204     -76.71471    39.25513 PArt right door -done
+707     -76.71550    39.25537 PArt elvate 4  -done
+210     -76.71471    39.25513 PArt 4fl right door -done
+224     -76.71592    39.25548 part 4fl far left  -done
+-------------------------------Sherman------------------------------------
+738    -76.71325    39.25392 sherman 1levl door -done
+484    -76.71358    39.25396 sherm top elvat 1 -done
+480    -76.71382    39.25351 sherm bot elvat 1 -done
+736    -76.71360    39.25396 sherman 2levl top door -done
+737    -76.71381    39.25353 sherman 2levl bot door -done
+626    -76.71382    39.25351 sherman bot elvate 2  -done
+627    -76.71358    39.25396 sherman top elvate 2  -done
+124     -76.71325    39.25392 sherman 2fl far right -done
+628    -76.71382    39.25351 sherman bot elvate 3 -done
+629    -76.71358    39.25396 sherman top elvate 3 -done
+125     -76.71325    39.25392 sherman 3fl far right -done
+630    -76.71382    39.25351 sherman bot elvate 4 -done
+631    -76.71358    39.25396 sherman top elvate 4 -done
+127     -76.71325    39.25392 sherman 4fl far right -done
+-------------------------------ITE----------------------------------------
+189    -76.71419    39.25403  ite top lift 1 -done
+99     -76.71442    39.25365  ite bot lift 1 -done
+519    -76.71426    39.25358  con both lift -done
+471    -76.71412    39.25356  con 476 1fl -done
+472    -76.71412    39.25404  con 477 vis stair 2fl -done
+476    -76.71405    39.25374  ite door 1 level bottom con 471 -done
+477    -76.71396    39.25398  ite 1fl top door con 472, top lift -done
+188     -76.71418    39.25410  ite 2 levl door top -done
+700    -76.71419    39.25403 ite top elvate 2 -done
+699    -76.71442    39.25365 ite bot elvate 2 -done
+98      -76.71441    39.25361 ite 2levl bot door -done
+465    -76.71466    39.25369  ite bot left con to ite 2fl door 2fl -done
+466    -76.71457    39.25384  con to 468 2fl -done
+467    -76.71445    39.25414  con to 466 ite 2fl top door 2fl -done
+468    -76.71432    39.25377 con to both lift , 475 2fl , 466 -done
+469    -76.71426    39.25358 con to 2fl bot door 475 2fl -done
+472    -76.71412    39.25404  con 477, lift 2fl -done
+475    -76.71410    39.25375 con 477 469 2fl -done
+659    -76.71396    39.25398  con 475 472 -done
+182     -76.71449    39.25419  ite 3rd levl door -done
+702    -76.71419    39.25403 ite top elvate 3 -done
+701    -76.71442    39.25365 ite bot elvate 3 -done
+575(465)    -76.71466    39.25369  con to bot lift, 576 3fl -done
+576(466)    -76.71457    39.25384  con to 575 3fl -done
+565(467)    -76.71445    39.25414  con to 576, ite 3fl door, lift 3fl -done
+558(468)    -76.71432    39.25377 con to both lift , 556, 576 3fl -done
+559(469)    -76.71426    39.25358 con to bot lift, 556 3fl -done
+556(475)    -76.71410    39.25375 con 530 559 558 3fl -done
+530(477)    -76.71396    39.25398  con top lift, 556 3fl -done
+704    -76.71419    39.25403 ite top elvate 4  -done
+703    -76.71442    39.25365 ite bot elvate 4  -done
+531(465    -76.71466    39.25369  con to bot lift, 533 4fl -done
+533(466    -76.71457    39.25384  con to 531 4fl -done
+528(467   -76.71445    39.25414  con to 533, lift 3fl -done
+540(468    -76.71432    39.25377 con to both lift , 533, 536 3fl -done
+655(469    -76.71426    39.25358 con to bot lift, 536 3fl -done
+536(475    -76.71410    39.25375 con 540 656 655 3fl -done
+656(477   -76.71396    39.25398  con top lift, 536 3fl -done
+
+-------------------------------Engineering -------------------------------
+618    -76.71415    39.25438 eng bot elvat 1 -done
+619    -76.71397    39.25478 eng top elvat 1 -done
+479    -76.71387    39.25427 1fl -done
+483    -76.71366    39.25471 1fl -done
+470    -76.71429    39.25440 1fl -done
+473    -76.71410    39.25481 1fl -done
+185    -76.71411    39.25434 eng 1fl bot door 1 -done
+208    -76.71392    39.25473 eng 1fl top door 1 -done
+620    -76.71415    39.25438 eng bot elvat 2 -done
+621    -76.71397    39.25478 eng top elvat 2 -done
+478    -76.71376    39.25475 for 2fl top right eng -done
+196    -76.71395    39.25429 for 2fl bot right eng -done
+661(470    -76.71429    39.25440 2fl -done
+727(473    -76.71410    39.25481 2fl -done
+176     -76.71430    39.25459  eng 2nd levl bot door -done
+174     -76.71427    39.25463  eng 2nd levl top door -done
+622     -76.71415    39.25438  eng bot elvat 3 -done
+623     -76.71397    39.25478  eng top elvat 3 -done
+728(470    -76.71429    39.25440 3fl -done
+762(473    -76.71410    39.25481 3fl -done
+767(478    -76.71376    39.25475 3fl top right eng -done
+768(196    -76.71395    39.25429 3fl bot right eng -done
+625    -76.71415    39.25438 eng bot elvat G -done
+624    -76.71397    39.25478 eng top elvat G -done 
+778(479    -76.71387    39.25427 G fl -done
+779(483    -76.71366    39.25471 G fl -done
+481    -76.71372    39.25447 eng door bot front -done
+
+

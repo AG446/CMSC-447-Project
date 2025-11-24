@@ -1,30 +1,43 @@
 
 """"
-Reads in a picture(north need to be up), needs to be a png in black and white with whatever object you want to get the outline of need to have a red pixel to indicate the starting point, preferbely at a corner, green pixels for important points like corner, curves, etc, and blue pixels to trace the border, you need to only hav the red pixel connected to a blue pixel on one side so the coords are found in order
-
-Takes the image and finds all the mpo objects marked by the green and red pixels and stores all the mpo coordinates for each mpo, this is stores in a 2d list
-
-There is a sanity check that when it finds the mpo coords it will change the pixles to orange and shows the changes made to verify that the coords are found right
-
-Reccommendation:
-- instal gimp and use gimp to edit the png with the red, green, and blue pixels,
-- only red and green pixels need to be very accurate the
-- blue outline just needs to connect the red and green pixels so they dont need to be very accurate
-- start by outline in blue first then placing red and green dots on the outline,
-- keep point to a minuimum, no more then 38 since it going to be a pain to input
-- should use a screen shoot of google maps/ application where you wiil get real world corrds from
+same as find nodes but only finds green pixels and transforms them into real wprld coordinates
 """
 from collections import deque
-from PIL import Image
-IMAGE_NAME = "map_mpo.png"
+from PIL import Image, ImageDraw, ImageFont
+"""
+IMAGE_NAME = "LIB_area1.png"
 #you need to already know the real location of the pixel, the conversion will be based on this so make it as accurate as possible
-TOP_RIGHT_PIX = (1035,99)
-TOP_RIGHT_REAL = (-76.70786,39.25668)
-#TOP_RIGHT_PIX = (980,26)
-#TOP_RIGHT_REAL = (-76.70832,39.25717)
-BOTTOM_LEFT_PIX = (27, 815)
-BOTTOM_LEFT_REAL = ( -76.71651, 39.25193)
-FILE_NAMES =["Art_&_Humanaties.txt", "ITE.txt", "Engineering.txt", "FArt.txt", "Sherman.txt", "UC.txt", "Admin.txt", "Chem_main.txt", "Sondheim.txt", "Chem_2.txt", "RAC.txt", "Math.txt", "LIB.text", "Bio.txt", "Lect_1.txt", "Commons.txt", "ILSB.txt", "Physics.txt", "PUB.txt"]
+TOP_RIGHT_PIX = (1157,187)
+TOP_RIGHT_REAL = (-76.70906,39.25624)
+
+BOTTOM_LEFT_PIX = (44, 589)
+BOTTOM_LEFT_REAL = ( -76.71373, 39.25490)
+
+
+IMAGE_NAME = "road.png"
+#you need to already know the real location of the pixel, the conversion will be based on this so make it as accurate as possible
+TOP_RIGHT_PIX = (1149,200)
+TOP_RIGHT_REAL = (-76.70702,39.26021)
+
+BOTTOM_LEFT_PIX = (630, 824)
+BOTTOM_LEFT_REAL = ( -76.71596, 39.25190)
+
+IMAGE_NAME = "lower_area.png"
+#you need to already know the real location of the pixel, the conversion will be based on this so make it as accurate as possible
+TOP_RIGHT_PIX = (1397,59)
+TOP_RIGHT_REAL = (-76.70990,39.25399)
+
+BOTTOM_LEFT_PIX = (20, 732)
+BOTTOM_LEFT_REAL = ( -76.71581, 39.25176)
+
+"""
+IMAGE_NAME = "most_main_campus.png"
+#you need to already know the real location of the pixel, the conversion will be based on this so make it as accurate as possible
+TOP_RIGHT_PIX = (1723,92)
+TOP_RIGHT_REAL = (-76.70919,39.25589)
+
+BOTTOM_LEFT_PIX = (443, 764)
+BOTTOM_LEFT_REAL = ( -76.71473, 39.25365)
 
 
 # gets the bounds of the real word coords
@@ -96,9 +109,9 @@ def find_blue(pixles, color_threshold, width, height, mpo_cords, start_cord):
                         if (next_x, next_y) not in visited:
                             # Get the color of the neighboring pixel
                             r, g, b = pixels[next_x, next_y]
-                            is_blue = b > color_threshold and b > g and b > r
-                            is_red = r > color_threshold and r > g and r > b
-                            is_green = g > color_threshold and g > r and g > b
+                            is_blue = b == 255 and g == 0 and r ==0
+                            is_red = r == 255  and b == 0 and g ==0
+                            is_green = g == 255 and r == 0 and b ==0
                             # Check if the neighbor is a valid blue, red, or green pixels and ingores whitish pixels
                             if g < color_threshold and b < color_threshold:
                                 if is_red:
@@ -133,37 +146,36 @@ if __name__ == "__main__":
                 # Get the RGB tuple of the current pixel
                 r, g, b = pixels[i, j]
                 #check to make sure white is ingnored
-                if g < color_threshold and b < color_threshold:
+                #if g < color_threshold and b < color_threshold:
                      # Check if the pixel is predominantly red
-                    if r > color_threshold and r > g and r > b:
-                        curr_cord = (i , j)
-                        #array that stores the coords for each mpo
-                        mpo_cords = []
-                        mpo_cords.append(curr_cord)
-                        find_blue(pixels, color_threshold, width, height, mpo_cords, curr_cord)
-                        mpo_list.append(mpo_cords)
-
-                        #print(len(mpo_cords)) #for testing
-
+                     #(r == 255 and g == 0 and b == 0) or (g == 255 and r == 0 and b ==0):
+                if (r == 255 and g == 0 and b == 0):
+                    curr_cord = (i , j)
+                    #array that stores the coords for each mpo
+                    mpo_list.append(curr_cord)
+                    #find_blue(pixels, color_threshold, width, height, mpo_cords, curr_cord)
+        print(len(mpo_list)) #for testing
+        print("found nodes")
+        draw = ImageDraw.Draw(img)
+        #file = open("Nodes8.txt", "w")
         for i in range(len(mpo_list)):
-            #file = open(FILE_NAMES[i], "w")
-            for j in range(len(mpo_list[i])):
-                pixels[mpo_list[i][j]] =(255,0+(j*25),0) #used to change red and green to orange
-
-                real_coord = get_real_cord(mpo_list[i][j], width, height, bounds)
-                round_x = round(real_coord[0], 5)
-                round_y = round(real_coord[1], 5)
-                mpo_list[i][j] = (round_x, round_y)
-                spacing = "    "
-                if j < 10:
-                    spacing ="     "
-                text = str(j) + spacing + str(mpo_list[i][j][0]) + "    " + str(mpo_list[i][j][1]) + "\n"
-                file.write(text)
-            file.close
+            number_to_write = i + 737;
+            x = mpo_list[i][0] + 1
+            y = mpo_list[i][1]
+            draw.text((x, y), str(number_to_write), fill = (255,150,0))
+            real_coord = get_real_cord(mpo_list[i], width, height, bounds)
+            round_x = round(real_coord[0], 5)
+            round_y = round(real_coord[1], 5)
+            mpo_list[i] = (round_x, round_y)
+            spacing = "    "
+            text = str(i+737) + spacing + str(mpo_list[i][0]) + "    " + str(mpo_list[i][1]) + "\n"
+            print(text)
+            #file.write(text)
+        #file.close
 
         #used dislay the green and red pixels turned orange, only for testing to see if it worked properly
-        #img.save("orange", format="png")
-        #img.show()
+        img.save("temp2", format="png")
+        img.show()
 
     except FileNotFoundError:
         print(f"Error: The file at {image_path} was not found.")
