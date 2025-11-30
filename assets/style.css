@@ -180,3 +180,8 @@ switch slider{
 switch:checked{
 	background-color:#00FF00;
 }
+
+button:link{
+	color: #4444FF;
+	
+}

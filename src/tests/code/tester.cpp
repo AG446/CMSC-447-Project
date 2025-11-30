@@ -7,10 +7,10 @@
 #include "map_serial.h"
 #include <time.h>
 
-#define N_TESTS 10
+#define N_TESTS 11
 test_func_t func_table[N_TESTS] = {
 	{token_matching_test,"Token matching test",SILENT},
-	{phrase_matching_test,"Phrase matching test",VERBOSE},
+	{phrase_matching_test,"Phrase matching test",SILENT},
 	{basic_serialization_test,"Basic serialization test",SILENT},
 	{serialization_test,"Serialization test",SILENT},
 	{building_data_structure_test,"Building data structure test",SILENT},
@@ -18,7 +18,8 @@ test_func_t func_table[N_TESTS] = {
 	{map_node_data_structure_test,"Map node data structure test",SILENT},
 	{map_edge_data_structure_test,"Map edge data structure test",SILENT},
 	{basic_map_data_structure_test,"Basic map data structure test",SILENT},
-	{find_path_test,"Find path test",SILENT}
+	{find_path_test,"Find path test",SILENT},
+	{map_bounding_box_test,"Map bounding box test",SILENT},
 };
 
 int main(){
@@ -35,6 +36,19 @@ int main(){
 			fputs("\033[31mFAIL\033[0m\n",stdout);
 		}
 	}
+}
+
+bool map_bounding_box_test(bool silent){
+	err_ctx_t err_ctx = create_err_ctx();
+	
+	map_t file_map = load_map_from_file("campus.map",&err_ctx);
+	
+	map_rect_t bounding_rect = get_map_bounding_rect(file_map);
+	
+	if(!silent) map_rect_to_output_stream(bounding_rect,0,stdout,&err_ctx);
+	
+	deinit_map(&file_map,&err_ctx);
+	return PASS;
 }
 
 bool find_path_test(bool silent){
@@ -123,7 +137,7 @@ bool serialization_test(bool silent){
 		
 		map_edge_t * edge = create_map_edge(EDGE_TYPE_DOOR,nodes[1],nodes[2],&err_ctx);
 		
-		if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
+		if(!silent) map_edge_to_output_stream(edge,1.0,0,stdout,&err_ctx);
 		
 		size_t edge_n_bytes = 0;
 		uint8_t * edge_bytes = convert_edge_to_binary(edge,&edge_n_bytes);
@@ -672,18 +686,14 @@ bool basic_map_data_structure_test(bool silent){
 	if(err_encountered(&err_ctx)) return FAIL;
 	
 	building_t * retr;
-	retr =  get_building_by_index_from_map(&map,5,&err_ctx);
+	retr =  get_building_by_index_from_map(map,5,&err_ctx);
 	if(retr != NULL) return FAIL;
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
-	retr =  get_building_by_index_from_map(NULL,0,&err_ctx);
-	if(retr != NULL) return FAIL;
-	if(!err_encountered(&err_ctx)) return FAIL;
-	reset_err_ctx(&err_ctx);
-	retr =  get_building_by_index_from_map(&map,0,&err_ctx);
+	retr =  get_building_by_index_from_map(map,0,&err_ctx);
 	if(retr == NULL) return FAIL;
 	if(retr != cmsc_building) return FAIL;
-	retr =  get_building_by_index_from_map(&map,1,&err_ctx);
+	retr =  get_building_by_index_from_map(map,1,&err_ctx);
 	if(retr == NULL) return FAIL;
 	if(retr != lib_building) return FAIL;
 	
@@ -856,10 +866,10 @@ bool map_edge_data_structure_test(bool silent){
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
 	
-	if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
+	if(!silent) map_edge_to_output_stream(edge,1.0,0,stdout,&err_ctx);
 	if(err_encountered(&err_ctx)) return FAIL;
 	
-	map_edge_to_output_stream(edge,0,NULL,&err_ctx);
+	map_edge_to_output_stream(edge,1.0,0,NULL,&err_ctx);
 	if(!err_encountered(&err_ctx)) return FAIL;
 	reset_err_ctx(&err_ctx);
 	
@@ -875,10 +885,10 @@ bool map_edge_data_structure_test(bool silent){
 	if(get_map_edge_type(edge,&err_ctx) != EDGE_TYPE_ELEVATOR_SHAFT) return NULL;
 	if(err_encountered(&err_ctx)) return FAIL;
 	
-	if(!silent) map_edge_to_output_stream(edge,0,stdout,&err_ctx);
+	if(!silent) map_edge_to_output_stream(edge,1.0,0,stdout,&err_ctx);
 	
-	double length = get_edge_length(edge,&err_ctx);
-	if(abs(length - 3.269829) > 0.0001) return FAIL;
+	double length = get_edge_length(edge,1.0,&err_ctx);
+	if(abs(length - 2.828427) > 0.0001) return FAIL;
 	if(!silent) printf("length: %lf\n",length);
 	
 	delete_map_edge(NULL,&err_ctx);

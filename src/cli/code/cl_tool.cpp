@@ -457,9 +457,9 @@ mpo_t * fetch_mpo(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 			free(name);
 			return out;
 		}else if(chosen_option == 2){
-			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(map,ctx)-1,&canceled);
+			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(*map)-1,&canceled);
 			if(canceled) return NULL;
-			return get_mpo_by_index_from_map(map,mpo_index,ctx);
+			return get_mpo_by_index_from_map(*map,mpo_index,ctx);
 		}
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("MPO index",&canceled);
@@ -494,9 +494,9 @@ building_t * fetch_building(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 			free(name);
 			return out;
 		}else if(chosen_option == 2){
-			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(map,ctx)-1,&canceled);
+			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(*map)-1,&canceled);
 			if(canceled) return NULL;
-			return get_building_by_index_from_map(map,building_index,ctx);
+			return get_building_by_index_from_map(*map,building_index,ctx);
 		}
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("Building index",&canceled);
@@ -858,7 +858,7 @@ void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_
 			remove_mpo_from_map_by_name(map,name,ctx);
 			free(name);
 		}else if(chosen_option == 2){
-			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(map,ctx)-1,&canceled);
+			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(*map)-1,&canceled);
 			if(canceled) return;
 			remove_mpo_from_map_by_index(map,mpo_index,ctx);
 		}
@@ -872,7 +872,7 @@ void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_
 			remove_building_by_name_from_map(map,name,ctx);
 			free(name);
 		}else if(chosen_option == 2){
-			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(map,ctx)-1,&canceled);
+			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(*map)-1,&canceled);
 			if(canceled) return;
 			remove_building_from_map_by_index(map,building_index,ctx);
 		}

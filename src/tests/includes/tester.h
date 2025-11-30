@@ -39,6 +39,9 @@ bool map_node_data_structure_test(bool silent);
 //test all the functions related to the map edge object
 bool map_edge_data_structure_test(bool silent);
 
+//quick test to check if the bounding box of a map is correct
+bool map_bounding_box_test(bool silent);
+
 /*
  * Test all the basic functions related to the map object.
  * Test adding and remmoval of objects within the map and testing 

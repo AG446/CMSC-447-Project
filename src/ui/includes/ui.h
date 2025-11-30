@@ -29,7 +29,7 @@ struct Screen_Data_State{
 	bool hide_interior_locations;
 	unsigned int path_finder_strategy;
 	
-	map_data_state_t map_data_state;
+	on_screen_map_t on_screen_map;
 	
 	GtkWidget * window;
 };
