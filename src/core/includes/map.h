@@ -530,6 +530,17 @@ void delete_map_path(map_path_t * map_path_ref);
  * copy a map path object
  */
 map_path_t * copy_map_path(const map_path_t * map_path_ref);
+
+/*
+ * make output text from path
+ */
+char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx);
+
+struct Saved_Paths{
+	map_path_t ** paths;
+	size_t n_paths;
+	size_t paths_capacity;
+};
 //---------------------------------------------------------- MAP END ------------------------------------------------------------------
 
 //---------------------------------------------------------- SYSTEM BEGIN -------------------------------------------------------------
