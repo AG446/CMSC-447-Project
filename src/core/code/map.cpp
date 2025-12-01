@@ -441,7 +441,7 @@ const char * get_map_node_picture(const map_node_t * node,err_ctx_t * ctx){
 	return node->picture_file_path;
 }
 
-bool node_adjacent_to_auto_door(map_node_t * node,err_ctx_t * ctx){
+bool node_adjacent_to_auto_door(const map_node_t * node,err_ctx_t * ctx){
 	if(node == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return false;
@@ -475,6 +475,33 @@ int8_t get_map_node_floor_number(const map_node_t * node,err_ctx_t * ctx){
 	}
 	
 	return node->floor_number;
+}
+
+char * get_map_node_floor_number_name(const map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	uint8_t fln = node->floor_number;
+	
+	if(fln == NODE_FLOOR_NUMBER_NONE){
+		return strdup("(None)");
+	}else if(fln == NODE_FLOOR_NUMBER_BASEMENT){
+		return strdup("(B)");
+	}else if(fln == NODE_FLOOR_NUMBER_LOBBY){
+		return strdup("(L)");
+	}else if(fln == NODE_FLOOR_NUMBER_MEZZANINE){
+		return strdup("(M)");
+	}else if(fln == NODE_FLOOR_NUMBER_LOWER_LEVEL){
+		return strdup("(LL)");
+	}else if(fln == NODE_FLOOR_NUMBER_GROUND){
+		return strdup("(G)");
+	}else{
+		char * num_str = (char*) malloc(8);
+		sprintf(num_str,"%d",fln);
+		return num_str;
+	}
 }
 
 void clear_map_node_floor_number(map_node_t * node,err_ctx_t * ctx){
@@ -1868,6 +1895,27 @@ void deinit_map_sys(map_sys_t * sys,err_ctx_t * ctx){
 	deinit_map(&(sys->map),ctx);
 }
 
+double calculate_walker_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx){
+	double length = get_edge_length(edge_ref,scaling_y_factor,ctx);
+	
+	double scaler = 1.0;
+	uint8_t edge_type = edge_ref->type;
+	
+	if(edge_type == EDGE_TYPE_ROAD){
+		scaler = 2.0;
+	}else if(edge_type == EDGE_TYPE_STAIRS){
+		scaler = 1.2;
+	}else if(edge_type == EDGE_TYPE_DOOR){
+		scaler = 1.5;
+	}else if(edge_type == EDGE_TYPE_AUTO_DOOR){
+		scaler = 1.2;
+	}else if(edge_type == EDGE_TYPE_CONSTRUCTION){
+		scaler = DBL_MAX;
+	}
+	
+	return length*scaler;
+}
+
 double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx){
 	double length = get_edge_length(edge_ref,scaling_y_factor,ctx);
 	
@@ -1892,6 +1940,33 @@ double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,double scaling
 	
 	return length*scaler;
 }
+
+double calculate_deliverer_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx){
+	double length = get_edge_length(edge_ref,scaling_y_factor,ctx);
+	
+	double scaler = 1.0;
+	uint8_t edge_type = edge_ref->type;
+	
+	if(edge_type == EDGE_TYPE_ROAD){
+		scaler = 2.0;
+	}else if(edge_type == EDGE_TYPE_STAIRS){
+		scaler = 20.0;
+	}else if(edge_type == EDGE_TYPE_DOOR){
+		scaler = 10.0;
+	}else if(edge_type == EDGE_TYPE_CROSSWALK){
+		scaler = 2.0;
+	}else if(edge_type == EDGE_TYPE_CONSTRUCTION){
+		scaler = DBL_MAX;
+	}
+	
+	return length*scaler;
+}
+
+path_strategy_t walker_path_strategy = {"walker",calculate_walker_edge_cost};
+path_strategy_t wheelchair_path_strategy = {"wheelchair",calculate_wheelchair_edge_cost};
+path_strategy_t deliverer_path_strategy = {"deliverer",calculate_deliverer_edge_cost};
+
+path_strategy_t * path_strategies[N_PATH_STRATEGIES] = {&walker_path_strategy,&wheelchair_path_strategy,&deliverer_path_strategy};
 
 prior_q_t create_prior_q(void){
 	prior_q_t out;
@@ -1952,16 +2027,12 @@ map_node_t * dequeue(prior_q_t * prior_queue,err_ctx_t * ctx){
 	return out;
 }
 
-/*
-static void show_queue(prior_q_t queue,err_ctx_t * ctx){
-	fputs("\n\nQueue State:\n\n",stdout);
-	for(size_t i = 0;i < queue.q_size;i++){
-		map_node_to_output_stream(queue.queue[i],0,stdout,ctx);
-	}
-}
-*/
-
 void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx){
+	if(map_sys->active_path != NULL) {//delete old path
+		delete_map_path(map_sys->active_path);
+		map_sys->active_path = NULL;
+	}
+	
 	for(size_t i = 0;i < map_sys->map.n_nodes;i++){
 		map_node_t * current = map_sys->map.all_nodes[i];
 		current->cost_temp = DBL_MAX;

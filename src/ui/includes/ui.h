@@ -16,18 +16,14 @@
 #include <gtk/gtk.h>
 #include "map_render.h"
 
-#define N_PATH_FINDER_STRATEGY_OPTIONS 3
-extern const char * path_finder_strategy_option_strings[N_PATH_FINDER_STRATEGY_OPTIONS+1];
-
 typedef struct Screen_Data_State screen_data_state_t;
 
 struct Screen_Data_State{
 	char * start_location_text;
 	char * end_location_text;
 	
-	bool hide_non_auto_doors;
 	bool hide_interior_locations;
-	unsigned int path_finder_strategy;
+	unsigned int path_finder_strategy_index;
 	
 	on_screen_map_t on_screen_map;
 	

@@ -19,9 +19,9 @@ screen_data_state_t init_screen_data_state(void){
 	out.start_location_text = NULL;
 	out.end_location_text = NULL;
 	
-	out.hide_non_auto_doors = false;
 	out.hide_interior_locations = true;
-	out.path_finder_strategy = 0;
+	
+	out.path_finder_strategy_index = 0;
 	
 	out.on_screen_map = init_on_screen_map("assets/maps/campus.map");
 	
@@ -29,8 +29,6 @@ screen_data_state_t init_screen_data_state(void){
 	
 	return out;
 }
-
-const char * path_finder_strategy_option_strings[N_PATH_FINDER_STRATEGY_OPTIONS+1] = {"Walker","Wheelchair","Heavy Delivery",NULL};
 
 void screen_data_state_to_output_stream(screen_data_state_t state,FILE * stream){
 	fputs("\n\n",stream);
@@ -42,11 +40,11 @@ void screen_data_state_to_output_stream(screen_data_state_t state,FILE * stream)
 	if(state.end_location_text != NULL) fputs(state.end_location_text,stream);
 	fputc('\n',stream);
 	
-	fprintf(stream,"Hide Non Auto Doors: %d\n",state.hide_non_auto_doors);
+	fprintf(stream,"Hide Non Auto Doors: %d\n",state.on_screen_map.hide_non_auto_doors);
 	fprintf(stream,"Hide Interior Locations: %d\n",state.hide_interior_locations);
 	
 	fputs("Path Finder Strategy: ",stream);
-	fputs(path_finder_strategy_option_strings[state.path_finder_strategy],stream);
+	fputs(path_strategies[state.path_finder_strategy_index]->strategy_name,stream);
 	fputc('\n',stream);
 }
 
@@ -174,6 +172,10 @@ static void clear_button_clicked_callback(GtkButton * self,screen_data_state_t *
 	on_screen_map_clear_selection(&(sds->on_screen_map));
 }
 
+static void go_button_clicked_callback(GtkButton * self,screen_data_state_t * sds){
+	on_screen_map_find_path(&(sds->on_screen_map),path_strategies[sds->path_finder_strategy_index]->edge_cost_function);
+}
+
 static GtkWidget * create_go_clear_button_box(screen_data_state_t * sds){
 	
 	GtkWidget * go_button = gtk_button_new_with_label("GO");
@@ -182,6 +184,7 @@ static GtkWidget * create_go_clear_button_box(screen_data_state_t * sds){
 		gtk_widget_set_name(go_button, "go-button");
 		gtk_widget_set_hexpand(go_button,TRUE);
 		gtk_widget_set_vexpand(go_button,FALSE);
+		g_signal_connect(go_button,"clicked",G_CALLBACK(go_button_clicked_callback),sds);
 	}
 	
 	GtkWidget * clear_button = gtk_button_new_with_label("CLEAR");
@@ -206,7 +209,8 @@ static GtkWidget * create_go_clear_button_box(screen_data_state_t * sds){
 }
 
 static gboolean hide_non_auto_doors_switch_state_set_callback(GtkSwitch * self,gboolean state,screen_data_state_t * sds){
-	sds->hide_non_auto_doors = state;
+	on_screen_map_set_hide_non_auto_doors(&(sds->on_screen_map),state);
+	
 	screen_data_state_to_output_stream(*sds,stdout);
 	return FALSE;
 }
@@ -218,7 +222,7 @@ static gboolean hide_interior_locations_switch_state_set_callback(GtkSwitch * se
 }
 
 static void path_finder_dropdown_callback(GtkDropDown * self,GParamSpec* pspec, screen_data_state_t * sds){
-	sds->path_finder_strategy = gtk_drop_down_get_selected (self);
+	sds->path_finder_strategy_index = gtk_drop_down_get_selected (self);
 	screen_data_state_to_output_stream(*sds,stdout);
 }
 
@@ -251,7 +255,7 @@ static void help_button_clicked (GtkButton* self,screen_data_state_t * sds){
 
 
 static GtkWidget * create_options_frame(screen_data_state_t * sds){
-	GtkWidget * hide_non_auto_door_option = create_toggle_option_box("Hide Non-Automatic Doors",sds->hide_non_auto_doors,G_CALLBACK(hide_non_auto_doors_switch_state_set_callback),sds);
+	GtkWidget * hide_non_auto_door_option = create_toggle_option_box("Hide Non-Automatic Doors",sds->on_screen_map.hide_non_auto_doors,G_CALLBACK(hide_non_auto_doors_switch_state_set_callback),sds);
 	GtkWidget * hide_interior_option = create_toggle_option_box("Hide Interior Locations",sds->hide_interior_locations,G_CALLBACK(hide_interior_locations_switch_state_set_callback),sds);
 	
 	GtkWidget * help_button = gtk_button_new();
@@ -284,6 +288,9 @@ static GtkWidget * create_options_frame(screen_data_state_t * sds){
 		gtk_box_append(GTK_BOX(options_top_box), hide_interior_option);
 	}
 	
+	const char * path_finder_strategy_option_strings[N_PATH_STRATEGIES+1];
+	for(size_t i = 0;i < N_PATH_STRATEGIES;i++) path_finder_strategy_option_strings[i] = path_strategies[i]->strategy_name;
+	path_finder_strategy_option_strings[N_PATH_STRATEGIES] = NULL;
 	GtkWidget * path_finder_strategy_dropdown = create_dropdown_option_box("Path Finder Strategy",path_finder_strategy_option_strings,G_CALLBACK(path_finder_dropdown_callback),sds);
 	
 	GtkWidget * go_clear_box = create_go_clear_button_box(sds);

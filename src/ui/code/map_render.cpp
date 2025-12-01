@@ -3,6 +3,29 @@
 
 #define MAP_FONT_SIZE 14
 
+//---------------------------------------------------------- FLT COLOR BEGIN --------------------------------------------------
+
+void set_color(cairo_t * cr,flt_color_t color){
+	cairo_set_source_rgba(cr,color.r,color.g,color.b,color.a);
+}
+
+flt_color_t sidewalk_clr = {"Sidewalk",1.0,1.0,0.4,1.0};
+flt_color_t ramp_clr = {"Ramp",1.0,0.0,1.0,1.0};
+flt_color_t stairs_clr = {"Stairs",1.0,0.2,0.2,1.0};
+flt_color_t road_clr = {"Road",0.3,0.3,0.3,0.8};
+flt_color_t construction_clr = {"Construction",1.0,0.6,0.0,1.0};
+flt_color_t crosswalk_clr = {"Crosswalk",1.0,1.0,1.0,1.0};
+
+flt_color_t * color_keys[N_COLOR_KEYS] = {
+	&sidewalk_clr,
+	&ramp_clr,
+	&stairs_clr,
+	&road_clr,
+	&construction_clr,
+	&crosswalk_clr
+};
+//---------------------------------------------------------- FLT COLOR END ----------------------------------------------------
+
 //---------------------------------------------------------- MOUSE STATE BEGIN ------------------------------------------------
 mouse_state_t init_mouse_state(void){
 	mouse_state_t out;
@@ -77,7 +100,6 @@ void screen_pan_update(screen_pan_t * screen_pan){
 	else if(screen_pan->zoom_final < screen_pan->min_zoom) screen_pan->zoom_final = screen_pan->min_zoom;
 	
 	screen_pan->zoom_current = ZOOM_TRANSITION_CONSTANT*screen_pan->zoom_final + screen_pan->zoom_current*(1-ZOOM_TRANSITION_CONSTANT);
-	
 	screen_pan->pan_x_current = ZOOM_TRANSITION_CONSTANT*screen_pan->pan_x_final + screen_pan->pan_x_current*(1-ZOOM_TRANSITION_CONSTANT);
 	screen_pan->pan_y_current = ZOOM_TRANSITION_CONSTANT*screen_pan->pan_y_final + screen_pan->pan_y_current*(1-ZOOM_TRANSITION_CONSTANT);
 }
@@ -186,6 +208,7 @@ bool update_button(in_map_button_t * button,bool * mouse_over_button,mouse_state
 
 //---------------------------------------------------------- ON SCREEN NODE BEGIN ---------------------------------------------
 #define SELECTABLE_NODE_SIZE 1.5
+#define SELECTABLE_NODE_EXPAND_FACTOR_AMOUNT 0.3
 
 on_screen_node_t init_on_screen_node(map_node_t * node_ref,button_collection_t * collection){
 	on_screen_node_t out;
@@ -200,7 +223,7 @@ on_screen_node_t init_on_screen_node(map_node_t * node_ref,button_collection_t *
 void render_on_screen_node(on_screen_node_t * screen_node,cairo_surface_t * surface,screen_pan_t screen_pan,map_rect_t map_bounding_box,double scaling_y_factor){
 	if(!screen_node->button->visible) return;
 	
-	float radius = screen_pan.zoom_current*SELECTABLE_NODE_SIZE*(1.0+screen_node->button->animation_transition*0.2);
+	float radius = screen_pan.zoom_current*SELECTABLE_NODE_SIZE*(1.0+screen_node->button->animation_transition*SELECTABLE_NODE_EXPAND_FACTOR_AMOUNT);
 	
 	double x = 0.0,y = 0.0;
 	calculate_on_screen_pos(screen_node->node_reference->coordinate,&x,&y,surface,screen_pan,map_bounding_box,scaling_y_factor);
@@ -245,7 +268,7 @@ node_popup_t init_node_popup(button_collection_t * collection){
 	out.x = 0;
 	out.y = 0;
 	out.width = 0.0;
-	out.height = 200.0;
+	out.height = 220.0;
 	
 	out.animation_transition = 0.5;
 	
@@ -481,15 +504,24 @@ void render_node_popup(node_popup_t * node_popup,cairo_surface_t * surface,scree
 		
 		double text_y = inner_top+MAP_FONT_SIZE;
 		
+		const map_node_t * node_ref = node_popup->node_reference;
 		
-		const char * node_name = get_map_node_name(node_popup->node_reference,NULL);//TODO err ctx
-		building_t * building = node_popup->node_reference->associated_building;
+		const char * node_name = get_map_node_name(node_ref,NULL);//TODO err ctx
+		building_t * building = node_ref->associated_building;
 		const char * building_name = building == NULL ? NULL : get_primary_building_name(building,NULL);//TODO err ctx
-		double lon = node_popup->node_reference->coordinate.longitude;
-		double lat = node_popup->node_reference->coordinate.latitude;
+		double lon = node_ref->coordinate.longitude;
+		double lat = node_ref->coordinate.latitude;
+		char * floor_number_str = get_map_node_floor_number_name(node_ref,NULL);//TODO err_ctx_t
+		const char * automatic_door_yes_no = node_adjacent_to_auto_door(node_ref,NULL) ? "Yes" : "No";//TODO err_ctx_t
 		
 		char * full_buffer = (char*) malloc(256);
-		sprintf(full_buffer, "Location Name:\n\t%s\nAssociated Building:\n\t%s\nCoordinate:\n\t(lon=%lf,lat=%lf)",node_name,building_name,lon,lat);
+		sprintf(
+			full_buffer,
+			"Location Name:\n\t%s\nAssociated Building:\n\t%s\nCoordinate:\n\t(lon=%lf,lat=%lf)\nFloor: %s\nAutomatic Door: %s"
+			,node_name,building_name,lon,lat,floor_number_str,automatic_door_yes_no
+		);
+		
+		free(floor_number_str);
 		
 		char * line = strtok(full_buffer, "\n");
 
@@ -500,7 +532,7 @@ void render_node_popup(node_popup_t * node_popup,cairo_surface_t * surface,scree
 				offset += MAP_FONT_SIZE*2;
 			}
 			cairo_text_extents (cr, line, &extents);
-			maximal_width = fmaxf(extents.width+offset,maximal_width);
+			maximal_width = fmax(extents.width+offset,maximal_width);
 			if(!hide_inner_elements){
 				cairo_move_to (cr, inner_left+offset, text_y);
 				cairo_show_text (cr, line);
@@ -612,7 +644,7 @@ void hide_map_pin(map_pin_t * pin){
 
 //---------------------------------------------------------- ZOOM CONTROLS BEGIN ----------------------------------------------
 #define ZOOM_CONTROLS_OUTLINE_THICKNESS 2
-#define ZOOM_CONTROLS_PADDING 32
+#define ZOOM_CONTROLS_PADDING 10
 #define ZOOM_CONTROLS_BUTTON_SPACING 10
 #define ZOOM_CONTROLS_BUTTON_EXPAND_AMOUNT 2
 #define ZOOM_CONTROLS_PLUS_MINUS_LINE_THICKNESS 4
@@ -770,6 +802,14 @@ void recalculate_zoom_controls_position(zoom_controls_t * zoom_controls,int surf
 //---------------------------------------------------------- ZOOM CONTROLS END ------------------------------------------------
 
 //---------------------------------------------------------- ON SCREEN MAP BEGIN ----------------------------------------------
+#define PATH_TRANSITION_STEP 0.003
+
+#define COLOR_KEYS_MARGIN 5
+#define COLOR_KEYS_PADDING 3
+#define COLOR_KEYS_SPACING 10
+#define COLOR_KEY_SWATCH_SIZE 20
+#define COLOR_KEYS_OUTLINE_THICKNESS 2
+
 static size_t count_selectable_nodes(map_sys_t map_sys){
 	size_t total_selectable_nodes = 0;
 	
@@ -805,7 +845,7 @@ on_screen_map_t init_on_screen_map(const char * map_file_path){
 	out.n_on_screen_nodes = count_selectable_nodes(out.map_sys);
 	out.all_on_screen_nodes = (on_screen_node_t*) malloc(sizeof(on_screen_node_t) * out.n_on_screen_nodes);
 	size_t write_index = 0;
-	for(size_t i = 0; i < out.map_sys.map.n_nodes;i++){
+	for(size_t i = 0; i < get_map_node_count(out.map_sys.map);i++){
 		map_node_t * node_ref = out.map_sys.map.all_nodes[i];
 		if(node_ref->selectable){
 			out.all_on_screen_nodes[write_index] = init_on_screen_node(node_ref,&(out.button_collection));
@@ -813,10 +853,18 @@ on_screen_map_t init_on_screen_map(const char * map_file_path){
 		}
 	}
 	
+	out.hide_non_auto_doors = false;
+	on_screen_map_set_hide_non_auto_doors(&out,out.hide_non_auto_doors);
+	
 	out.start_pin = init_map_pin(0.2,0.4,1.0);
 	out.start_pin.visible = false;
 	out.end_pin = init_map_pin(1.0,0.0,0.0);
 	out.end_pin.visible = false;
+	out.path_animation_transition = 0.0;
+	
+	out.last_micros = 0;
+	out.micros_debt = 0;
+	out.delay_time = 0;
 	
 	return out;
 }
@@ -834,13 +882,17 @@ static void set_to_edge_color_and_thickness(cairo_t * cr,const map_edge_t * edge
 	uint8_t type = edge->type;
 	
 	if(type == EDGE_TYPE_SIDEWALK){
-		cairo_set_source_rgb(cr,1.0,1.0,0);
+		set_color(cr,sidewalk_clr);
 	}else if(type == EDGE_TYPE_RAMP){
-		cairo_set_source_rgb(cr,1.0,0,1.0);
+		set_color(cr,ramp_clr);
 	}else if(type == EDGE_TYPE_STAIRS){
-		cairo_set_source_rgb(cr,1.0,0.5,0.5);
+		set_color(cr,stairs_clr);
 	}else if(type == EDGE_TYPE_ROAD){
-		cairo_set_source_rgb(cr,0.5,0.5,0.5);
+		set_color(cr,road_clr);
+	}else if(type == EDGE_TYPE_CONSTRUCTION){
+		set_color(cr,construction_clr);
+	}else if(type == EDGE_TYPE_CROSSWALK){
+		set_color(cr,crosswalk_clr);
 	}else{
 		cairo_set_source_rgb(cr,0,0,0);
 	}
@@ -955,6 +1007,121 @@ static void render_building_names(on_screen_map_t * screen_map){
 	}
 }
 
+static void render_path(on_screen_map_t * screen_map){
+	cairo_t * cr = cairo_create (screen_map->surface);
+	
+	if(screen_map->map_sys.active_path == NULL) return;
+	
+	map_path_t * path = screen_map->map_sys.active_path;
+	
+	double * x_values = (double*) malloc(sizeof(double) * path->n_nodes);
+	double * y_values = (double*) malloc(sizeof(double) * path->n_nodes);
+	double * cummalative_dist = (double*) malloc(sizeof(double) * path->n_nodes);
+	double total_dist = 0.0;
+	
+	double x_prev = 0.0,y_prev = 0.0;
+	for(size_t i = 0;i < path->n_nodes;i++){
+		cord_t cord = path->nodes[i]->coordinate;
+		double x = 0.0,y = 0.0;
+		calculate_on_screen_pos(cord,&x,&y,screen_map->surface,screen_map->screen_pan,screen_map->map_bounding_box,screen_map->map_sys.map.scaling_y_factor);
+		x_values[i] = x;
+		y_values[i] = y;
+		
+		double dx = 0.0,dy = 0.0;
+		if(i != 0){
+			dx = x - x_prev;
+			dy = y - y_prev;
+		}
+		
+		double dist = sqrt(dx*dx+dy*dy);
+		total_dist += dist;
+		cummalative_dist[i] = total_dist;
+		
+		x_prev = x;
+		y_prev = y;
+	}
+	
+	//normalize
+	for(size_t i = 0;i < path->n_nodes;i++){
+		cummalative_dist[i] /= total_dist;
+	}
+	
+	cairo_set_source_rgba(cr,0.3,0.5,1.0,0.8);
+	cairo_set_line_width(cr,2*screen_map->screen_pan.zoom_current);
+	
+	for(size_t i = 0;i < path->n_nodes;i++){
+		bool halt_after = cummalative_dist[i] > screen_map->path_animation_transition;
+		
+		if(i == 0) cairo_move_to(cr,x_values[i],y_values[i]);
+		else{
+			if(!halt_after){
+				cairo_line_to(cr,x_values[i],y_values[i]);
+			}else{
+				double prev_x = x_values[i-1],prev_y = y_values[i-1];
+				double final_x = x_values[i],final_y = y_values[i];
+				
+				double normalized_line_length = cummalative_dist[i] - cummalative_dist[i-1];
+				double line_percent = (screen_map->path_animation_transition - cummalative_dist[i-1])/normalized_line_length;
+				
+				double lerp_x = final_x*line_percent + prev_x*(1.0-line_percent);
+				double lerp_y = final_y*line_percent + prev_y*(1.0-line_percent);
+				
+				cairo_line_to(cr,lerp_x,lerp_y);
+			}
+		}
+		
+		if(halt_after) break;
+	}
+	
+	cairo_stroke(cr);
+	
+	free(x_values);
+	free(y_values);
+	free(cummalative_dist);
+	
+	cairo_destroy(cr);
+}
+
+static void render_color_keys(on_screen_map_t * screen_map){
+	cairo_t * cr = cairo_create (screen_map->surface);
+	
+	cairo_set_font_size(cr,MAP_FONT_SIZE);
+	
+	double width = 0;
+	for(size_t i = 0;i < N_COLOR_KEYS;i++){
+		cairo_text_extents_t extents;
+		cairo_text_extents(cr,color_keys[i]->color_name,&extents);
+		width = fmax(width,extents.width);
+	}
+	width += COLOR_KEY_SWATCH_SIZE + COLOR_KEYS_SPACING + 2.0*COLOR_KEYS_PADDING;
+	
+	cairo_set_source_rgba(cr,1.0,1.0,1.0,0.5);
+	double height = N_COLOR_KEYS*(COLOR_KEYS_SPACING + COLOR_KEY_SWATCH_SIZE) - COLOR_KEYS_SPACING + 2.0*COLOR_KEYS_PADDING;
+	cairo_rectangle(cr,COLOR_KEYS_MARGIN,COLOR_KEYS_MARGIN,width,height);
+	cairo_fill_preserve(cr);
+	cairo_set_line_width(cr,COLOR_KEYS_OUTLINE_THICKNESS);
+	cairo_set_source_rgb(cr,0.0,0.0,0.0);
+	cairo_stroke(cr);
+	
+	for(size_t i = 0;i < N_COLOR_KEYS;i++){
+		double swatch_x = COLOR_KEYS_MARGIN + COLOR_KEYS_PADDING;
+		double swatch_y = COLOR_KEYS_MARGIN+COLOR_KEYS_PADDING+i*(COLOR_KEYS_SPACING + COLOR_KEY_SWATCH_SIZE);
+		cairo_rectangle(cr,swatch_x,swatch_y,COLOR_KEY_SWATCH_SIZE,COLOR_KEY_SWATCH_SIZE);
+		set_color(cr,*(color_keys[i]));
+		cairo_fill(cr);
+		
+		cairo_set_source_rgb(cr,0,0,0);
+		
+		double text_x = swatch_x + COLOR_KEY_SWATCH_SIZE + COLOR_KEYS_SPACING;
+		double text_y = swatch_y + COLOR_KEY_SWATCH_SIZE/2 + MAP_FONT_SIZE/2;
+		
+		cairo_move_to(cr,text_x,text_y);
+		cairo_show_text(cr,color_keys[i]->color_name);
+	}
+	
+	cairo_destroy(cr);
+}
+
 void render_on_screen_map_callback (GtkDrawingArea *drawing_area,cairo_t *cr, int width,int height,on_screen_map_t * screen_map){
 	clear_map_surface(screen_map);
 	
@@ -962,6 +1129,7 @@ void render_on_screen_map_callback (GtkDrawingArea *drawing_area,cairo_t *cr, in
 	render_mpos(screen_map);
 	render_selectable_nodes(screen_map);
 	render_building_names(screen_map);
+	render_path(screen_map);
 	
 	cairo_surface_t * surface = screen_map->surface;
 	screen_pan_t screen_pan = screen_map->screen_pan;
@@ -975,6 +1143,9 @@ void render_on_screen_map_callback (GtkDrawingArea *drawing_area,cairo_t *cr, in
 	render_map_pin(&(screen_map->start_pin),surface,screen_pan,map_bounding_box,scaling_y_factor);
 	render_map_pin(&(screen_map->end_pin),surface,screen_pan,map_bounding_box,scaling_y_factor);
 	
+	render_color_keys(screen_map);
+	
+	//paint the surface
 	cairo_set_source_surface (cr, screen_map->surface, 0, 0);
 	cairo_paint (cr);
 }
@@ -1030,12 +1201,17 @@ void on_screen_map_update(on_screen_map_t * screen_map){
 	if(!mouse_over_button) update_map_drag(screen_map);
 	
 	update_zoom_controls(&(screen_map->zoom_controls),&(screen_map->screen_pan));
-	screen_pan_update(&(screen_map->screen_pan));
 	
 	check_for_clicked_nodes(screen_map);
 	
 	update_node_popup(&(screen_map->node_popup),&(screen_map->start_pin),&(screen_map->end_pin));
 	
+	if(screen_map->map_sys.active_path != NULL){
+		screen_map->path_animation_transition += PATH_TRANSITION_STEP;
+		if(screen_map->path_animation_transition > 1.0) screen_map->path_animation_transition = 1.0;
+	}
+	
+	screen_pan_update(&(screen_map->screen_pan));
 	mouse_state_step(&(screen_map->mouse_state));
 }
 
@@ -1043,12 +1219,73 @@ void on_screen_map_clear_selection(on_screen_map_t * screen_map){
 	close_node_popup(&(screen_map->node_popup));
 	hide_map_pin(&(screen_map->start_pin));
 	hide_map_pin(&(screen_map->end_pin));
+	
+	delete_map_path(screen_map->map_sys.active_path);
+	screen_map->map_sys.active_path = NULL;
+}
+
+void on_screen_map_find_path(on_screen_map_t * screen_map,edge_cost_function_f edge_cost_function){
+	if(!screen_map->start_pin.visible || !screen_map->end_pin.visible) return;
+	
+	screen_map->map_sys.active_start = screen_map->start_pin.node_reference;
+	screen_map->map_sys.active_end = screen_map->end_pin.node_reference;
+	
+	screen_map->map_sys.active_edge_cost_function = edge_cost_function;
+	
+	find_best_path(&(screen_map->map_sys),NULL);//TODO add err_ctx_t
+	
+	screen_map->path_animation_transition = 0.0;
+}
+
+static void update_on_screen_node_visibility(on_screen_map_t * screen_map){
+	for(size_t i = 0;i < screen_map->n_on_screen_nodes;i++){
+		bool visible = true;
+		
+		on_screen_node_t * on_screen_node = &(screen_map->all_on_screen_nodes[i]);
+		bool adj_to_auto_door = node_adjacent_to_auto_door(on_screen_node->node_reference,NULL);//TODO err_ctx_t
+		
+		if(screen_map->hide_non_auto_doors && !adj_to_auto_door) visible = false;
+		
+		on_screen_node->button->visible = visible;
+	}
+}
+
+void on_screen_map_set_hide_non_auto_doors(on_screen_map_t * screen_map,bool hide){
+	screen_map->hide_non_auto_doors = hide;
+	update_on_screen_node_visibility(screen_map);
 }
 
 gboolean idle_draw_function(on_screen_map_t * screen_map) {
-	on_screen_map_update(screen_map);
+	gint64 frame_time = 1000000/120;
+	gint64 update_time = 4000;//4 milliseconds per update (DONT CHANGE)
+	
+	gint64 current_micros = g_get_monotonic_time();
+	gint64 delta_micros = current_micros - screen_map->last_micros;
+	if(delta_micros > 10*update_time){
+		delta_micros = 0;
+	}
+	screen_map->last_micros = current_micros;
+	
+	gint64 time_debt = delta_micros + screen_map->micros_debt;
+	
+	while(time_debt > update_time){
+		on_screen_map_update(screen_map);
+		time_debt -= update_time;
+	}
+	
+	screen_map->micros_debt = time_debt;//add debt
+	
+	//printf("%ld %ld\n",screen_map->delay_time,delta_micros);
+	
+	//slow down or speed up idle draw function call rate based
+	if(delta_micros < frame_time/2){
+		screen_map->delay_time += 100;
+	}else if(delta_micros > 100){
+		screen_map->delay_time -= 100;
+	}
+	g_usleep(screen_map->delay_time);
+	
 	gtk_widget_queue_draw(screen_map->drawing_area);
-	g_usleep(1000);
 	return G_SOURCE_CONTINUE;
 }
 //---------------------------------------------------------- ON SCREEN MAP END ------------------------------------------------
