@@ -93,6 +93,10 @@ run_cli: $(EXE_BUILD_PATH)/$(CLI_PROGRAM_NAME)
 run_ui: $(EXE_BUILD_PATH)/$(UI_PROGRAM_NAME)
 	./$(EXE_BUILD_PATH)/$(UI_PROGRAM_NAME)
 
+.PHONY: val_ui
+val_ui: $(EXE_BUILD_PATH)/$(UI_PROGRAM_NAME)
+	valgrind ./$(EXE_BUILD_PATH)/$(UI_PROGRAM_NAME)
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_PATH)

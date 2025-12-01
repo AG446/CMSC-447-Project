@@ -1059,6 +1059,12 @@ map_t init_map_from_binary(const uint8_t * bytes,size_t n_bytes,err_ctx_t * ctx)
 	}
 	free(mpos);
 	
+	if(n_nodes > 0){
+		out.scaling_y_factor = calculate_scale_y_factor(out.all_nodes[0]->coordinate);
+	}else{
+		out.scaling_y_factor = 1.0;
+	}
+	
 	return out;
 }
 

@@ -64,13 +64,13 @@ bool are_cords_equal(cord_t a,cord_t b){
 	return (a.longitude == b.longitude) && (a.latitude == b.latitude);
 }
 
-//this constant is specific to UMBC (TODO make part of map file)
-#define SCALING_X_FACTOR 1.0
-#define SCALING_Y_FACTOR -1.29342421953
+double calculate_scale_y_factor(cord_t cord){
+	return 1.0/cos(cord.latitude*M_PI/180.0);
+}
 
-double cord_distance(cord_t a,cord_t b){
-	double dlon = (b.longitude - a.longitude)*SCALING_X_FACTOR;
-	double dlat = (b.latitude - a.latitude)*SCALING_Y_FACTOR;
+double cord_distance(cord_t a,cord_t b,double scaling_y_factor){
+	double dlon = (b.longitude - a.longitude);
+	double dlat = (b.latitude - a.latitude)*scaling_y_factor;
 	return sqrt(dlon*dlon + dlat*dlat );
 }
 
@@ -266,6 +266,15 @@ void set_building_bounding_box(building_t * building,map_rect_t building_boundin
 		return;
 	}
 	building->building_bounding_box = building_bounding_box;
+}
+
+map_rect_t get_building_bounding_box(const building_t * building,err_ctx_t * ctx){
+	if(building == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return create_map_rect(create_cord(0.0,0.0),create_cord(0.0,0.0));
+	}
+	
+	return building->building_bounding_box;
 }
 
 const char * get_primary_building_name(const building_t * building,err_ctx_t * ctx){
@@ -674,7 +683,7 @@ uint8_t get_map_edge_type(const map_edge_t * edge,err_ctx_t * ctx){
 	return edge->type;
 }
 
-double get_edge_length(const map_edge_t * edge,err_ctx_t * ctx){
+double get_edge_length(const map_edge_t * edge,double scaling_y_factor,err_ctx_t * ctx){
 	if(edge == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return DBL_MAX;
@@ -684,7 +693,7 @@ double get_edge_length(const map_edge_t * edge,err_ctx_t * ctx){
 		return DBL_MAX;
 	}
 	
-	return cord_distance(edge->a->coordinate,edge->b->coordinate);
+	return cord_distance(edge->a->coordinate,edge->b->coordinate,scaling_y_factor);
 }
 
 const map_node_t * get_edge_node_a(const map_edge_t * edge,err_ctx_t * ctx){
@@ -705,7 +714,7 @@ const map_node_t * get_edge_node_b(const map_edge_t * edge,err_ctx_t * ctx){
 	return edge->b;
 }
 
-void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream,err_ctx_t * ctx){
+void map_edge_to_output_stream(const map_edge_t * edge,double scaling_y_factor,size_t tabs,FILE * stream,err_ctx_t * ctx){
 	if(edge == NULL || stream == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return;
@@ -737,7 +746,7 @@ void map_edge_to_output_stream(const map_edge_t * edge,size_t tabs,FILE * stream
 		put_multitab(tabs,stream);
 		fputs("\tEuclidian Length:\n",stream);
 		put_multitab(tabs,stream);
-		fprintf(stream,"\t\t%lf\n",get_edge_length(edge,ctx));
+		fprintf(stream,"\t\t%lf\n",get_edge_length(edge,scaling_y_factor,ctx));
 	}
 }
 
@@ -912,6 +921,8 @@ map_t init_map(void){
 	map.n_mpos = 0;
 	map.mpo_capacity = 0;
 	
+	map.scaling_y_factor = 1.0;
+	
 	return map;
 }
 
@@ -970,17 +981,13 @@ void add_building_to_map(map_t * map,building_t * building,err_ctx_t * ctx){
 	map->n_buildings++;
 }
 
-building_t * get_building_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx){
-	if(map == NULL){
-		ctx->flags |= ERROR_INVALID_PARAM;
-		return NULL;
-	}
-	if(!(index < map->n_buildings)){
+building_t * get_building_by_index_from_map(map_t map,size_t index,err_ctx_t * ctx){
+	if(!(index < map.n_buildings)){
 		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
 		return NULL;
 	}
 	
-	return map->all_buildings[index];
+	return map.all_buildings[index];
 }
 
 building_t * get_building_by_name_from_map(map_t * map, const char * name,err_ctx_t * ctx){
@@ -1006,17 +1013,13 @@ building_t * get_building_by_name_from_map(map_t * map, const char * name,err_ct
 	return NULL;
 }
 
-mpo_t * get_mpo_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx){
-	if(map == NULL){
-		ctx->flags |= ERROR_INVALID_PARAM;
-		return NULL;
-	}
-	if(!(index < map->n_mpos)){
+mpo_t * get_mpo_by_index_from_map(const map_t map,size_t index,err_ctx_t * ctx){
+	if(!(index < map.n_mpos)){
 		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
 		return NULL;
 	}
 	
-	return map->all_mpos[index];
+	return map.all_mpos[index];
 }
 
 mpo_t * get_mpo_by_name_from_map(map_t * map,const char * name,err_ctx_t * ctx){
@@ -1324,17 +1327,13 @@ static size_t find_node_in_map_by_name(map_t * map,const char * node_name,bool *
 	return matching_index;
 }
 
-map_node_t * get_node_by_index_from_map(map_t * map,size_t index,err_ctx_t * ctx){
-	if(map == NULL){
-		ctx->flags |= ERROR_INVALID_PARAM;
-		return NULL;
-	}
-	if(!(index < map->n_nodes)){
+map_node_t * get_node_by_index_from_map(const map_t map,size_t index,err_ctx_t * ctx){
+	if(!(index < map.n_nodes)){
 		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
 		return NULL;
 	}
 	
-	return map->all_nodes[index];
+	return map.all_nodes[index];
 }
 
 map_node_t * get_node_by_name_from_map(map_t * map, const char * name,err_ctx_t * ctx){
@@ -1658,40 +1657,29 @@ void remove_mpo_from_map_by_index(map_t * map,size_t mpo_index,err_ctx_t * ctx){
 	map->n_mpos--;//shrink array
 }
 
-size_t get_map_node_count(map_t * map,err_ctx_t * ctx){
-	if(map == NULL){
-		ctx->flags |= ERROR_INVALID_PARAM;
-		return 0;
-	}
-	
-	return map->n_nodes;
+size_t get_map_node_count(const map_t map){
+	return map.n_nodes;
 }
 
-size_t get_map_mpo_count(map_t * map,err_ctx_t * ctx){
-	if(map == NULL){
-		ctx->flags |= ERROR_INVALID_PARAM;
-		return 0;
-	}
-	
-	return map->n_mpos;
+size_t get_map_mpo_count(const map_t map){
+	return map.n_mpos;
 }
 
-size_t get_map_edge_count(map_t * map,err_ctx_t * ctx){
-	if(map == NULL){
-		ctx->flags |= ERROR_INVALID_PARAM;
-		return 0;
-	}
-	
-	return map->n_edges;
+size_t get_map_edge_count(const map_t map){	
+	return map.n_edges;
 }
 
-size_t get_map_building_count(map_t * map,err_ctx_t * ctx){
-	if(map == NULL){
-		ctx->flags |= ERROR_INVALID_PARAM;
-		return 0;
+const map_edge_t * get_edge_by_index_from_map(const map_t map,size_t index,err_ctx_t * ctx){
+	if(!(index < map.n_edges)){
+		ctx->flags |= ERROR_OUT_OF_BOUNDS_INDEX;
+		return NULL;
 	}
 	
-	return map->n_buildings;
+	return map.all_edges[index];
+}
+
+size_t get_map_building_count(const map_t map){
+	return map.n_buildings;
 }
 
 void remove_mpo_from_map_by_name(map_t * map,const char * mpo_name,err_ctx_t * ctx){
@@ -1784,7 +1772,7 @@ void map_to_output_stream(map_t map,size_t tabs,FILE * stream,err_ctx_t * ctx){
 	for(size_t i = 0;i < map.n_edges;i++){
 		put_multitab(tabs,stream);
 		fprintf(stream,"\t\t%lu\n",i);
-		map_edge_to_output_stream(map.all_edges[i],tabs+2,stream,ctx);
+		map_edge_to_output_stream(map.all_edges[i],map.scaling_y_factor,tabs+2,stream,ctx);
 	}
 	
 	put_multitab(tabs,stream);
@@ -1852,27 +1840,6 @@ map_path_t * copy_map_path(const map_path_t * map_path_ref){//TODO add edges
 	return out;
 }
 
-saved_paths_t init_saved_paths(){
-	saved_paths_t out;
-
-	out.paths = NULL;
-	out.n_paths = 0;
-	out.paths_capacity = 0;
-
-	return out;
-}
-
-void clear_saved_paths(saved_paths_t * saved_paths){
-	if(saved_paths == NULL) return;
-
-	if(saved_paths->paths != NULL){
-		for(size_t i = 0;i < saved_paths->n_paths;i++){
-			delete_map_path(saved_paths->paths[i]);
-		}
-		free(saved_paths->paths);
-	}
-}
-
 
 /*
  * get index of node
@@ -1901,8 +1868,8 @@ void deinit_map_sys(map_sys_t * sys,err_ctx_t * ctx){
 	deinit_map(&(sys->map),ctx);
 }
 
-double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,err_ctx_t * ctx){
-	double length = get_edge_length(edge_ref,ctx);
+double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx){
+	double length = get_edge_length(edge_ref,scaling_y_factor,ctx);
 	
 	double scaler = 1.0;
 	uint8_t edge_type = edge_ref->type;
@@ -2000,7 +1967,7 @@ void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx){
 		current->cost_temp = DBL_MAX;
 		current->visited = false;
 		current->previous = NULL;
-		current->approximate_cost_to_goal = cord_distance(current->coordinate,map_sys->active_end->coordinate);
+		current->approximate_cost_to_goal = cord_distance(current->coordinate,map_sys->active_end->coordinate,map_sys->map.scaling_y_factor);
 	}
 	map_sys->active_start->cost_temp = 0;
 	map_sys->active_start->visited = true;
@@ -2019,7 +1986,7 @@ void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx){
 			map_edge_t * edge = node->outgoing_edges[i];
 			map_node_t * adjacent_node = (edge->a == node) ? edge->b : edge->a;
 			
-			double new_cost = node->cost_temp + map_sys->active_edge_cost_function(edge,ctx);
+			double new_cost = node->cost_temp + map_sys->active_edge_cost_function(edge,map_sys->map.scaling_y_factor,ctx);
 			double old_cost = adjacent_node->cost_temp;
 			
 			if(!adjacent_node->visited || new_cost < old_cost){
@@ -2081,4 +2048,25 @@ void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx){
 	path->nodes[0] = node;
 	
 	map_sys->active_path = path;
+}
+
+map_rect_t get_map_bounding_rect(const map_t map){
+	double min_x = DBL_MAX_EXP;
+	double max_x = DBL_MIN_EXP;
+	double min_y = DBL_MAX_EXP;
+	double max_y = DBL_MIN_EXP;
+	
+	for(size_t i = 0;i < map.n_nodes;i++){
+		const map_node_t * current_node = map.all_nodes[i];
+		double x = current_node->coordinate.longitude;
+		double y = current_node->coordinate.latitude;
+		
+		min_x = x < min_x ? x : min_x;
+		min_y = y < min_y ? y : min_y;
+		
+		max_x = x > max_x ? x : max_x;
+		max_y = y > max_y ? y : max_y;
+	}
+	
+	return create_map_rect(create_cord(min_x,min_y),create_cord(max_x,max_y));
 }

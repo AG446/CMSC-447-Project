@@ -420,9 +420,9 @@ map_node_t * fetch_node(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 			free(name);
 			return out;
 		}else if(chosen_option == 2){
-			size_t node_index = parse_index_in_range("Index of Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+			size_t node_index = parse_index_in_range("Index of Node in Map",0,get_map_node_count(*map)-1,&canceled);
 			if(canceled) return NULL;
-			return get_node_by_index_from_map(map,node_index,ctx);
+			return get_node_by_index_from_map(*map,node_index,ctx);
 		}
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("Node index",&canceled);
@@ -457,9 +457,9 @@ mpo_t * fetch_mpo(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 			free(name);
 			return out;
 		}else if(chosen_option == 2){
-			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(map,ctx)-1,&canceled);
+			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(*map)-1,&canceled);
 			if(canceled) return NULL;
-			return get_mpo_by_index_from_map(map,mpo_index,ctx);
+			return get_mpo_by_index_from_map(*map,mpo_index,ctx);
 		}
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("MPO index",&canceled);
@@ -494,9 +494,9 @@ building_t * fetch_building(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 			free(name);
 			return out;
 		}else if(chosen_option == 2){
-			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(map,ctx)-1,&canceled);
+			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(*map)-1,&canceled);
 			if(canceled) return NULL;
-			return get_building_by_index_from_map(map,building_index,ctx);
+			return get_building_by_index_from_map(*map,building_index,ctx);
 		}
 	}else if(choice == WORKING_SET){
 		size_t obj_index = parse_index("Building index",&canceled);
@@ -844,7 +844,7 @@ void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_
 			remove_node_by_name_from_map(map,name,ctx);
 			free(name);
 		}else if(chosen_option == 2){
-			size_t node_index = parse_index_in_range("Index of Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+			size_t node_index = parse_index_in_range("Index of Node in Map",0,get_map_node_count(*map)-1,&canceled);
 			if(canceled) return;
 			remove_node_from_map_by_index(map,node_index,ctx);
 		}
@@ -858,7 +858,7 @@ void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_
 			remove_mpo_from_map_by_name(map,name,ctx);
 			free(name);
 		}else if(chosen_option == 2){
-			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(map,ctx)-1,&canceled);
+			size_t mpo_index = parse_index_in_range("Index of MPO in Map",0,get_map_mpo_count(*map)-1,&canceled);
 			if(canceled) return;
 			remove_mpo_from_map_by_index(map,mpo_index,ctx);
 		}
@@ -872,7 +872,7 @@ void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_
 			remove_building_by_name_from_map(map,name,ctx);
 			free(name);
 		}else if(chosen_option == 2){
-			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(map,ctx)-1,&canceled);
+			size_t building_index = parse_index_in_range("Index of Building in Map",0,get_map_building_count(*map)-1,&canceled);
 			if(canceled) return;
 			remove_building_from_map_by_index(map,building_index,ctx);
 		}
@@ -909,10 +909,10 @@ void connect_disconnect_nodes_command(map_t * map,err_ctx_t * ctx,bool connect_m
 	if(canceled) return;
 	
 	if(chosen_connection_option == 1){
-		size_t first_node_index = parse_index_in_range("Index of First Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+		size_t first_node_index = parse_index_in_range("Index of First Node in Map",0,get_map_node_count(*map)-1,&canceled);
 		if(canceled) return;
 		
-		size_t second_node_index = parse_index_in_range("Index of Second Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+		size_t second_node_index = parse_index_in_range("Index of Second Node in Map",0,get_map_node_count(*map)-1,&canceled);
 		if(canceled) return;
 		
 		if(connect_mode == CONNECT) connect_nodes_in_map_by_indices(map,first_node_index,second_node_index,chosen_edge_type,ctx);
@@ -955,10 +955,10 @@ void set_edge_type_command(map_t * map,map_obj_arr_t * arr,command_collection_t 
 	if(canceled) return;
 	
 	if(chosen_option == 1){
-		size_t first_node_index = parse_index_in_range("Index of First Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+		size_t first_node_index = parse_index_in_range("Index of First Node in Map",0,get_map_node_count(*map)-1,&canceled);
 		if(canceled) return;
 		
-		size_t second_node_index = parse_index_in_range("Index of Second Node in Map",0,get_map_node_count(map,ctx)-1,&canceled);
+		size_t second_node_index = parse_index_in_range("Index of Second Node in Map",0,get_map_node_count(*map)-1,&canceled);
 		if(canceled) return;
 		
 		set_connection_type_for_nodes_by_indices(map,first_node_index,second_node_index,chosen_edge_type,ctx);

@@ -1,336 +1,677 @@
 #include "map_render.h"
+#include "map_serial.h"
 
-#define MAP_LINE_THICKNESS 4
-#define TRANSITION_CONSTANT 0.03
-#define DEFAULT_BUTTONS_CAPACITY 4
 #define MAP_FONT_SIZE 14
 
-in_map_button_t * create_map_button(double width,double height,map_data_state_t * mds){
+//---------------------------------------------------------- MOUSE STATE BEGIN ------------------------------------------------
+mouse_state_t init_mouse_state(void){
+	mouse_state_t out;
+	
+	out.x = 0;
+	out.y = 0;
+	out.prev_x = 0;
+	out.prev_y = 0;
+	out.down = false;
+	out.prev_down = false;
+	
+	return out;
+}
+
+void set_mouse_button_down(mouse_state_t * mouse_state,bool state){
+	mouse_state->down = state;
+}
+
+void set_mouse_position(mouse_state_t * mouse_state,double mouse_x,double mouse_y){
+	mouse_state->x = mouse_x;
+	mouse_state->y = mouse_y;
+}
+
+void mouse_state_step(mouse_state_t * mouse_state){
+	mouse_state->prev_down = mouse_state->down;
+	mouse_state->prev_x = mouse_state->x;
+	mouse_state->prev_y = mouse_state->y;
+}
+
+bool mouse_clicked(mouse_state_t mouse_state){
+	return mouse_state.down && !mouse_state.prev_down;
+}
+//---------------------------------------------------------- MOUSE STATE END --------------------------------------------------
+
+//---------------------------------------------------------- SCREEN PAN BEGIN -------------------------------------------------
+#define ZOOM_TRANSITION_CONSTANT 0.03
+
+screen_pan_t init_screen_pan(void){
+	screen_pan_t out;
+	
+	out.zoom_jump = 1.4;
+	
+	out.min_zoom = 0.8;
+	out.max_zoom = 6.0;
+	out.default_zoom = 2.4;
+	out.zoom_current = out.default_zoom;
+	out.zoom_final = out.default_zoom;
+	
+	out.min_pan_x = -0.5;
+	out.max_pan_x = 0.5;
+	out.default_pan_x = 0.15;
+	out.pan_x_current = out.default_pan_x;
+	out.pan_x_final = out.default_pan_x;
+	
+	out.min_pan_y = -0.5;
+	out.max_pan_y = 0.5;
+	out.default_pan_y = -0.15;
+	out.pan_y_current = out.default_pan_y;
+	out.pan_y_final = out.default_pan_y;
+	
+	return out;
+}
+
+void screen_pan_update(screen_pan_t * screen_pan){
+	if(screen_pan->pan_x_final < screen_pan->min_pan_x) screen_pan->pan_x_final = screen_pan->min_pan_x;
+	else if(screen_pan->pan_x_final > screen_pan->max_pan_x) screen_pan->pan_x_final = screen_pan->max_pan_x;
+	
+	if(screen_pan->pan_y_final < screen_pan->min_pan_y) screen_pan->pan_y_final = screen_pan->min_pan_y;
+	else if(screen_pan->pan_y_final > screen_pan->max_pan_y) screen_pan->pan_y_final = screen_pan->max_pan_y;
+	
+	if(screen_pan->zoom_final > screen_pan->max_zoom) screen_pan->zoom_final = screen_pan->max_zoom;
+	else if(screen_pan->zoom_final < screen_pan->min_zoom) screen_pan->zoom_final = screen_pan->min_zoom;
+	
+	screen_pan->zoom_current = ZOOM_TRANSITION_CONSTANT*screen_pan->zoom_final + screen_pan->zoom_current*(1-ZOOM_TRANSITION_CONSTANT);
+	
+	screen_pan->pan_x_current = ZOOM_TRANSITION_CONSTANT*screen_pan->pan_x_final + screen_pan->pan_x_current*(1-ZOOM_TRANSITION_CONSTANT);
+	screen_pan->pan_y_current = ZOOM_TRANSITION_CONSTANT*screen_pan->pan_y_final + screen_pan->pan_y_current*(1-ZOOM_TRANSITION_CONSTANT);
+}
+
+void screen_pan_home(screen_pan_t * screen_pan){
+	screen_pan->zoom_final = screen_pan->default_zoom;
+	screen_pan->pan_x_final = screen_pan->default_pan_x;
+	screen_pan->pan_y_final = screen_pan->default_pan_y;
+}
+
+void screen_pan_zoom_in(screen_pan_t * screen_pan){
+	screen_pan->zoom_final *= screen_pan->zoom_jump;
+}
+
+void screen_pan_zoom_out(screen_pan_t * screen_pan){
+	screen_pan->zoom_final *= 1.0/screen_pan->zoom_jump;
+}
+
+//---------------------------------------------------------- SCREEN PAN END ---------------------------------------------------
+
+
+//---------------------------------------------------------- Button Collection BEGIN ------------------------------------------
+#define DEFAULT_BUTTONS_CAPACITY 4
+
+button_collection_t init_button_collection(void){
+	button_collection_t out;
+	
+	out.buttons_capacity = DEFAULT_BUTTONS_CAPACITY;
+	out.n_buttons = 0;
+	out.buttons = (in_map_button_t**) malloc(sizeof(in_map_button_t*) * out.buttons_capacity);
+	
+	return out;
+}
+
+void add_button_to_button_collection(button_collection_t * collection,in_map_button_t * button){
+	if(collection->buttons_capacity == collection->n_buttons){
+		collection->buttons_capacity *= 2;
+		collection->buttons = (in_map_button_t**)realloc(collection->buttons,sizeof(in_map_button_t*) * collection->buttons_capacity);
+	}
+	
+	collection->buttons[collection->n_buttons] = button;
+	collection->n_buttons++;
+}
+
+bool update_button_collection(button_collection_t * collection,mouse_state_t mouse_state){
+	bool mouse_over_button = false;
+	for(size_t i = 0;i < collection->n_buttons;i++){
+		update_button(collection->buttons[i],&mouse_over_button,mouse_state);
+	}
+	return mouse_over_button;
+}
+
+//---------------------------------------------------------- Button Collection END --------------------------------------------
+
+//---------------------------------------------------------- IN MAP BUTTON BEGIN ----------------------------------------------
+#define IN_MAP_BUTTON_TRANSITION_CONSTANT 0.03
+
+in_map_button_t * create_map_button(double width,double height,button_collection_t * collection){
 	in_map_button_t * out = (in_map_button_t*) malloc(sizeof(in_map_button_t));
 	
 	out->x = 0;
 	out->y = 0;
 	out->width = width;
 	out->height = height;
-	out->transition = 0.0;
+	out->animation_transition = 0.0;
 	out->was_pressed = false;
 	out->mouse_on = false;
 	out->pressed_on = false;
 	out->visible = true;
 	
-	if(mds->buttons_capacity == mds->n_buttons){
-		mds->buttons_capacity *= 2;
-		mds->buttons = (in_map_button_t**)realloc(mds->buttons,sizeof(in_map_button_t*) * mds->buttons_capacity);
-	}
-	
-	mds->buttons[mds->n_buttons] = out;
-	mds->n_buttons++;
+	add_button_to_button_collection(collection,out);
 	
 	return out;
 }
 
-static void render_popup_close_button(in_map_button_t * button,map_data_state_t * mds){
-	if(!button->visible) return;
-	
-	cairo_t * cr = cairo_create (mds->surface);
-	
-	double radius = 4;
-	double expand = button->transition*2;
-	
-	cairo_set_source_rgb (cr, 0.8,0.1,0.1);
-	cairo_new_sub_path (cr);
-	cairo_arc (cr, button->x + button->width + expand - radius, button->y + radius - expand, radius, -M_PI/2, 0);
-	cairo_arc (cr, button->x + button->width + expand - radius, button->y + button->height + expand - radius, radius, 0, M_PI/2);
-	cairo_arc (cr, button->x + radius - expand, button->y + button->height - radius + expand, radius, M_PI/2, M_PI);
-	cairo_arc (cr, button->x + radius - expand, button->y + radius - expand, radius, M_PI, M_PI*3/2);
-	cairo_close_path (cr);
-	cairo_fill(cr);
-	
-	cairo_set_source_rgb(cr,1,1,1);
-	cairo_set_line_width (cr, 2 + button->transition);
-	
-	double gap = 4;
-	
-	cairo_move_to(cr, button->x + gap - expand, button->y + gap - expand);
-	cairo_line_to(cr, button->x+button->width - gap + expand, button->y+button->height - gap + expand);
-	cairo_stroke(cr);
-	
-	cairo_move_to(cr, button->x + gap - expand, button->y + button->height - gap + expand);
-	cairo_line_to(cr, button->x+button->width - gap + expand, button->y + gap - expand);
-	cairo_stroke(cr);
-	
-	cairo_destroy (cr);
-}
-
-static void render_text_button(in_map_button_t * button,map_data_state_t * mds,const char * button_text){
-	if(!button->visible) return;
-	
-	cairo_t * cr = cairo_create (mds->surface);
-	
-	double expand = button->transition*2;
-	double radius = 6;
-	
-	if(button->pressed_on){
-		cairo_set_source_rgb(cr,0.0,0.5,0.0);
-	}else{
-		cairo_set_source_rgb(cr,0.2,1,0.2);
-	}
-	cairo_new_sub_path (cr);
-	cairo_arc (cr, button->x + button->width + expand - radius, button->y + radius - expand, radius, -M_PI/2, 0);
-	cairo_arc (cr, button->x + button->width + expand - radius, button->y + button->height + expand - radius, radius, 0, M_PI/2);
-	cairo_arc (cr, button->x + radius - expand, button->y + button->height - radius + expand, radius, M_PI/2, M_PI);
-	cairo_arc (cr, button->x + radius - expand, button->y + radius - expand, radius, M_PI, M_PI*3/2);
-	cairo_close_path (cr);
-	cairo_fill_preserve(cr);
-	cairo_set_source_rgb(cr,0,0,0);
-	cairo_set_line_width (cr, MAP_LINE_THICKNESS/2);
-	cairo_stroke(cr);
-	
-	float spacing = 20;
-	
-	cairo_set_font_size (cr, MAP_FONT_SIZE);
-	cairo_text_extents_t extents;
-	cairo_text_extents (cr, button_text, &extents);
-	button->width = extents.width+spacing;
-	
-	cairo_set_font_size (cr, MAP_FONT_SIZE + expand/2);
-	cairo_text_extents (cr, button_text, &extents);
-	
-	cairo_set_source_rgb(cr,0,0,0);
-	cairo_move_to (cr, button->x + button->width/2 - extents.width/2, button->y+button->height+extents.height/2 - button->height/2);
-	cairo_show_text (cr, button_text);
-	
-	cairo_destroy (cr);
-}
-
-void render_node_popup(node_popup_t * popup,map_data_state_t * mds){
-	if(!popup->visible){
-		popup->close_button->visible = false;
-		popup->set_start_button->visible = false;
-		popup->set_end_button->visible = false;
-		if(popup->transition < 0.3) return;
-	}else{
-		popup->close_button->visible = true;
-		popup->set_start_button->visible = true;
-		popup->set_end_button->visible = true;
-	}
-	
-	cairo_t * cr = cairo_create (mds->surface);
-	
-	double tick_size = 16;
-	
-	cairo_set_source_rgba(cr,1,1,1,popup->transition);
-	cairo_move_to(cr, popup->x, popup->y);
-	cairo_line_to(cr, popup->x - tick_size,popup->y - tick_size);
-	cairo_line_to(cr, popup->x - popup->width/2,popup->y - tick_size);
-	cairo_line_to(cr, popup->x - popup->width/2,popup->y - tick_size-popup->height);
-	cairo_line_to(cr, popup->x + popup->width/2,popup->y - tick_size-popup->height);
-	cairo_line_to(cr, popup->x + popup->width/2,popup->y - tick_size);
-	cairo_line_to(cr, popup->x + tick_size,popup->y - tick_size);
-	cairo_close_path(cr);
-	cairo_fill_preserve (cr);
-	cairo_set_source_rgba(cr,0,0,0,popup->transition);
-	cairo_set_line_width (cr, MAP_LINE_THICKNESS);
-	cairo_stroke(cr);
-	
-	if(popup->transition < 0.8){
-		cairo_destroy (cr);
-		return;
-	}
-	
-	double gap = 8;
-	
-	popup->close_button->x = popup->x + popup->width/2 - popup->close_button->width - gap;
-	popup->close_button->y = popup->y - popup->height - popup->close_button->height + gap;
-	render_popup_close_button(popup->close_button,mds);
-	
-	popup->set_start_button->x = popup->x - popup->width/2 + gap;
-	popup->set_start_button->y = popup->y - popup->set_start_button->height - tick_size - gap;
-	render_text_button(popup->set_start_button,mds,"Set as Start");
-	
-	popup->set_end_button->x = popup->x - popup->width/2 + gap + popup->set_start_button->width + gap;
-	popup->set_end_button->y = popup->y - popup->set_end_button->height - tick_size - gap;
-	render_text_button(popup->set_end_button,mds,"Set as End");
-	
-	double line_gap = 4;
-	
-	cairo_set_font_size (cr, MAP_FONT_SIZE);
-	
-	double text_x = popup->x - popup->width/2 + gap;
-	double text_y = popup->y-popup->height - tick_size + MAP_FONT_SIZE + gap;
-	double line_spacing = MAP_FONT_SIZE + line_gap;
-	
-	if(popup->node_reference != NULL){
-		char * buffer = (char*) malloc(128);
-		double lon = popup->node_reference->coordinate.longitude;
-		double lat = popup->node_reference->coordinate.latitude;
-		
-		sprintf(buffer, "Location Name:");
-		cairo_move_to (cr, text_x, text_y);
-		cairo_show_text (cr, buffer);
-		
-		text_y += line_spacing;
-		
-		const char * node_name = get_map_node_name(popup->node_reference,NULL);//TODO err ctx
-		sprintf(buffer, "        %s", node_name == NULL ? "None given" : node_name);
-		cairo_move_to (cr, text_x, text_y);
-		cairo_show_text (cr, buffer);
-		
-		text_y += line_spacing;
-		
-		building_t * building = popup->node_reference->associated_building;
-		if(building != NULL){
-			
-			sprintf(buffer, "Associated Building:");
-			cairo_move_to (cr, text_x, text_y);
-			cairo_show_text (cr, buffer);
-			
-			text_y += line_spacing;
-			
-			const char * building_name = get_primary_building_name(building,NULL);//TODO err ctx
-			sprintf(buffer, "        %s", building_name);
-			cairo_move_to (cr, text_x, text_y);
-			cairo_show_text (cr, buffer);
-			
-			text_y += line_spacing;
-		}
-		
-		sprintf(buffer, "Precise Location:");
-		cairo_move_to (cr, text_x, text_y);
-		cairo_show_text (cr, buffer);
-		
-		text_y += line_spacing;
-		
-		sprintf(buffer, "        (lon=%lf, lat=%lf)", lon,lat);
-		cairo_move_to (cr, text_x, text_y);
-		cairo_show_text (cr, buffer);
-		
-		free(buffer);
-	}
-	
-	cairo_destroy (cr);
-}
-
-node_popup_t * create_node_popup(double width,double height,map_data_state_t * mds){
-	node_popup_t * out = (node_popup_t*) malloc(sizeof(node_popup_t));
-	
-	out->x = 0;
-	out->y = 0;
-	out->full_width = width;
-	out->full_height = height;
-	out->width = 0;
-	out->height = 0;
-	
-	out->transition = 0.5;
-	
-	out->node_reference = NULL;
-	
-	out->close_button = create_map_button(16,16,mds);
-	out->set_start_button = create_map_button(64,32,mds);
-	out->set_end_button = create_map_button(64,32,mds);
-	
-	out->visible = true;
-	
+bool was_pressed_reset(in_map_button_t * button){
+	bool out = button->was_pressed;
+	button->was_pressed = false;
 	return out;
 }
 
-static void update_popup(node_popup_t * popup){
-	popup->width = popup->full_width * popup->transition;
-	popup->height = popup->full_height * popup->transition;
-	
-	if(popup->visible){
-		popup->transition = TRANSITION_CONSTANT + popup->transition*(1-TRANSITION_CONSTANT);
-	}else{
-		popup->transition = 0.2*TRANSITION_CONSTANT + popup->transition*(1-TRANSITION_CONSTANT);
-	}
-	if(popup->close_button->was_pressed){
-		popup->visible = false;
-		popup->close_button->was_pressed = false;
-	}
-}
-
-void resize_map_drawing_area_callback (GtkWidget *widget,int width,int height,map_data_state_t * mds){
-	if (mds->surface != NULL){
-		cairo_surface_destroy (mds->surface);
-		mds->surface = NULL;
-	}
-
-	if (gtk_native_get_surface (gtk_widget_get_native (widget))){
-		mds->surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, gtk_widget_get_width (widget),gtk_widget_get_height (widget));
-	}
-	
-	double gap = 16;
-	
-	double current_y = gap;
-	
-	mds->zoom_in_button->x = width-mds->zoom_in_button->width-gap;
-	mds->zoom_in_button->y = current_y;
-	
-	current_y += mds->zoom_in_button->height+gap;
-	
-	mds->zoom_out_button->x = width-mds->zoom_in_button->width-gap;
-	mds->zoom_out_button->y = current_y;
-	
-	current_y += mds->zoom_out_button->height+gap;
-	
-	mds->home_button->x = width-mds->home_button->width-gap;
-	mds->home_button->y = current_y;
-}
-
-static bool update_button(in_map_button_t * button,map_data_state_t * mds,bool mouse_already_over_button){
+bool update_button(in_map_button_t * button,bool * mouse_over_button,mouse_state_t mouse_state){
 	if(!button->visible) return false;
 	
-	bool on = mds->mouse_x > button->x && mds->mouse_y > button->y && mds->mouse_x < button->x + button->width && mds->mouse_y < button->y + button->height;
+	bool on = !*mouse_over_button && mouse_state.x > button->x && mouse_state.y > button->y && mouse_state.x < button->x + button->width && mouse_state.y < button->y + button->height;
+	*mouse_over_button |= on;
 	
 	if(on){
-		button->transition = TRANSITION_CONSTANT + button->transition*(1-TRANSITION_CONSTANT);
+		button->animation_transition = IN_MAP_BUTTON_TRANSITION_CONSTANT + button->animation_transition*(1-IN_MAP_BUTTON_TRANSITION_CONSTANT);
 		button->mouse_on = true;
-		button->pressed_on = mds->mouse_down;
-		if(!mouse_already_over_button && mds->mouse_down && !mds->p_mouse_down){
+		button->pressed_on = mouse_state.down;
+		
+		if(mouse_clicked(mouse_state)){
 			button->was_pressed = true;
 		}
 		return true;
 	}else{
 		button->mouse_on = false;
-		button->transition = button->transition*(1-TRANSITION_CONSTANT);
+		button->pressed_on = false;
+		button->animation_transition = button->animation_transition*(1-IN_MAP_BUTTON_TRANSITION_CONSTANT);
 	}
 	
 	return false;
 }
+//---------------------------------------------------------- IN MAP BUTTON END ------------------------------------------------
 
-void map_update(map_data_state_t * mds){
-	bool mouse_already_over_button = false;
-	for(size_t i = 0;i < mds->n_buttons;i++){
-		if(update_button(mds->buttons[i],mds,mouse_already_over_button)){
-			mouse_already_over_button = true;
-		}
+//---------------------------------------------------------- ON SCREEN NODE BEGIN ---------------------------------------------
+#define SELECTABLE_NODE_SIZE 1.5
+
+on_screen_node_t init_on_screen_node(map_node_t * node_ref,button_collection_t * collection){
+	on_screen_node_t out;
+	
+	out.button = create_map_button(0,0,collection);
+	
+	out.node_reference = node_ref;
+	
+	return out;
+}
+
+void render_on_screen_node(on_screen_node_t * screen_node,cairo_surface_t * surface,screen_pan_t screen_pan,map_rect_t map_bounding_box,double scaling_y_factor){
+	if(!screen_node->button->visible) return;
+	
+	float radius = screen_pan.zoom_current*SELECTABLE_NODE_SIZE*(1.0+screen_node->button->animation_transition*0.2);
+	
+	double x = 0.0,y = 0.0;
+	calculate_on_screen_pos(screen_node->node_reference->coordinate,&x,&y,surface,screen_pan,map_bounding_box,scaling_y_factor);
+	
+	cairo_t * cr = cairo_create (surface);
+	screen_node->button->x = x-radius;
+	screen_node->button->y = y-radius;
+	screen_node->button->width = radius*2.0;
+	screen_node->button->height = radius*2.0;
+	
+	cairo_arc(cr,x,y,radius,0,2.0*M_PI);
+	cairo_close_path(cr);
+	cairo_set_source_rgb(cr,1.0,1.0,1.0);
+	cairo_fill_preserve(cr);
+	cairo_set_source_rgb(cr,0.0,0.0,0.0);
+	cairo_set_line_width(cr,radius/2.0);
+	cairo_stroke(cr);
+	
+	cairo_destroy (cr);
+}
+//---------------------------------------------------------- ON SCREEN NODE END -----------------------------------------------
+
+//---------------------------------------------------------- NODE POPUP BEGIN -------------------------------------------------
+#define CLOSE_BUTTON_HOVER_EXPAND_AMOUNT 1
+#define CLOSE_BUTTON_LINE_THICKNESS 3
+#define CLOSE_BUTTON_CORNER_RADIUS 4
+#define CLOSE_BUTTON_X_SHAPE_PADDING 4
+
+#define TEXT_BUTTON_HOVER_EXPAND_AMOUNT 3
+#define TEXT_BUTTON_LINE_THICKNESS 2
+#define TEXT_BUTTON_PADDING 8
+
+#define NODE_POPUP_TICK_SIZE 16
+#define NODE_POPUP_FRAME_PADDING 10
+#define NODE_POPUP_TEXT_LINE_GAP 4
+#define NODE_POPUP_LINE_THICKNESS 3
+#define NODE_POPUP_TRANSITION_CONSTANT 0.03
+
+node_popup_t init_node_popup(button_collection_t * collection){
+	node_popup_t out;
+	
+	out.x = 0;
+	out.y = 0;
+	out.width = 0.0;
+	out.height = 200.0;
+	
+	out.animation_transition = 0.5;
+	
+	out.node_reference = NULL;
+	
+	out.close_button = create_map_button(16,16,collection);
+	out.set_start_button = create_map_button(64,32,collection);
+	out.set_end_button = create_map_button(64,32,collection);
+	
+	out.disable_buttons = false;
+	
+	out.visible = false;
+	
+	return out;
+}
+
+void update_node_popup(node_popup_t * node_popup,map_pin_t * start_pin,map_pin_t * end_pin){
+	if(node_popup->visible){
+		node_popup->animation_transition = NODE_POPUP_TRANSITION_CONSTANT + node_popup->animation_transition*(1-NODE_POPUP_TRANSITION_CONSTANT);
+	}else{
+		node_popup->animation_transition = node_popup->animation_transition*(1-NODE_POPUP_TRANSITION_CONSTANT);
+		return;
 	}
-	update_popup(mds->node_popup);
-	mds->p_mouse_down = mds->mouse_down;
-	if(rand() < 4000000){
-		mds->node_popup->visible = true;
+	
+	if(was_pressed_reset(node_popup->close_button)) close_node_popup(node_popup);
+	
+	node_popup->disable_buttons = (start_pin->visible && start_pin->node_reference == node_popup->node_reference) || (end_pin->visible && end_pin->node_reference == node_popup->node_reference);
+	
+	if(was_pressed_reset(node_popup->set_start_button)){
+		if(!node_popup->disable_buttons) notify_map_pin(start_pin,node_popup->node_reference);
+	}
+	else if(was_pressed_reset(node_popup->set_end_button)){
+		if(!node_popup->disable_buttons) notify_map_pin(end_pin,node_popup->node_reference);
 	}
 }
 
-#define BUTTON_SCALE_FACTOR 0.1
-
-static void render_zoom_in_zoom_out_button(in_map_button_t * button,map_data_state_t * mds,bool zoom_in){
+static void render_popup_close_button(in_map_button_t * button,cairo_surface_t * surface){
 	if(!button->visible) return;
 	
-	cairo_t * cr = cairo_create (mds->surface);
+	cairo_t * cr = cairo_create(surface);
 	
-	double scaling_factor = 1.0+button->transition*BUTTON_SCALE_FACTOR;
+	double hover_expand_amount = button->animation_transition*CLOSE_BUTTON_HOVER_EXPAND_AMOUNT;
 	
-	double radius = button->width/2*scaling_factor;
+	{//red box background
+		cairo_set_source_rgb (cr, 0.8,0.1,0.1);
+		
+		double corner_radius = CLOSE_BUTTON_CORNER_RADIUS;
+		
+		double inner_left = button->x + corner_radius - hover_expand_amount;
+		double inner_right = button->x + button->width - corner_radius + hover_expand_amount;
+		double inner_top = button->y + corner_radius - hover_expand_amount;
+		double inner_bottom = button->y + button->height - corner_radius + hover_expand_amount;
+		
+		cairo_arc (cr, inner_right, inner_top, corner_radius, -M_PI/2, 0);
+		cairo_arc (cr, inner_right, inner_bottom, corner_radius, 0, M_PI/2);
+		cairo_arc (cr, inner_left, inner_bottom, corner_radius, M_PI/2, M_PI);
+		cairo_arc (cr, inner_left, inner_top, corner_radius, M_PI, M_PI*3/2);
+		
+		cairo_close_path (cr);
+		cairo_fill(cr);
+	}
+	
+	{//diagonals to make x shape
+		cairo_set_source_rgb(cr,1,1,1);
+		cairo_set_line_width (cr, CLOSE_BUTTON_LINE_THICKNESS);
+		
+		double left = button->x + CLOSE_BUTTON_X_SHAPE_PADDING - hover_expand_amount;
+		double right = button->x+button->width - CLOSE_BUTTON_X_SHAPE_PADDING + hover_expand_amount;
+		double top = button->y + CLOSE_BUTTON_X_SHAPE_PADDING - hover_expand_amount;
+		double bottom = button->y+button->height - CLOSE_BUTTON_X_SHAPE_PADDING + hover_expand_amount;
+		
+		cairo_move_to(cr, left, top);
+		cairo_line_to(cr, right, bottom);
+		cairo_stroke(cr);
+		
+		cairo_move_to(cr, left, bottom);
+		cairo_line_to(cr, right, top);
+		cairo_stroke(cr);
+	}
+	
+	cairo_destroy (cr);
+}
+
+static void render_text_button(in_map_button_t * button,double r,double g,double b,const char * button_text,cairo_surface_t * surface){
+	if(!button->visible) return;
+	
+	cairo_t * cr = cairo_create(surface);
+	
+	double hover_expand_amount = button->animation_transition*TEXT_BUTTON_HOVER_EXPAND_AMOUNT;
+	
+	{//button background
+		double corner_radius = 6;
+		
+		double inner_left = button->x + corner_radius - hover_expand_amount;
+		double inner_right = button->x + button->width - corner_radius + hover_expand_amount;
+		double inner_top = button->y + corner_radius - hover_expand_amount;
+		double inner_bottom = button->y + button->height - corner_radius + hover_expand_amount;
+		
+		cairo_arc (cr, inner_right, inner_top, corner_radius, -M_PI/2, 0);
+		cairo_arc (cr, inner_right, inner_bottom, corner_radius, 0, M_PI/2);
+		cairo_arc (cr, inner_left, inner_bottom, corner_radius, M_PI/2, M_PI);
+		cairo_arc (cr, inner_left, inner_top, corner_radius, M_PI, M_PI*3/2);
+		
+		cairo_close_path (cr);
+		
+		if(button->pressed_on) cairo_set_source_rgb(cr,r*0.5,g*0.5,b*0.5);
+		else cairo_set_source_rgb(cr,r,g,b);
+		
+		cairo_fill_preserve(cr);
+		cairo_set_source_rgb(cr,0,0,0);
+		cairo_set_line_width (cr, TEXT_BUTTON_LINE_THICKNESS);
+		cairo_stroke(cr);
+	}
+	
+	{//render text on button
+		cairo_set_font_size (cr, MAP_FONT_SIZE);
+		cairo_text_extents_t extents;
+		cairo_text_extents (cr, button_text, &extents);
+		button->width = extents.width+2*TEXT_BUTTON_PADDING;
+		
+		cairo_set_font_size (cr, MAP_FONT_SIZE + hover_expand_amount/2);
+		cairo_text_extents (cr, button_text, &extents);
+		
+		cairo_set_source_rgb(cr,0,0,0);
+		double center_x = button->x + button->width/2 - extents.width/2;
+		double center_y = button->y + button->height/2 + extents.height/2;
+		cairo_move_to (cr, center_x, center_y);
+		cairo_show_text (cr, button_text);
+	}
+	
+	cairo_destroy (cr);
+}
+
+void render_node_popup(node_popup_t * node_popup,cairo_surface_t * surface,screen_pan_t screen_pan,map_rect_t map_bounding_box,double scaling_y_factor){
+	if(!node_popup->visible){
+		if(node_popup->animation_transition < 0.3) return;
+	}
+	
+	cairo_t * cr = cairo_create(surface);
+	
+	double width = node_popup->width * node_popup->animation_transition;
+	double height = node_popup->height * node_popup->animation_transition;
+	
+	double x = 0.0,y = 0.0;
+	if(node_popup->node_reference != NULL){
+		calculate_on_screen_pos(node_popup->node_reference->coordinate,&x,&y,surface,screen_pan,map_bounding_box,scaling_y_factor);
+		node_popup->x = x;
+		node_popup->y = y;
+	}
+	
+	double tick_size = NODE_POPUP_TICK_SIZE;
+	
+	double center_x = node_popup->x;
+	double left = center_x - width/2;
+	double right = center_x + width/2;
+	double bottom = node_popup->y;
+	double frame_bottom = bottom - tick_size;
+	double frame_top = frame_bottom-height;
+	
+	{//draw the background frame
+		
+		cairo_set_source_rgba(cr,1,1,1,node_popup->animation_transition);
+		cairo_move_to(cr, center_x, bottom);
+		cairo_line_to(cr, center_x - tick_size,frame_bottom);
+		cairo_line_to(cr, left,frame_bottom);
+		cairo_line_to(cr, left,frame_top);
+		cairo_line_to(cr, right,frame_top);
+		cairo_line_to(cr, right,frame_bottom);
+		cairo_line_to(cr, center_x + tick_size,frame_bottom);
+		cairo_close_path(cr);
+		cairo_fill_preserve (cr);
+		cairo_set_source_rgba(cr,0,0,0,node_popup->animation_transition);
+		cairo_set_line_width (cr, NODE_POPUP_LINE_THICKNESS);
+		cairo_stroke(cr);
+	}
+	
+	bool hide_inner_elements = node_popup->animation_transition < 0.8;//frame too small
+	
+	double gap = NODE_POPUP_FRAME_PADDING;
+	double inner_right = right - gap;
+	double inner_top = frame_top + gap;
+	double inner_left = left + gap;
+	double inner_bottom = frame_bottom - gap;
+	
+	double maximal_width = 0.0;//calculate the width of the frame
+	
+	{//draw close button
+		node_popup->close_button->x = inner_right - node_popup->close_button->width;
+		node_popup->close_button->y = inner_top;
+		if(!hide_inner_elements) render_popup_close_button(node_popup->close_button,surface);
+	}
+	
+	{//draw start button
+		node_popup->set_start_button->x = inner_left;
+		node_popup->set_start_button->y = inner_bottom - node_popup->set_start_button->height;
+		double r = 0.0,g = 0.0,b = 0.0;
+		if(node_popup->disable_buttons){
+			r = 0.4;
+			g = 0.4;
+			b = 0.4;
+		}else{
+			r = 0.4;
+			g = 0.6;
+			b = 0.8;
+		}
+		if(!hide_inner_elements) render_text_button(node_popup->set_start_button,r,g,b,"Set as Start",surface);
+	}
+	
+	{//draw end button
+		node_popup->set_end_button->x = inner_left + node_popup->set_start_button->width + gap;
+		node_popup->set_end_button->y = inner_bottom - node_popup->set_end_button->height;
+		double r = 0.0,g = 0.0,b = 0.0;
+		if(node_popup->disable_buttons){
+			r = 0.4;
+			g = 0.4;
+			b = 0.4;
+		}else{
+			r = 0.8;
+			g = 0.4;
+			b = 0.4;
+		}
+		if(!hide_inner_elements) render_text_button(node_popup->set_end_button,r,g,b,"Set as End",surface);
+	}
+	
+	maximal_width = fmaxf(node_popup->set_start_button->width + gap + node_popup->set_end_button->width, maximal_width );
+	
+	if(node_popup->node_reference != NULL){//draw the text
+		cairo_set_font_size (cr, MAP_FONT_SIZE);
+		double line_gap = NODE_POPUP_TEXT_LINE_GAP;
+		double line_spacing = MAP_FONT_SIZE + line_gap;
+		
+		cairo_text_extents_t extents;
+		
+		double text_y = inner_top+MAP_FONT_SIZE;
+		
+		
+		const char * node_name = get_map_node_name(node_popup->node_reference,NULL);//TODO err ctx
+		building_t * building = node_popup->node_reference->associated_building;
+		const char * building_name = building == NULL ? NULL : get_primary_building_name(building,NULL);//TODO err ctx
+		double lon = node_popup->node_reference->coordinate.longitude;
+		double lat = node_popup->node_reference->coordinate.latitude;
+		
+		char * full_buffer = (char*) malloc(256);
+		sprintf(full_buffer, "Location Name:\n\t%s\nAssociated Building:\n\t%s\nCoordinate:\n\t(lon=%lf,lat=%lf)",node_name,building_name,lon,lat);
+		
+		char * line = strtok(full_buffer, "\n");
+
+		while (line != NULL) {
+			double offset = 0.0;
+			if(line[0] == '\t'){
+				line++;
+				offset += MAP_FONT_SIZE*2;
+			}
+			cairo_text_extents (cr, line, &extents);
+			maximal_width = fmaxf(extents.width+offset,maximal_width);
+			if(!hide_inner_elements){
+				cairo_move_to (cr, inner_left+offset, text_y);
+				cairo_show_text (cr, line);
+			}
+			line = strtok(NULL, "\n");
+			text_y += line_spacing;
+		}
+		
+		free(full_buffer);
+	}
+	
+	node_popup->width = maximal_width + 2.0*gap;
+	
+	cairo_destroy (cr);
+}
+
+void notify_node_popup(node_popup_t * node_popup,map_node_t * new_node_reference){
+	node_popup->visible = true;
+	node_popup->close_button->visible = true;
+	node_popup->set_start_button->visible = true;
+	node_popup->set_end_button->visible = true;
+	
+	node_popup->animation_transition = 0.0;
+	node_popup->node_reference = new_node_reference;
+}
+
+void close_node_popup(node_popup_t * node_popup){
+	node_popup->visible = false;
+	node_popup->close_button->visible = false;
+	node_popup->set_start_button->visible = false;
+	node_popup->set_end_button->visible = false;
+}
+//---------------------------------------------------------- NODE POPUP END ---------------------------------------------------
+
+//---------------------------------------------------------- MAP PIN BEGIN ----------------------------------------------------
+#define PIN_RADIUS 15
+#define PIN_HEIGHT 50
+#define PIN_OUTLINE_LINE_THICKNESS 3
+#define PIN_TRANSITION_CONSTANT 0.03
+
+map_pin_t init_map_pin(double r,double g,double b){
+	map_pin_t out;
+	
+	out.r = r;
+	out.g = g;
+	out.b = b;
+	
+	out.x = 0.0;
+	out.y = 0.0;
+	
+	out.node_reference = NULL;
+	
+	out.animation_transition = 0.0;
+	
+	out.visible = true;
+	
+	return out;
+}
+
+void update_map_pin(map_pin_t * pin){
+	if(pin->visible){
+		pin->animation_transition = PIN_TRANSITION_CONSTANT + pin->animation_transition*(1-PIN_TRANSITION_CONSTANT);
+	}else{
+		pin->animation_transition = PIN_TRANSITION_CONSTANT*0.5*pin->animation_transition + pin->animation_transition*(1-PIN_TRANSITION_CONSTANT);
+	}
+}
+
+void render_map_pin(map_pin_t * pin,cairo_surface_t * surface,screen_pan_t screen_pan,map_rect_t map_bounding_box,double scaling_y_factor){
+	if(pin->animation_transition < 0.2) return;
+	
+	if(pin->node_reference != NULL){
+		calculate_on_screen_pos(pin->node_reference->coordinate,&(pin->x),&(pin->y),surface,screen_pan,map_bounding_box,scaling_y_factor);
+	}
+	
+	cairo_t * cr = cairo_create(surface);
+	
+	double radius = PIN_RADIUS*pin->animation_transition;
+	double pin_height = PIN_HEIGHT*pin->animation_transition;
+	
+	double theta = atan(radius/(pin_height-radius));
+	
+	cairo_set_source_rgba(cr,pin->r,pin->g,pin->b,0.8);
+	cairo_arc (cr, pin->x, pin->y-pin_height+radius, radius, M_PI-theta, theta);
+	cairo_line_to(cr,pin->x,pin->y);
+	cairo_close_path(cr);
+	cairo_fill_preserve(cr);
+	cairo_set_source_rgba(cr,0,0,0,0.7);
+	cairo_set_line_width (cr, PIN_OUTLINE_LINE_THICKNESS);
+	cairo_stroke(cr);
+	cairo_arc(cr,pin->x,pin->y-pin_height+radius,radius/2,0,2*M_PI);
+	cairo_set_source_rgba(cr,1,1,1,0.8);
+	cairo_fill_preserve(cr);
+	cairo_set_source_rgba(cr,0,0,0,0.7);
+	cairo_stroke(cr);
+	
+	cairo_destroy (cr);
+}
+
+void notify_map_pin(map_pin_t * pin,map_node_t * new_node_reference){
+	pin->node_reference = new_node_reference;
+	pin->visible = true;
+	pin->animation_transition = 0.0;
+}
+
+void hide_map_pin(map_pin_t * pin){
+	pin->visible = false;
+}
+//---------------------------------------------------------- MAP PIN END ------------------------------------------------------
+
+//---------------------------------------------------------- ZOOM CONTROLS BEGIN ----------------------------------------------
+#define ZOOM_CONTROLS_OUTLINE_THICKNESS 2
+#define ZOOM_CONTROLS_PADDING 32
+#define ZOOM_CONTROLS_BUTTON_SPACING 10
+#define ZOOM_CONTROLS_BUTTON_EXPAND_AMOUNT 2
+#define ZOOM_CONTROLS_PLUS_MINUS_LINE_THICKNESS 4
+
+zoom_controls_t init_zoom_controls(button_collection_t * collection){
+	zoom_controls_t out;
+	
+	out.zoom_in_button = create_map_button(40,40,collection);
+	out.zoom_out_button = create_map_button(40,40,collection);
+	out.home_button = create_map_button(40,40,collection);
+	
+	return out;
+}
+
+void update_zoom_controls(zoom_controls_t * zoom_controls,screen_pan_t * screen_pan){
+	if(was_pressed_reset(zoom_controls->zoom_in_button)) screen_pan_zoom_in(screen_pan);
+	else if(was_pressed_reset(zoom_controls->zoom_out_button)) screen_pan_zoom_out(screen_pan);
+	else if(was_pressed_reset(zoom_controls->home_button)) screen_pan_home(screen_pan);
+}
+
+static double get_zoom_control_button_radius(in_map_button_t * button){
+	return button->width/2 + button->animation_transition*ZOOM_CONTROLS_BUTTON_EXPAND_AMOUNT;
+}
+
+static void render_zoom_control_button_background(in_map_button_t * button,cairo_surface_t * surface){
+	cairo_t * cr = cairo_create(surface);
+	
+	double radius = get_zoom_control_button_radius(button);
 	
 	cairo_arc(cr, button->x+button->width/2, button->y+button->height/2, radius, 0, 2*M_PI);
 	cairo_set_source_rgb (cr, 1,1,1);
-	cairo_set_line_width (cr, MAP_LINE_THICKNESS);
+	cairo_set_line_width (cr, ZOOM_CONTROLS_OUTLINE_THICKNESS);
 	cairo_fill_preserve(cr);
 	cairo_set_source_rgb (cr, 0,0,0);
 	cairo_stroke(cr);
 	
-	double thickness = radius/4.0;
+	cairo_destroy (cr);
+}
+
+static void render_zoom_control_button_hover_fade(in_map_button_t * button,cairo_surface_t * surface){
+	cairo_t * cr = cairo_create(surface);
+	
+	double radius = get_zoom_control_button_radius(button);
+	
+	cairo_arc(cr, button->x+button->width/2, button->y+button->height/2, radius, 0, 2*M_PI);
+	cairo_set_source_rgba (cr, 1-button->animation_transition,1-button->animation_transition,1-button->animation_transition,0.2);
+	cairo_fill(cr);
+	
+	cairo_destroy (cr);
+}
+
+static void render_zoom_in_zoom_out_button(in_map_button_t * button,bool zoom_in,cairo_surface_t * surface){
+	if(!button->visible) return;
+	
+	cairo_t * cr = cairo_create(surface);
+	
+	double radius = get_zoom_control_button_radius(button);
+	render_zoom_control_button_background(button,surface);
+	
 	double inner_radius = radius*0.6;
 	
 	if(zoom_in){
@@ -338,99 +679,150 @@ static void render_zoom_in_zoom_out_button(in_map_button_t * button,map_data_sta
 	}else{
 		cairo_set_source_rgb (cr, 0,0,1);
 	}
-	cairo_rectangle(cr,button->x+button->width/2-inner_radius,button->y+button->height/2-thickness/2,inner_radius*2,thickness);
-	if(zoom_in) cairo_rectangle(cr,button->x+button->width/2-thickness/2,button->y+button->height/2-inner_radius,thickness,inner_radius*2);
-	cairo_fill (cr);
 	
-	cairo_arc(cr, button->x+button->width/2, button->y+button->height/2, radius, 0, 2*M_PI);
-	cairo_set_source_rgba (cr, 1-button->transition,1-button->transition,1-button->transition,0.2);
-	cairo_fill(cr);
+	double center_x = button->x+button->width/2;
+	double center_y = button->y+button->height/2;
+	
+	cairo_set_line_width(cr,ZOOM_CONTROLS_PLUS_MINUS_LINE_THICKNESS);
+	
+	cairo_move_to(cr,center_x-inner_radius,center_y);
+	cairo_line_to(cr,center_x+inner_radius,center_y);
+	if(zoom_in){
+		cairo_move_to(cr,center_x,center_y-inner_radius);
+		cairo_line_to(cr,center_x,center_y+inner_radius);
+	}
+	cairo_stroke (cr);
+	
+	render_zoom_control_button_hover_fade(button,surface);
 
 	cairo_destroy (cr);
 }
 
-static void render_zoom_in_button(in_map_button_t * button,map_data_state_t * mds){
-	render_zoom_in_zoom_out_button(button,mds,true);
+static void render_zoom_in_button(in_map_button_t * button,cairo_surface_t * surface){
+	render_zoom_in_zoom_out_button(button,true,surface);
 }
 
-static void render_zoom_out_button(in_map_button_t * button,map_data_state_t * mds){
-	render_zoom_in_zoom_out_button(button,mds,false);
+static void render_zoom_out_button(in_map_button_t * button,cairo_surface_t * surface){
+	render_zoom_in_zoom_out_button(button,false,surface);
 }
 
-static void render_home_button(in_map_button_t * button,map_data_state_t * mds){
+#define HOUSE_ICON_N_POINTS 11
+static const double house_icon_x[HOUSE_ICON_N_POINTS] = {-0.25,-0.25,0.25,0.25,0.75,0.75,1.0,0.0,-1.0,-0.75,-0.75};
+static const double house_icon_y[HOUSE_ICON_N_POINTS] = {1,0.5,0.5,1,1,0,0,-1,0,0,1};
+
+static void render_home_button(in_map_button_t * button,cairo_surface_t * surface){
 	if(!button->visible) return;
-	cairo_t * cr = cairo_create (mds->surface);
+	cairo_t * cr = cairo_create(surface);
 	
-	double scaling_factor = 1.0+button->transition*BUTTON_SCALE_FACTOR;
-	
-	double radius = button->width/2*scaling_factor;
-	
-	cairo_arc(cr, button->x+button->width/2, button->y+button->height/2, radius, 0, 2*M_PI);
-	cairo_set_source_rgb (cr, 1,1,1);
-	cairo_set_line_width (cr, MAP_LINE_THICKNESS);
-	cairo_fill_preserve(cr);
-	cairo_set_source_rgb (cr, 0,0,0);
-	cairo_stroke(cr);
+	double radius = get_zoom_control_button_radius(button);
+	render_zoom_control_button_background(button,surface);
 	
 	double inner_radius = radius*0.6;
 	
+	double center_x = button->x+button->width/2;
+	double center_y = button->y+button->height/2;
 	
-	double house_x[11] = {-0.25,-0.25,0.25,0.25,0.75,0.75,1.0,0.0,-1.0,-0.75,-0.75};
-	double house_y[11] = {1,0.5,0.5,1,1,0,0,-1,0,0,1};
+	double house_icon_x_scaled[HOUSE_ICON_N_POINTS];
+	double house_icon_y_scaled[HOUSE_ICON_N_POINTS];
 	
-	for(size_t i = 0;i < 11;i++){
-		house_x[i] = house_x[i]*inner_radius + button->x+button->width/2;
-		house_y[i] = house_y[i]*inner_radius + button->y+button->height/2;
+	for(size_t i = 0;i < HOUSE_ICON_N_POINTS;i++){
+		house_icon_x_scaled[i] = house_icon_x[i] * inner_radius + center_x;
+		house_icon_y_scaled[i] = house_icon_y[i] * inner_radius + center_y;
 	}
 	
 	cairo_set_source_rgb (cr, 0,0,0);
-	cairo_move_to(cr, house_x[0], house_y[0]);
-	for(size_t i = 1;i < 11;i++){
-		cairo_line_to(cr, house_x[i], house_y[i]);
+	cairo_move_to(cr, house_icon_x_scaled[0], house_icon_y_scaled[0]);
+	for(size_t i = 1;i < HOUSE_ICON_N_POINTS;i++){
+		cairo_line_to(cr, house_icon_x_scaled[i], house_icon_y_scaled[i]);
 	}
 	cairo_fill(cr);
 	
-	
-	cairo_arc(cr, button->x+button->width/2, button->y+button->height/2, radius, 0, 2*M_PI);
-	cairo_set_source_rgba (cr, 1-button->transition,1-button->transition,1-button->transition,0.2);
-	cairo_fill(cr);
+	render_zoom_control_button_hover_fade(button,surface);
 	
 	cairo_destroy (cr);
 }
 
-map_data_state_t init_map_data_state(void){
-	map_data_state_t out;
+void render_zoom_controls(zoom_controls_t * zoom_controls,cairo_surface_t * surface){
+	render_zoom_in_button(zoom_controls->zoom_in_button,surface);
+	render_zoom_out_button(zoom_controls->zoom_out_button,surface);
+	render_home_button(zoom_controls->home_button,surface);
+}
+
+void recalculate_zoom_controls_position(zoom_controls_t * zoom_controls,int surface_width){
+	double gap = ZOOM_CONTROLS_PADDING;
+	double spacing = ZOOM_CONTROLS_BUTTON_SPACING;
+	
+	double current_y = gap;
+	
+	zoom_controls->zoom_in_button->x = surface_width - zoom_controls->zoom_in_button->width - gap;
+	zoom_controls->zoom_in_button->y = current_y;
+	
+	current_y += zoom_controls->zoom_in_button->height + spacing;
+	
+	zoom_controls->zoom_out_button->x = surface_width - zoom_controls->zoom_in_button->width - gap;
+	zoom_controls->zoom_out_button->y = current_y;
+	
+	current_y += zoom_controls->zoom_out_button->height + spacing;
+	
+	zoom_controls->home_button->x = surface_width - zoom_controls->home_button->width - gap;
+	zoom_controls->home_button->y = current_y;
+}
+//---------------------------------------------------------- ZOOM CONTROLS END ------------------------------------------------
+
+//---------------------------------------------------------- ON SCREEN MAP BEGIN ----------------------------------------------
+static size_t count_selectable_nodes(map_sys_t map_sys){
+	size_t total_selectable_nodes = 0;
+	
+	for(size_t i = 0;i < get_map_node_count(map_sys.map);i++){
+		map_node_t * node_ref = get_node_by_index_from_map(map_sys.map,i,NULL);//TODO add err_ctx_t
+		if(node_ref->selectable) total_selectable_nodes++;
+	}
+	
+	return total_selectable_nodes;
+}
+
+on_screen_map_t init_on_screen_map(const char * map_file_path){
+	on_screen_map_t out;
 	
 	out.surface = NULL;
 	out.drawing_area = NULL;
 	out.idle_drawing_function_id = 0;
-	out.mouse_x = 0;
-	out.mouse_y = 0;
-	out.mouse_down = false;
-	out.p_mouse_down = false;
 	
-	out.buttons_capacity = DEFAULT_BUTTONS_CAPACITY;
-	out.n_buttons = 0;
-	out.buttons = (in_map_button_t**) malloc(sizeof(in_map_button_t*) * out.buttons_capacity);
+	out.mouse_state = init_mouse_state();
 	
-	out.zoom_in_button = create_map_button(40,40,&out);
-	out.zoom_out_button = create_map_button(40,40,&out);
-	out.home_button = create_map_button(40,40,&out);
+	out.map_sys = init_map_sys();
+	out.map_sys.map = load_map_from_file(map_file_path,NULL);//TODO err ctx
+	out.map_bounding_box = get_map_bounding_rect(out.map_sys.map);
 	
-	out.node_popup = create_node_popup(300,180,&out);
-	out.node_popup->x = 300;
-	out.node_popup->y = 300;
-	map_node_t * test_node = create_map_node(create_cord(-76.71372,39.25297));
-	set_map_node_name(test_node,"Northern door",NULL);//TODO err ctx
-	building_t * build = create_building("ITE",create_map_rect(create_cord(0,0),create_cord(1,1)),2,NULL);//TODO err ctx
-	set_map_node_building(test_node,build,NULL);//TODO err ctx
-	out.node_popup->node_reference = test_node;
+	out.screen_pan = init_screen_pan();
+	
+	out.button_collection = init_button_collection();
+	
+	out.zoom_controls = init_zoom_controls(&(out.button_collection));
+	
+	out.node_popup = init_node_popup(&(out.button_collection));
+	
+	out.n_on_screen_nodes = count_selectable_nodes(out.map_sys);
+	out.all_on_screen_nodes = (on_screen_node_t*) malloc(sizeof(on_screen_node_t) * out.n_on_screen_nodes);
+	size_t write_index = 0;
+	for(size_t i = 0; i < out.map_sys.map.n_nodes;i++){
+		map_node_t * node_ref = out.map_sys.map.all_nodes[i];
+		if(node_ref->selectable){
+			out.all_on_screen_nodes[write_index] = init_on_screen_node(node_ref,&(out.button_collection));
+			write_index++;
+		}
+	}
+	
+	out.start_pin = init_map_pin(0.2,0.4,1.0);
+	out.start_pin.visible = false;
+	out.end_pin = init_map_pin(1.0,0.0,0.0);
+	out.end_pin.visible = false;
 	
 	return out;
 }
 
-static void clear_map_surface(map_data_state_t * mds){
-	cairo_t * cr = cairo_create (mds->surface);
+static void clear_map_surface(on_screen_map_t * screen_map){
+	cairo_t * cr = cairo_create (screen_map->surface);
 
 	cairo_set_source_rgb (cr, 0.2, 0.8, 0.5);
 	cairo_paint (cr);
@@ -438,18 +830,270 @@ static void clear_map_surface(map_data_state_t * mds){
 	cairo_destroy (cr);
 }
 
-void draw_map_drawing_area_callback (GtkDrawingArea *drawing_area,cairo_t *cr, int width,int height,map_data_state_t * mds){
+static void set_to_edge_color_and_thickness(cairo_t * cr,const map_edge_t * edge,on_screen_map_t * screen_map){
+	uint8_t type = edge->type;
 	
-	clear_map_surface(mds);
+	if(type == EDGE_TYPE_SIDEWALK){
+		cairo_set_source_rgb(cr,1.0,1.0,0);
+	}else if(type == EDGE_TYPE_RAMP){
+		cairo_set_source_rgb(cr,1.0,0,1.0);
+	}else if(type == EDGE_TYPE_STAIRS){
+		cairo_set_source_rgb(cr,1.0,0.5,0.5);
+	}else if(type == EDGE_TYPE_ROAD){
+		cairo_set_source_rgb(cr,0.5,0.5,0.5);
+	}else{
+		cairo_set_source_rgb(cr,0,0,0);
+	}
 	
-	render_zoom_in_button(mds->zoom_in_button,mds);
-	render_zoom_out_button(mds->zoom_out_button,mds);
-	render_home_button(mds->home_button,mds);
+	double weight_factor = 1.0;
 	
-	render_node_popup(mds->node_popup,mds);
+	if(type == EDGE_TYPE_ROAD){
+		weight_factor = 3;
+	}else if(type == EDGE_TYPE_STAIRS){
+		weight_factor = 1.0;
+	}
 	
-	//map_draw_brush (mds);
+	cairo_set_line_width (cr, fmax(weight_factor*screen_map->screen_pan.zoom_current,weight_factor));
+}
+
+static void render_edges(on_screen_map_t * screen_map){
+	cairo_t * cr = cairo_create (screen_map->surface);
 	
-	cairo_set_source_surface (cr, mds->surface, 0, 0);
+	for(size_t i = 0;i < get_map_edge_count(screen_map->map_sys.map);i++){
+		const map_edge_t * edge = get_edge_by_index_from_map(screen_map->map_sys.map,i,NULL);//TODO err_ctx_t
+		const map_node_t * node_a = get_edge_node_a(edge,NULL);//TODO err_ctx_t
+		const map_node_t * node_b = get_edge_node_b(edge,NULL);//TODO err_ctx_t
+		
+		double start_x = 0,start_y = 0;
+		calculate_on_screen_pos(node_a->coordinate,&start_x,&start_y,screen_map->surface,screen_map->screen_pan,screen_map->map_bounding_box,screen_map->map_sys.map.scaling_y_factor);
+		double end_x = 0,end_y = 0;
+		calculate_on_screen_pos(node_b->coordinate,&end_x,&end_y,screen_map->surface,screen_map->screen_pan,screen_map->map_bounding_box,screen_map->map_sys.map.scaling_y_factor);
+		
+		cairo_move_to(cr,start_x,start_y);
+		cairo_line_to(cr,end_x,end_y);
+		set_to_edge_color_and_thickness(cr,edge,screen_map);
+		cairo_stroke(cr);
+	}
+	
+	cairo_destroy(cr);
+}
+
+static void render_mpo(const mpo_t * mpo,on_screen_map_t * screen_map){
+	cairo_t * cr = cairo_create (screen_map->surface);
+	
+	for(size_t j = 0;j < get_mpo_size(mpo,NULL);j++){//TODO err_ctx_t
+		
+		cord_t cord = get_mpo_cord(mpo,j,NULL);//TODO err_ctx_t
+		double x = 0.0,y = 0.0;
+		calculate_on_screen_pos(cord,&x,&y,screen_map->surface,screen_map->screen_pan,screen_map->map_bounding_box,screen_map->map_sys.map.scaling_y_factor);
+		
+		if(j == 0) cairo_move_to(cr,x,y);
+		else cairo_line_to(cr,x,y);
+	}
+	cairo_close_path(cr);
+	
+	cairo_set_source_rgba(cr,0.7,0.7,0.7,0.9);
+	cairo_fill_preserve(cr);
+	cairo_set_line_width (cr, fmax(screen_map->screen_pan.zoom_current,3));
+	cairo_set_source_rgb(cr,0,0,0);
+	cairo_stroke(cr);
+	
+	cairo_destroy(cr);
+}
+
+static void render_mpos(on_screen_map_t * screen_map){
+	for(size_t i = 0;i < get_map_mpo_count(screen_map->map_sys.map);i++){
+		const mpo_t * mpo = get_mpo_by_index_from_map(screen_map->map_sys.map,i,NULL);//TODO err_ctx_t
+		
+		render_mpo(mpo,screen_map);
+	}
+}
+
+static void render_selectable_nodes(on_screen_map_t * screen_map){
+	for(size_t i = 0;i < screen_map->n_on_screen_nodes;i++){
+		on_screen_node_t * screen_node = &(screen_map->all_on_screen_nodes[i]);
+		render_on_screen_node(screen_node,screen_map->surface,screen_map->screen_pan,screen_map->map_bounding_box,screen_map->map_sys.map.scaling_y_factor);
+	}
+}
+
+static void render_building_name(const building_t * building,on_screen_map_t * screen_map){
+	cairo_t * cr = cairo_create (screen_map->surface);
+	
+	const char * building_name = get_primary_building_name(building,NULL);//TODO err_ctx_t
+	
+	map_rect_t building_bounding_box = get_building_bounding_box(building,NULL);//TODO err_ctx_t
+	double bl_x = 0.0,tr_x = 0.0;
+	double bl_y = 0.0,tr_y = 0.0;
+	
+	calculate_on_screen_pos(building_bounding_box.bottom_left,&bl_x,&bl_y,screen_map->surface,screen_map->screen_pan,screen_map->map_bounding_box,screen_map->map_sys.map.scaling_y_factor);
+	calculate_on_screen_pos(building_bounding_box.top_right,&tr_x,&tr_y,screen_map->surface,screen_map->screen_pan,screen_map->map_bounding_box,screen_map->map_sys.map.scaling_y_factor);
+	
+	double mean_x = (bl_x + tr_x)*0.5;
+	double mean_y = (bl_y + tr_y)*0.5;
+	
+	double font_size = 5*screen_map->screen_pan.zoom_current;
+	cairo_set_font_size (cr, font_size);
+	
+	cairo_text_extents_t extents;
+	cairo_text_extents (cr, building_name , &extents);
+	
+	cairo_rectangle(cr,mean_x-extents.width/2,mean_y-font_size,extents.width,extents.height+font_size/2);
+	cairo_set_source_rgba(cr,1.0,1.0,1.0,0.6);
+	cairo_fill(cr);
+	
+	cairo_move_to (cr, mean_x-extents.width/2,mean_y);
+	cairo_set_source_rgb(cr,0,0,0);
+	cairo_show_text (cr, building_name);
+	
+	cairo_destroy(cr);
+}
+
+static void render_building_names(on_screen_map_t * screen_map){
+	for(size_t i = 0;i < get_map_building_count(screen_map->map_sys.map);i++){
+		const building_t * building = get_building_by_index_from_map(screen_map->map_sys.map,i,NULL);//TODO err_ctx_t
+		render_building_name(building,screen_map);
+	}
+}
+
+void render_on_screen_map_callback (GtkDrawingArea *drawing_area,cairo_t *cr, int width,int height,on_screen_map_t * screen_map){
+	clear_map_surface(screen_map);
+	
+	render_edges(screen_map);
+	render_mpos(screen_map);
+	render_selectable_nodes(screen_map);
+	render_building_names(screen_map);
+	
+	cairo_surface_t * surface = screen_map->surface;
+	screen_pan_t screen_pan = screen_map->screen_pan;
+	map_rect_t map_bounding_box = screen_map->map_bounding_box;
+	double scaling_y_factor = screen_map->map_sys.map.scaling_y_factor;
+	
+	render_node_popup(&(screen_map->node_popup),surface,screen_pan,map_bounding_box,scaling_y_factor);
+	
+	render_zoom_controls(&(screen_map->zoom_controls),surface);
+	
+	render_map_pin(&(screen_map->start_pin),surface,screen_pan,map_bounding_box,scaling_y_factor);
+	render_map_pin(&(screen_map->end_pin),surface,screen_pan,map_bounding_box,scaling_y_factor);
+	
+	cairo_set_source_surface (cr, screen_map->surface, 0, 0);
 	cairo_paint (cr);
+}
+
+void resize_on_screen_map_callback (GtkWidget *widget,int width,int height,on_screen_map_t * screen_map){
+	if (screen_map->surface != NULL){
+		cairo_surface_destroy (screen_map->surface);
+		screen_map->surface = NULL;
+	}
+
+	if (gtk_native_get_surface (gtk_widget_get_native (widget))){
+		screen_map->surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, gtk_widget_get_width (widget),gtk_widget_get_height (widget));
+	}
+	
+	recalculate_zoom_controls_position(&(screen_map->zoom_controls),width);
+}
+
+static void update_map_drag(on_screen_map_t * screen_map){
+	if(screen_map->surface == NULL) return;
+	
+	mouse_state_t mouse_state = screen_map->mouse_state;
+	screen_pan_t * screen_pan = &(screen_map->screen_pan);
+	double surface_width = cairo_image_surface_get_width(screen_map->surface);
+	double surface_height = cairo_image_surface_get_height(screen_map->surface);
+	
+	double delta_mouse_x = mouse_state.x - mouse_state.prev_x;
+	double delta_mouse_y = mouse_state.y - mouse_state.prev_y;
+	
+	if(mouse_state.down){
+		screen_pan->pan_x_final += delta_mouse_x/(screen_pan->zoom_current * surface_width);
+		screen_pan->pan_x_current = screen_pan->pan_x_final;
+		screen_pan->pan_y_final += delta_mouse_y/(screen_pan->zoom_current * surface_height);
+		screen_pan->pan_y_current = screen_pan->pan_y_final;
+	}
+}
+
+static void check_for_clicked_nodes(on_screen_map_t * screen_map){
+	for(size_t i = 0;i < screen_map->n_on_screen_nodes;i++){
+		on_screen_node_t * r_node = &(screen_map->all_on_screen_nodes[i]);
+		if(was_pressed_reset(r_node->button)){
+			notify_node_popup(&(screen_map->node_popup),r_node->node_reference);
+			break;
+		}
+	}
+}
+
+void on_screen_map_update(on_screen_map_t * screen_map){
+	bool mouse_over_button = update_button_collection(&(screen_map->button_collection),screen_map->mouse_state);
+	
+	update_map_pin(&screen_map->start_pin);
+	update_map_pin(&screen_map->end_pin);
+	
+	if(!mouse_over_button) update_map_drag(screen_map);
+	
+	update_zoom_controls(&(screen_map->zoom_controls),&(screen_map->screen_pan));
+	screen_pan_update(&(screen_map->screen_pan));
+	
+	check_for_clicked_nodes(screen_map);
+	
+	update_node_popup(&(screen_map->node_popup),&(screen_map->start_pin),&(screen_map->end_pin));
+	
+	mouse_state_step(&(screen_map->mouse_state));
+}
+
+void on_screen_map_clear_selection(on_screen_map_t * screen_map){
+	close_node_popup(&(screen_map->node_popup));
+	hide_map_pin(&(screen_map->start_pin));
+	hide_map_pin(&(screen_map->end_pin));
+}
+
+gboolean idle_draw_function(on_screen_map_t * screen_map) {
+	on_screen_map_update(screen_map);
+	gtk_widget_queue_draw(screen_map->drawing_area);
+	g_usleep(1000);
+	return G_SOURCE_CONTINUE;
+}
+//---------------------------------------------------------- ON SCREEN MAP END ------------------------------------------------
+
+void calculate_on_screen_pos(cord_t cord,double * out_x,double * out_y,cairo_surface_t * surface,screen_pan_t screen_pan,map_rect_t map_bounding_box,double scaling_y_factor){
+	double x = cord.longitude;
+	double y = cord.latitude;
+	
+	double bl_x = map_bounding_box.bottom_left.longitude;
+	double bl_y = map_bounding_box.bottom_left.latitude;
+	double tr_x = map_bounding_box.top_right.longitude;
+	double tr_y = map_bounding_box.top_right.latitude;
+	
+	double x_offset = (bl_x + tr_x)*0.5;
+	double y_offset = (bl_y + tr_y)*0.5;
+	
+	double map_wid_raw = tr_x - bl_x;
+	double map_hei_raw = tr_y - bl_y;
+	
+	double map_wid = map_wid_raw;
+	double map_hei = map_hei_raw*scaling_y_factor;
+	
+	double surface_wid = cairo_image_surface_get_width(surface);
+	double surface_hei = cairo_image_surface_get_height(surface);
+	
+	double screen_scale_factor = fmin(surface_wid, surface_hei);
+	double scale_factor = screen_scale_factor/fmax(map_wid,map_hei);
+	
+	double scale_x = scale_factor;
+	double scale_y = scale_factor*scaling_y_factor;
+	
+	x -= x_offset;
+	y -= y_offset;
+	
+	x *= scale_x*screen_pan.zoom_current;
+	y *= scale_y*screen_pan.zoom_current;
+	
+	x += surface_wid/2.0;
+	y += surface_hei/2.0;
+	
+	y = surface_hei - y;
+	
+	x += screen_pan.pan_x_current * screen_pan.zoom_current * cairo_image_surface_get_width(surface);
+	y += screen_pan.pan_y_current * screen_pan.zoom_current * cairo_image_surface_get_height(surface);
+	
+	*out_x = x;
+	*out_y = y;
 }

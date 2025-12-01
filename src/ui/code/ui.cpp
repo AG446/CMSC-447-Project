@@ -1,24 +1,16 @@
 #include "ui.h"
 #include "map_render.h"
 
-gboolean idle_draw_function(screen_data_state_t * sds) {
-	gtk_widget_queue_draw(sds->map_data_state.drawing_area);
-	map_update(&(sds->map_data_state));
-	g_usleep(1000);
-	return G_SOURCE_CONTINUE;
-}
-
 static void map_pointer_motion_event (GtkEventController *gesture,gdouble x,gdouble y,screen_data_state_t * sds){
-	sds->map_data_state.mouse_x = x;
-	sds->map_data_state.mouse_y = y;
+	set_mouse_position(&(sds->on_screen_map.mouse_state),x,y);
 }
 
 static void map_mouse_pressed (GtkGestureClick * gesture,int n_press,double x,double y,screen_data_state_t * sds){
-	sds->map_data_state.mouse_down = true;
+	set_mouse_button_down(&(sds->on_screen_map.mouse_state),true);
 }
 
 static void map_mouse_released (GtkGestureClick * gesture,gint n_press,gdouble x,gdouble y,screen_data_state_t * sds){
-	sds->map_data_state.mouse_down = false;
+	set_mouse_button_down(&(sds->on_screen_map.mouse_state),false);
 }
 
 screen_data_state_t init_screen_data_state(void){
@@ -31,7 +23,7 @@ screen_data_state_t init_screen_data_state(void){
 	out.hide_interior_locations = true;
 	out.path_finder_strategy = 0;
 	
-	out.map_data_state = init_map_data_state();
+	out.on_screen_map = init_on_screen_map("assets/maps/campus.map");
 	
 	out.window = NULL;
 	
@@ -178,7 +170,11 @@ static GtkWidget * create_dropdown_option_box(const char * dropdown_name,const c
 	return box;
 }
 
-static GtkWidget * create_go_clear_button_box(){
+static void clear_button_clicked_callback(GtkButton * self,screen_data_state_t * sds){
+	on_screen_map_clear_selection(&(sds->on_screen_map));
+}
+
+static GtkWidget * create_go_clear_button_box(screen_data_state_t * sds){
 	
 	GtkWidget * go_button = gtk_button_new_with_label("GO");
 	{
@@ -194,6 +190,7 @@ static GtkWidget * create_go_clear_button_box(){
 		gtk_widget_set_name(clear_button, "clear-button");
 		gtk_widget_set_hexpand(clear_button,TRUE);
 		gtk_widget_set_vexpand(clear_button,FALSE);
+		g_signal_connect(clear_button,"clicked",G_CALLBACK(clear_button_clicked_callback),sds);
 	}
 	
 	GtkWidget * go_clear_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -268,6 +265,10 @@ static GtkWidget * create_options_frame(screen_data_state_t * sds){
 		g_signal_connect(help_button,"clicked",G_CALLBACK(help_button_clicked),sds);
 	}
 	
+	GtkWidget * google_form_link = gtk_link_button_new_with_label ("https://forms.gle/xDagBdgFJ7LyttHg6","Link to Feedback Form");
+	GtkWidget * phone_number_info = gtk_label_new("Call this number to request repairs:");
+	GtkWidget * phone_number_label = gtk_label_new("(410) 455-2550");
+	
 	GtkWidget * options_top_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
 	{
 		gtk_widget_set_valign(options_top_box,GTK_ALIGN_START);
@@ -275,13 +276,17 @@ static GtkWidget * create_options_frame(screen_data_state_t * sds){
 		
 		gtk_box_append(GTK_BOX(options_top_box), help_button);
 		
+		gtk_box_append(GTK_BOX(options_top_box), phone_number_info);
+		gtk_box_append(GTK_BOX(options_top_box), phone_number_label);
+		gtk_box_append(GTK_BOX(options_top_box), google_form_link);
+		
 		gtk_box_append(GTK_BOX(options_top_box), hide_non_auto_door_option);
 		gtk_box_append(GTK_BOX(options_top_box), hide_interior_option);
 	}
 	
 	GtkWidget * path_finder_strategy_dropdown = create_dropdown_option_box("Path Finder Strategy",path_finder_strategy_option_strings,G_CALLBACK(path_finder_dropdown_callback),sds);
 	
-	GtkWidget * go_clear_box = create_go_clear_button_box();
+	GtkWidget * go_clear_box = create_go_clear_button_box(sds);
 	
 	GtkWidget * options_bottom_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
 	{
@@ -324,11 +329,11 @@ static GtkWidget * create_map_frame(screen_data_state_t * sds){
 	}
 	
 	GtkWidget * map_drawing_area = gtk_drawing_area_new ();
-	sds->map_data_state.idle_drawing_function_id = g_idle_add((GSourceFunc)idle_draw_function,sds);
-	sds->map_data_state.drawing_area = map_drawing_area;
+	sds->on_screen_map.idle_drawing_function_id = g_idle_add((GSourceFunc)idle_draw_function,&(sds->on_screen_map));
+	sds->on_screen_map.drawing_area = map_drawing_area;
 	{
-		gtk_drawing_area_set_draw_func (GTK_DRAWING_AREA (map_drawing_area), (GtkDrawingAreaDrawFunc)(draw_map_drawing_area_callback), &(sds->map_data_state), NULL);
-		g_signal_connect_after (GTK_DRAWING_AREA (map_drawing_area), "resize", G_CALLBACK (resize_map_drawing_area_callback), &(sds->map_data_state));
+		gtk_drawing_area_set_draw_func (GTK_DRAWING_AREA (map_drawing_area), (GtkDrawingAreaDrawFunc)(render_on_screen_map_callback), &(sds->on_screen_map), NULL);
+		g_signal_connect_after (GTK_DRAWING_AREA (map_drawing_area), "resize", G_CALLBACK (resize_on_screen_map_callback), &(sds->on_screen_map));
 	}
 	
 	GtkEventController * mouse_move = gtk_event_controller_motion_new();
@@ -361,9 +366,9 @@ static GtkWidget * create_map_frame(screen_data_state_t * sds){
 }
 
 gboolean window_close_request_callback(GtkWindow* self,screen_data_state_t * sds){
-	if (sds->map_data_state.idle_drawing_function_id != 0) {
-		g_source_remove(sds->map_data_state.idle_drawing_function_id);
-		sds->map_data_state.idle_drawing_function_id = 0;
+	if (sds->on_screen_map.idle_drawing_function_id != 0) {
+		g_source_remove(sds->on_screen_map.idle_drawing_function_id);
+		sds->on_screen_map.idle_drawing_function_id = 0;
 	}
 	return FALSE;
 }
