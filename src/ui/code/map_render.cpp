@@ -855,6 +855,7 @@ on_screen_map_t init_on_screen_map(const char * map_file_path){
 	
 	out.hide_non_auto_doors = false;
 	on_screen_map_set_hide_non_auto_doors(&out,out.hide_non_auto_doors);
+	out.show_building_names = true;
 	
 	out.start_pin = init_map_pin(0.2,0.4,1.0);
 	out.start_pin.visible = false;
@@ -1001,6 +1002,8 @@ static void render_building_name(const building_t * building,on_screen_map_t * s
 }
 
 static void render_building_names(on_screen_map_t * screen_map){
+	if(!screen_map->show_building_names) return;
+	
 	for(size_t i = 0;i < get_map_building_count(screen_map->map_sys.map);i++){
 		const building_t * building = get_building_by_index_from_map(screen_map->map_sys.map,i,NULL);//TODO err_ctx_t
 		render_building_name(building,screen_map);
@@ -1253,6 +1256,10 @@ static void update_on_screen_node_visibility(on_screen_map_t * screen_map){
 void on_screen_map_set_hide_non_auto_doors(on_screen_map_t * screen_map,bool hide){
 	screen_map->hide_non_auto_doors = hide;
 	update_on_screen_node_visibility(screen_map);
+}
+
+void on_screen_map_set_show_building_names(on_screen_map_t * screen_map,bool show){
+	screen_map->show_building_names = show;
 }
 
 gboolean idle_draw_function(on_screen_map_t * screen_map) {

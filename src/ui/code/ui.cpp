@@ -19,8 +19,6 @@ screen_data_state_t init_screen_data_state(void){
 	out.start_location_text = NULL;
 	out.end_location_text = NULL;
 	
-	out.hide_interior_locations = true;
-	
 	out.path_finder_strategy_index = 0;
 	
 	out.on_screen_map = init_on_screen_map("assets/maps/campus.map");
@@ -41,7 +39,7 @@ void screen_data_state_to_output_stream(screen_data_state_t state,FILE * stream)
 	fputc('\n',stream);
 	
 	fprintf(stream,"Hide Non Auto Doors: %d\n",state.on_screen_map.hide_non_auto_doors);
-	fprintf(stream,"Hide Interior Locations: %d\n",state.hide_interior_locations);
+	fprintf(stream,"Show Building Names: %d\n",state.on_screen_map.show_building_names);
 	
 	fputs("Path Finder Strategy: ",stream);
 	fputs(path_strategies[state.path_finder_strategy_index]->strategy_name,stream);
@@ -170,10 +168,21 @@ static GtkWidget * create_dropdown_option_box(const char * dropdown_name,const c
 
 static void clear_button_clicked_callback(GtkButton * self,screen_data_state_t * sds){
 	on_screen_map_clear_selection(&(sds->on_screen_map));
+	
+	GtkTextBuffer * text_buffer = gtk_text_buffer_new (NULL);
+	gtk_text_buffer_set_text (text_buffer,"",-1);
+	gtk_text_view_set_buffer (GTK_TEXT_VIEW(sds->text_view),text_buffer);
 }
 
 static void go_button_clicked_callback(GtkButton * self,screen_data_state_t * sds){
 	on_screen_map_find_path(&(sds->on_screen_map),path_strategies[sds->path_finder_strategy_index]->edge_cost_function);
+	if(sds->on_screen_map.map_sys.active_path == NULL) return;
+	char * path_text = convert_path_to_directions_str(sds->on_screen_map.map_sys.active_path, NULL);//TODO err_ctx_t
+	if(path_text == NULL) return;
+	
+	GtkTextBuffer * text_buffer = gtk_text_buffer_new (NULL);
+	gtk_text_buffer_set_text (text_buffer,path_text,-1);
+	gtk_text_view_set_buffer (GTK_TEXT_VIEW(sds->text_view),text_buffer);
 }
 
 static GtkWidget * create_go_clear_button_box(screen_data_state_t * sds){
@@ -215,8 +224,9 @@ static gboolean hide_non_auto_doors_switch_state_set_callback(GtkSwitch * self,g
 	return FALSE;
 }
 
-static gboolean hide_interior_locations_switch_state_set_callback(GtkSwitch * self,gboolean state,screen_data_state_t * sds){
-	sds->hide_interior_locations = state;
+static gboolean show_building_names_switch_state_set_callback(GtkSwitch * self,gboolean state,screen_data_state_t * sds){
+	on_screen_map_set_show_building_names(&(sds->on_screen_map),state);
+	
 	screen_data_state_to_output_stream(*sds,stdout);
 	return FALSE;
 }
@@ -227,13 +237,14 @@ static void path_finder_dropdown_callback(GtkDropDown * self,GParamSpec* pspec, 
 }
 
 const char* HELP_DIALOG_CONTENT = 
-"<big>Welcome to the UMBC Interactive Accessibility Map!</big>\n\n"
+"<big>Welcome to UMBC Navigator!</big>\n\n"
 "This map is designed to help you navigate campus by pathfinding using accessibly-modified doors, elevators, and ramps. It does so by calculating the shortest path to take from any location on campus to another!\n\n"
-"Start by inputting a **source location**. This could be anywhere on campus - you can either select a location on the map to the left by clicking on it, or you can type in a building or abbreviation in the search bar on the right.\n\n"
-"Next, input a **destination**. It's just like before! Choose anywhere else you'd like to go on the map, either by clicking on it or by searching it up.\n\n"
-"Finally, press the **Calculate** button, and the rest will go on its own! You can see the route the algorithm generated on the map, or you can read from the instructions below to understand where it wants you to go!\n\n"
-"When you're finished, you can save that route by clicking the **Save** button at the bottom. If you ever want to see it again, select the **Saved Routes** button and you'll be able to see a list of the routes you have saved before. Just pick it, and it will instantly reload back onto the screen like before!\n\n"
-"Thanks for using our app! If you have any feedback you'd like for us to know, feel free to use the QR code at the bottom to help us make the app better for you!)\n\n";
+"Start by inputting a source location. This could be anywhere on campus - you can either select a location on the map to the left by clicking on it, or you can type in a building or abbreviation in the search bar on the right. Sources are indicated with blue.\n\n"
+"Next, input a destination. It's just like before! Choose anywhere else you'd like to go on the map, either by clicking on it or by searching it up. Destinations are indicated with red.\n\n"
+"Finally, press the Go button, and the rest will happen on its own! You can see the route the algorithm generated on the map, or you can read from the instructions on the right to understand where it wants you to go!\n\n"
+"Along the options sidebar on the right, we have many options for you to choose from. You can choose to toggle visual features on the map, or you can change the strategy used between calculating routes that use elevators only, preferring elevators (but still with some stairs), or stairs be prioritized over elevators.\n\n"
+"If, along your travels, you run into an accessible passageway, like a door or elevator, that does not appear in functioning order, feel free to call the number on the side of the application. This is the official UMBC number to call to request a work order to be put in to repair that item as soon as possible.\n\n"
+"Thanks for using our app! If you have any feedback you'd like for us to know, feel free to click the link button on the side to help us make the app better for you!\n\n";
 
 static void help_button_clicked (GtkButton* self,screen_data_state_t * sds){
 	GtkWidget *dialog;
@@ -256,7 +267,7 @@ static void help_button_clicked (GtkButton* self,screen_data_state_t * sds){
 
 static GtkWidget * create_options_frame(screen_data_state_t * sds){
 	GtkWidget * hide_non_auto_door_option = create_toggle_option_box("Hide Non-Automatic Doors",sds->on_screen_map.hide_non_auto_doors,G_CALLBACK(hide_non_auto_doors_switch_state_set_callback),sds);
-	GtkWidget * hide_interior_option = create_toggle_option_box("Hide Interior Locations",sds->hide_interior_locations,G_CALLBACK(hide_interior_locations_switch_state_set_callback),sds);
+	GtkWidget * hide_interior_option = create_toggle_option_box("Show Building Names",sds->on_screen_map.show_building_names,G_CALLBACK(show_building_names_switch_state_set_callback),sds);
 	
 	GtkWidget * help_button = gtk_button_new();
 	{
@@ -273,10 +284,25 @@ static GtkWidget * create_options_frame(screen_data_state_t * sds){
 	GtkWidget * phone_number_info = gtk_label_new("Call this number to request repairs:");
 	GtkWidget * phone_number_label = gtk_label_new("(410) 455-2550");
 	
+	
+	GtkWidget * text_view = gtk_text_view_new();
+	{
+		gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(text_view),GTK_WRAP_WORD);
+		gtk_widget_set_vexpand(text_view,TRUE);
+		sds->text_view = text_view;
+	}
+	
+	GtkWidget * scrolled_window = gtk_scrolled_window_new();
+	{
+		gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+		gtk_widget_set_vexpand(scrolled_window, TRUE);
+		gtk_widget_set_hexpand(scrolled_window, TRUE);
+		gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window), text_view);
+	}
+	
 	GtkWidget * options_top_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
 	{
-		gtk_widget_set_valign(options_top_box,GTK_ALIGN_START);
-		gtk_widget_set_vexpand(options_top_box,FALSE);
+		gtk_widget_set_vexpand(options_top_box,TRUE);
 		
 		gtk_box_append(GTK_BOX(options_top_box), help_button);
 		
@@ -286,6 +312,8 @@ static GtkWidget * create_options_frame(screen_data_state_t * sds){
 		
 		gtk_box_append(GTK_BOX(options_top_box), hide_non_auto_door_option);
 		gtk_box_append(GTK_BOX(options_top_box), hide_interior_option);
+		
+		gtk_box_append(GTK_BOX(options_top_box), scrolled_window);
 	}
 	
 	const char * path_finder_strategy_option_strings[N_PATH_STRATEGIES+1];
@@ -297,18 +325,17 @@ static GtkWidget * create_options_frame(screen_data_state_t * sds){
 	
 	GtkWidget * options_bottom_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
 	{
-		gtk_widget_set_vexpand(options_bottom_box,FALSE);
 		gtk_box_append(GTK_BOX(options_bottom_box), path_finder_strategy_dropdown);
 		gtk_box_append (GTK_BOX (options_bottom_box), go_clear_box);
 		gtk_widget_set_valign(options_bottom_box,GTK_ALIGN_END);
+		gtk_widget_set_vexpand(options_bottom_box,FALSE);
 	}
 	
-	GtkWidget * options_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+	GtkWidget * options_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
 	{
 		gtk_widget_set_vexpand(options_box,TRUE);
 		gtk_box_append (GTK_BOX (options_box), options_top_box);
 		gtk_box_append (GTK_BOX (options_box), options_bottom_box);
-		gtk_box_set_homogeneous(GTK_BOX (options_box),TRUE);
 	}
 	
 	GtkWidget * options_frame_label = gtk_label_new ("Options");
@@ -323,6 +350,7 @@ static GtkWidget * create_options_frame(screen_data_state_t * sds){
 		
 		gtk_widget_set_name(options_frame,"options-frame");
 		gtk_widget_set_hexpand(options_frame,FALSE);
+		gtk_widget_set_vexpand(options_frame,TRUE);
 		gtk_frame_set_child(GTK_FRAME(options_frame),options_box);
 	}
 	
@@ -380,6 +408,9 @@ gboolean window_close_request_callback(GtkWindow* self,screen_data_state_t * sds
 	return FALSE;
 }
 
+#define WINDOW_WIDTH 1200
+#define WINDOW_HEIGHT 1080
+
 void create_window (GtkApplication *app,screen_data_state_t * sds){
 	GtkCssProvider *css_provider = gtk_css_provider_new();
 	{
@@ -414,7 +445,7 @@ void create_window (GtkApplication *app,screen_data_state_t * sds){
 	GtkWidget * window = gtk_application_window_new (app);
 	{
 		gtk_window_set_title (GTK_WINDOW (window), "UMBC Navigator");
-		gtk_window_set_default_size (GTK_WINDOW (window), 1024, 768);
+		gtk_window_set_default_size (GTK_WINDOW (window), WINDOW_WIDTH, WINDOW_HEIGHT);
 		gtk_window_set_child (GTK_WINDOW (window), screen_box);
 		gtk_window_present (GTK_WINDOW (window));
 		g_signal_connect(window, "close-request", G_CALLBACK(window_close_request_callback), sds);

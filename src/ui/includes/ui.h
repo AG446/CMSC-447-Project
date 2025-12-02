@@ -22,12 +22,12 @@ struct Screen_Data_State{
 	char * start_location_text;
 	char * end_location_text;
 	
-	bool hide_interior_locations;
 	unsigned int path_finder_strategy_index;
 	
 	on_screen_map_t on_screen_map;
 	
 	GtkWidget * window;
+	GtkWidget * text_view;
 };
 
 screen_data_state_t init_screen_data_state(void);

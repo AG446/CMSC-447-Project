@@ -15,10 +15,6 @@
 #include <float.h>
 #include <math.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 /**
  * @brief Safely appends a string to a dynamic buffer, handling realloc and NULL dest.
  */
@@ -201,7 +197,7 @@ char * convert_path_to_directions_str(const map_path_t * path, err_ctx_t * ctx) 
 	
 	// --- End Declarations ---
 
-	if (path == NULL || path->n_nodes < 2 || path->n_edges < 1 || ctx == NULL) {
+	if (path == NULL || path->n_nodes < 2 || path->n_edges < 1) {
 		if (ctx) ctx->flags |= ERROR_INVALID_PARAM;
 		return NULL;
 	}

@@ -1962,9 +1962,9 @@ double calculate_deliverer_edge_cost(const map_edge_t * edge_ref,double scaling_
 	return length*scaler;
 }
 
-path_strategy_t walker_path_strategy = {"walker",calculate_walker_edge_cost};
-path_strategy_t wheelchair_path_strategy = {"wheelchair",calculate_wheelchair_edge_cost};
-path_strategy_t deliverer_path_strategy = {"deliverer",calculate_deliverer_edge_cost};
+path_strategy_t walker_path_strategy = {"Include Stairs",calculate_walker_edge_cost};
+path_strategy_t wheelchair_path_strategy = {"Elevators Only",calculate_wheelchair_edge_cost};
+path_strategy_t deliverer_path_strategy = {"Prefer Elevators",calculate_deliverer_edge_cost};
 
 path_strategy_t * path_strategies[N_PATH_STRATEGIES] = {&walker_path_strategy,&wheelchair_path_strategy,&deliverer_path_strategy};
 

@@ -329,6 +329,9 @@ struct On_Screen_Map{
 	//node visibility options
 	bool hide_non_auto_doors;
 	
+	//set visibility of building names
+	bool show_building_names;
+	
 	//colletion of all buttons
 	button_collection_t button_collection;
 	
@@ -357,6 +360,9 @@ void on_screen_map_find_path(on_screen_map_t * screen_map,edge_cost_function_f e
 
 //update which on-screen nodes are visible
 void on_screen_map_set_hide_non_auto_doors(on_screen_map_t * screen_map,bool hide);
+
+//set whether building names are visible
+void on_screen_map_set_show_building_names(on_screen_map_t * screen_map,bool show);
 
 //looping idle function to continously render the map
 gboolean idle_draw_function(on_screen_map_t * screen_map);
