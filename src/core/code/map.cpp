@@ -441,7 +441,7 @@ const char * get_map_node_picture(const map_node_t * node,err_ctx_t * ctx){
 	return node->picture_file_path;
 }
 
-bool node_adjacent_to_auto_door(map_node_t * node,err_ctx_t * ctx){
+bool node_adjacent_to_auto_door(const map_node_t * node,err_ctx_t * ctx){
 	if(node == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
 		return false;
@@ -475,6 +475,33 @@ int8_t get_map_node_floor_number(const map_node_t * node,err_ctx_t * ctx){
 	}
 	
 	return node->floor_number;
+}
+
+char * get_map_node_floor_number_name(const map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	uint8_t fln = node->floor_number;
+	
+	if(fln == NODE_FLOOR_NUMBER_NONE){
+		return strdup("(None)");
+	}else if(fln == NODE_FLOOR_NUMBER_BASEMENT){
+		return strdup("(B)");
+	}else if(fln == NODE_FLOOR_NUMBER_LOBBY){
+		return strdup("(L)");
+	}else if(fln == NODE_FLOOR_NUMBER_MEZZANINE){
+		return strdup("(M)");
+	}else if(fln == NODE_FLOOR_NUMBER_LOWER_LEVEL){
+		return strdup("(LL)");
+	}else if(fln == NODE_FLOOR_NUMBER_GROUND){
+		return strdup("(G)");
+	}else{
+		char * num_str = (char*) malloc(8);
+		sprintf(num_str,"%d",fln);
+		return num_str;
+	}
 }
 
 void clear_map_node_floor_number(map_node_t * node,err_ctx_t * ctx){
@@ -511,6 +538,15 @@ void set_map_node_building(map_node_t * node,building_t * building,err_ctx_t * c
 	}
 	
 	node->associated_building = building;
+}
+
+building_t * get_map_node_building(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	return node->associated_building;
 }
 
 void clear_map_node_building(map_node_t * node,err_ctx_t * ctx){
@@ -1868,6 +1904,27 @@ void deinit_map_sys(map_sys_t * sys,err_ctx_t * ctx){
 	deinit_map(&(sys->map),ctx);
 }
 
+double calculate_walker_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx){
+	double length = get_edge_length(edge_ref,scaling_y_factor,ctx);
+	
+	double scaler = 1.0;
+	uint8_t edge_type = edge_ref->type;
+	
+	if(edge_type == EDGE_TYPE_ROAD){
+		scaler = 2.0;
+	}else if(edge_type == EDGE_TYPE_STAIRS){
+		scaler = 1.2;
+	}else if(edge_type == EDGE_TYPE_DOOR){
+		scaler = 1.5;
+	}else if(edge_type == EDGE_TYPE_AUTO_DOOR){
+		scaler = 1.2;
+	}else if(edge_type == EDGE_TYPE_CONSTRUCTION){
+		scaler = DBL_MAX;
+	}
+	
+	return length*scaler;
+}
+
 double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx){
 	double length = get_edge_length(edge_ref,scaling_y_factor,ctx);
 	
@@ -1892,6 +1949,33 @@ double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,double scaling
 	
 	return length*scaler;
 }
+
+double calculate_deliverer_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx){
+	double length = get_edge_length(edge_ref,scaling_y_factor,ctx);
+	
+	double scaler = 1.0;
+	uint8_t edge_type = edge_ref->type;
+	
+	if(edge_type == EDGE_TYPE_ROAD){
+		scaler = 2.0;
+	}else if(edge_type == EDGE_TYPE_STAIRS){
+		scaler = 20.0;
+	}else if(edge_type == EDGE_TYPE_DOOR){
+		scaler = 10.0;
+	}else if(edge_type == EDGE_TYPE_CROSSWALK){
+		scaler = 2.0;
+	}else if(edge_type == EDGE_TYPE_CONSTRUCTION){
+		scaler = DBL_MAX;
+	}
+	
+	return length*scaler;
+}
+
+path_strategy_t walker_path_strategy = {"Include Stairs",calculate_walker_edge_cost};
+path_strategy_t wheelchair_path_strategy = {"Elevators Only",calculate_wheelchair_edge_cost};
+path_strategy_t deliverer_path_strategy = {"Prefer Elevators",calculate_deliverer_edge_cost};
+
+path_strategy_t * path_strategies[N_PATH_STRATEGIES] = {&walker_path_strategy,&wheelchair_path_strategy,&deliverer_path_strategy};
 
 prior_q_t create_prior_q(void){
 	prior_q_t out;
@@ -1952,16 +2036,12 @@ map_node_t * dequeue(prior_q_t * prior_queue,err_ctx_t * ctx){
 	return out;
 }
 
-/*
-static void show_queue(prior_q_t queue,err_ctx_t * ctx){
-	fputs("\n\nQueue State:\n\n",stdout);
-	for(size_t i = 0;i < queue.q_size;i++){
-		map_node_to_output_stream(queue.queue[i],0,stdout,ctx);
-	}
-}
-*/
-
 void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx){
+	if(map_sys->active_path != NULL) {//delete old path
+		delete_map_path(map_sys->active_path);
+		map_sys->active_path = NULL;
+	}
+	
 	for(size_t i = 0;i < map_sys->map.n_nodes;i++){
 		map_node_t * current = map_sys->map.all_nodes[i];
 		current->cost_temp = DBL_MAX;
@@ -2069,4 +2149,98 @@ map_rect_t get_map_bounding_rect(const map_t map){
 	}
 	
 	return create_map_rect(create_cord(min_x,min_y),create_cord(max_x,max_y));
+}
+
+void deinit_search_results(search_results_t * search_results){
+	if(search_results == NULL) return;
+	
+	if(search_results->results != NULL) free(search_results->results);
+}
+
+struct Node_Score{
+	float score;
+	map_node_t * node;
+};
+
+static int node_score_comp(const void * a, const void * b) {
+	struct Node_Score * a_si = (struct Node_Score *) a;
+	struct Node_Score * b_si = (struct Node_Score *) b;
+	
+	if(a_si->score > b_si->score) return -1;
+	else if(a_si->score < b_si->score) return 1;
+	else return 0;
+}
+
+char get_first_nonzero_digit(const char *str) {
+	if (str == NULL) {
+		return '\0';
+	}
+	while (*str != '\0') {
+		if (isdigit((unsigned char)*str) && *str != '0') {
+			return *str;
+		}
+		str++;
+	}
+	return '\0';
+}
+
+search_results_t get_nodes_with_closest_match(map_t map,const char * query){
+	struct Node_Score top_matches[MAX_SEARCH_RESPONSES];
+	
+	for(size_t i = 0;i < MAX_SEARCH_RESPONSES;i++){
+		top_matches[i] = {0.0f,NULL};
+	}
+	
+	for(size_t i = 0;i < get_map_node_count(map);i++){
+		map_node_t * current_node = get_node_by_index_from_map(map,i,NULL);//TODO add err_ctx_t
+		const char * current_node_name = get_map_node_name(current_node,NULL);//TODO add err_ctx_t
+		
+		if(current_node_name == NULL) continue;
+		
+		float similarity_score = 0.0;
+		similarity_score += phrase_similarity_score(query,current_node_name);
+		
+		building_t * building = get_map_node_building(current_node,NULL);//TODO add err_ctx_t
+		if(building != NULL){
+			for(size_t j = 0;j < building->n_possible_names;j++){
+				similarity_score += phrase_similarity_score(query,building->possible_names[j]);
+			}
+		}
+		
+		char * floor_number_name = get_map_node_floor_number_name(current_node,NULL);//TODO add err_ctx_t
+		similarity_score += phrase_similarity_score(query,floor_number_name);
+		
+		char digit = get_first_nonzero_digit(query);
+		if(digit == floor_number_name[0]) similarity_score+=2;
+		
+		free(floor_number_name);
+		
+		for(size_t j = 0;j < MAX_SEARCH_RESPONSES;j++){
+			if(similarity_score > top_matches[j].score){
+				top_matches[j] = {similarity_score,current_node};
+				break;
+			}
+		}
+	}
+	
+	qsort(top_matches, MAX_SEARCH_RESPONSES, sizeof(struct Node_Score), node_score_comp);
+	
+	size_t n_results_found = 0;
+	
+	for(size_t i = 0;i < MAX_SEARCH_RESPONSES;i++) if(top_matches[i].node != NULL) n_results_found++;
+	
+	search_results_t out;
+	
+	out.n_results = n_results_found;
+	
+	if(n_results_found == 0){
+		out.results = NULL;
+	}else{
+		out.results = (map_node_t**) malloc(sizeof(map_node_t*) * out.n_results);
+		for(size_t i = 0;i < n_results_found;i++){
+			out.results[i] = top_matches[i].node;
+		}
+	}
+	
+	return out;
 }

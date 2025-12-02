@@ -25,6 +25,26 @@ typedef struct On_Screen_Node on_screen_node_t;
 typedef struct Screen_Pan screen_pan_t;
 typedef struct Mouse_State mouse_state_t;
 typedef struct Zoom_Controls zoom_controls_t;
+typedef struct Flt_Color flt_color_t;
+
+//---------------------------------------------------------- FLT COLOR BEGIN --------------------------------------------------
+struct Flt_Color{
+	const char * color_name;
+	double r,g,b,a;
+};
+
+void set_color(cairo_t * cr,flt_color_t color);
+
+extern flt_color_t sidewalk_clr;
+extern flt_color_t ramp_clr;
+extern flt_color_t stairs_clr;
+extern flt_color_t road_clr;
+extern flt_color_t construction_clr;
+extern flt_color_t crosswalk_clr;
+
+#define N_COLOR_KEYS 6
+extern flt_color_t * color_keys[N_COLOR_KEYS];
+//---------------------------------------------------------- FLT COLOR END ----------------------------------------------------
 
 //---------------------------------------------------------- MOUSE STATE BEGIN ------------------------------------------------
 /*
@@ -303,8 +323,21 @@ struct On_Screen_Map{
 	on_screen_node_t * all_on_screen_nodes;
 	size_t n_on_screen_nodes;
 	
+	//animation for the path
+	double path_animation_transition;
+	
+	//node visibility options
+	bool hide_non_auto_doors;
+	
+	//set visibility of building names
+	bool show_building_names;
+	
 	//colletion of all buttons
 	button_collection_t button_collection;
+	
+	gint64 last_micros;
+	gint64 micros_debt;
+	gint64 delay_time;
 };
 
 //initialize the on screen map
@@ -321,6 +354,23 @@ void on_screen_map_update(on_screen_map_t * screen_map);
 
 //clear the start and end location pin and close popup. Triggered with CLEAR (off-map) button.
 void on_screen_map_clear_selection(on_screen_map_t * screen_map);
+
+//calculate the path from the start pin to the end pin
+void on_screen_map_find_path(on_screen_map_t * screen_map,edge_cost_function_f edge_cost_function);
+
+//update which on-screen nodes are visible
+void on_screen_map_set_hide_non_auto_doors(on_screen_map_t * screen_map,bool hide);
+
+//set whether building names are visible
+void on_screen_map_set_show_building_names(on_screen_map_t * screen_map,bool show);
+
+//notify that a start node was selected
+void on_screen_map_notify_start(on_screen_map_t * screen_map,map_node_t * start);
+
+//notify that an end node was selected
+void on_screen_map_notify_end(on_screen_map_t * screen_map,map_node_t * end);
+
+void on_screen_map_update_focus(on_screen_map_t * screen_map,map_node_t * node);
 
 //looping idle function to continously render the map
 gboolean idle_draw_function(on_screen_map_t * screen_map);

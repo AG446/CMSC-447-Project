@@ -28,6 +28,10 @@ typedef struct Map_Path map_path_t;
 typedef struct Building building_t;
 typedef struct Priority_Queue prior_q_t;
 typedef struct Map_System map_sys_t;
+typedef struct Path_Strategy path_strategy_t;
+typedef struct Search_Results search_results_t;
+
+typedef double (*edge_cost_function_f)(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx);
 
 //---------------------------------------------------------- GEOMETRY PRIMITIVES BEGIN ------------------------------------------------
 //this constant is specific to UMBC (TODO make part of map file)
@@ -190,6 +194,22 @@ void building_to_output_stream(const building_t * building,size_t tabs,FILE * st
  * If your outside it does not make sense to assign a floor number to a node.
  */
 #define NODE_FLOOR_NUMBER_NONE -128
+
+//basement magic floor number
+#define NODE_FLOOR_NUMBER_BASEMENT 60
+
+//lobby floor number
+#define NODE_FLOOR_NUMBER_LOBBY 61
+
+//Mezzanine floor number
+#define NODE_FLOOR_NUMBER_MEZZANINE 62
+
+//Lower level floor number
+#define NODE_FLOOR_NUMBER_LOWER_LEVEL 63
+
+//Ground floor number
+#define NODE_FLOOR_NUMBER_GROUND 0
+
 /*
  * A node/location on the map with some details
  */
@@ -263,6 +283,9 @@ void set_map_node_floor_number(map_node_t * node,int8_t floor_number,err_ctx_t *
 //get the floor number of a node if applicable
 int8_t get_map_node_floor_number(const map_node_t * node,err_ctx_t * ctx);
 
+//get the floor number as a string. Will need to be freed
+char * get_map_node_floor_number_name(const map_node_t * node,err_ctx_t * ctx);//TODO TEST
+
 //If a node doesn't have a floor number, like those outside then clear it
 void clear_map_node_floor_number(map_node_t * node,err_ctx_t * ctx);
 
@@ -275,6 +298,9 @@ bool get_map_node_selectable(const map_node_t * node,err_ctx_t * ctx);
 //Set the building in which the node resides.
 void set_map_node_building(map_node_t * node,building_t * building,err_ctx_t * ctx);
 
+//Get the building that the node resides in if it exists, otherwise return NULL
+building_t * get_map_node_building(map_node_t * node,err_ctx_t * ctx);//TODO add tests
+
 //If you accidently assigned a building to a node you can clear it.
 void clear_map_node_building(map_node_t * node,err_ctx_t * ctx);
 
@@ -285,7 +311,7 @@ void set_map_node_cord(map_node_t * node,cord_t new_cord,err_ctx_t * ctx);
 cord_t get_map_node_cord(const map_node_t * node,err_ctx_t * ctx);
 
 //is the node next to an automatic door?
-bool node_adjacent_to_auto_door(map_node_t * node,err_ctx_t * ctx);//TODO TEST
+bool node_adjacent_to_auto_door(const map_node_t * node,err_ctx_t * ctx);//TODO TEST
 
 //Print out a map node and show all of its member data. Tabs value lets you add tabs to every line of output.
 void map_node_to_output_stream(const map_node_t * node,size_t tabs,FILE * stream,err_ctx_t * ctx);
@@ -545,18 +571,16 @@ struct Saved_Paths{
 
 //---------------------------------------------------------- SYSTEM BEGIN -------------------------------------------------------------
 
-struct Search_Filter_Options{
-	char * fuzzy_name;
-	uint8_t floor_number;
-	bool exclude_stairs;
-	bool hide_non_auto_doors;
-	bool exclude_interiors;
-};
-
 struct Search_Results{
 	map_node_t ** results;
 	size_t n_results;
 };
+
+#define MAX_SEARCH_RESPONSES 10
+
+search_results_t get_nodes_with_closest_match(map_t map,const char * query);
+
+void deinit_search_results(search_results_t * search_results);
 
 struct Priority_Queue{
 	map_node_t ** queue;
@@ -578,7 +602,7 @@ struct Map_System{
 	map_node_t * active_start;
 	map_node_t * active_end;
 	map_path_t * active_path;
-	double (*active_edge_cost_function)(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx);
+	edge_cost_function_f active_edge_cost_function;
 };
 
 map_sys_t init_map_sys(void);
@@ -595,11 +619,18 @@ void find_best_path(map_sys_t * map_sys,err_ctx_t * ctx);
 
 
 
+struct Path_Strategy{
+	const char * strategy_name;
+	edge_cost_function_f edge_cost_function;
+};
 
-/*
- * The cost of an edge for people in wheelchairs
- */
-double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx);
+extern path_strategy_t walker_path_strategy;
+extern path_strategy_t wheelchair_path_strategy;
+extern path_strategy_t deliverer_path_strategy;
+
+#define N_PATH_STRATEGIES 3
+
+extern path_strategy_t * path_strategies[N_PATH_STRATEGIES];
 
 /*
  * The cost of an edge for a walker
@@ -607,14 +638,14 @@ double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,double scaling
 double calculate_walker_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx);
 
 /*
+ * The cost of an edge for people in wheelchairs
+ */
+double calculate_wheelchair_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx);
+
+/*
  * The cost of an edge for transfering heavy equipment
  */
 double calculate_deliverer_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx);
-
-/*
- * The cost of an edge for a driver
- */
-double calculate_driver_edge_cost(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx);
 
 
 //---------------------------------------------------------- FUNCTIONS END ------------------------------------------------------------
