@@ -2188,7 +2188,8 @@ search_results_t get_nodes_with_closest_match(map_t map,const char * query){
 	struct Node_Score top_matches[MAX_SEARCH_RESPONSES];
 	
 	for(size_t i = 0;i < MAX_SEARCH_RESPONSES;i++){
-		top_matches[i] = {0.0f,NULL};
+		top_matches[i].score = 0.0f;
+		top_matches[i].node = NULL;
 	}
 	
 	for(size_t i = 0;i < get_map_node_count(map);i++){
@@ -2217,7 +2218,8 @@ search_results_t get_nodes_with_closest_match(map_t map,const char * query){
 		
 		for(size_t j = 0;j < MAX_SEARCH_RESPONSES;j++){
 			if(similarity_score > top_matches[j].score){
-				top_matches[j] = {similarity_score,current_node};
+				top_matches[j].score = similarity_score;
+				top_matches[j].node = current_node;
 				break;
 			}
 		}

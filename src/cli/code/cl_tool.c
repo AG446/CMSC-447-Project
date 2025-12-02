@@ -398,19 +398,19 @@ cord_t parse_cord(bool * canceled){
 	return create_cord(longitude,latitude);
 }
 
+#define FETCH_NODE_N_OPTIONS 2
 map_node_t * fetch_node(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 	bool canceled = false;
 	size_t choice = parse_working_location(&canceled);
 	if(canceled) return NULL;
 	
 	if(choice == WORKING_MAP){
-		size_t n_options = 2;
-		const char * options[n_options] = {
+		const char * options[FETCH_NODE_N_OPTIONS] = {
 			"Find By Name",
 			"Find By Index"
 		};
 		
-		size_t chosen_option = parse_among_options("Choose How to Find Node",options,n_options,&canceled);
+		size_t chosen_option = parse_among_options("Choose How to Find Node",options,FETCH_NODE_N_OPTIONS,&canceled);
 		if(canceled) return NULL;
 		
 		if(chosen_option == 1){
@@ -435,19 +435,19 @@ map_node_t * fetch_node(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 	return NULL;
 }
 
+#define FETCH_MPO_N_OPTIONS 2
 mpo_t * fetch_mpo(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 	bool canceled = false;
 	size_t choice = parse_working_location(&canceled);
 	if(canceled) return NULL;
 	
 	if(choice == WORKING_MAP){
-		size_t n_options = 2;
-		const char * options[n_options] = {
+		const char * options[FETCH_MPO_N_OPTIONS] = {
 			"Find By Name",
 			"Find By Index"
 		};
 		
-		size_t chosen_option = parse_among_options("Choose How to Find MPO",options,n_options,&canceled);
+		size_t chosen_option = parse_among_options("Choose How to Find MPO",options,FETCH_MPO_N_OPTIONS,&canceled);
 		if(canceled) return NULL;
 		
 		if(chosen_option == 1){
@@ -472,19 +472,19 @@ mpo_t * fetch_mpo(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 	return NULL;
 }
 
+#define FETCH_BUILDING_N_OPTIONS 2
 building_t * fetch_building(map_t * map,map_obj_arr_t * gws,err_ctx_t * ctx){
 	bool canceled = false;
 	size_t choice = parse_working_location(&canceled);
 	if(canceled) return NULL;
 	
 	if(choice == WORKING_MAP){
-		size_t n_options = 2;
-		const char * options[n_options] = {
+		const char * options[FETCH_BUILDING_N_OPTIONS] = {
 			"Find By Name",
 			"Find By Index"
 		};
 		
-		size_t chosen_option = parse_among_options("Choose How to Find Building",options,n_options,&canceled);
+		size_t chosen_option = parse_among_options("Choose How to Find Building",options,FETCH_BUILDING_N_OPTIONS,&canceled);
 		if(canceled) return NULL;
 		
 		if(chosen_option == 1){
@@ -633,6 +633,7 @@ void add_building_to_map_command(map_t * map,map_obj_arr_t * arr,command_collect
 	add_building_to_map(map,removed.building,ctx);
 }
 
+#define SET_NODE_PROP_N_OPTIONS 10
 void set_node_property_command(map_t * map,map_obj_arr_t * arr,command_collection_t collection,err_ctx_t * ctx){
 	bool canceled = false;
 	
@@ -641,8 +642,7 @@ void set_node_property_command(map_t * map,map_obj_arr_t * arr,command_collectio
 	
 	map_node_to_output_stream(node,0,stdout,ctx);
 	
-	const size_t n_options = 10;
-	const char * options[n_options] = {
+	const char * options[SET_NODE_PROP_N_OPTIONS] = {
 		"Change Coordinate",
 		"Set Name",
 		"Set Picture File Path",
@@ -654,7 +654,7 @@ void set_node_property_command(map_t * map,map_obj_arr_t * arr,command_collectio
 		"Clear Associated Building",
 		"Clear Floor Number"
 	};
-	size_t chosen_option = parse_among_options("Choose which property to edit",options,n_options,&canceled);
+	size_t chosen_option = parse_among_options("Choose which property to edit",options,SET_NODE_PROP_N_OPTIONS,&canceled);
 	if(canceled) return;
 	
 	if(chosen_option == 1){
@@ -722,6 +722,7 @@ void create_building_command(map_t * map,map_obj_arr_t * arr,command_collection_
 	free(building_name);
 }
 
+#define SET_MPO_PROP_N_OPTIONS 4
 void set_mpo_property_command(map_t * map,map_obj_arr_t * arr,command_collection_t collection,err_ctx_t * ctx){
 	bool canceled = false;
 	
@@ -730,15 +731,14 @@ void set_mpo_property_command(map_t * map,map_obj_arr_t * arr,command_collection
 	
 	mpo_to_output_stream(mpo,0,stdout,ctx);
 	
-	const size_t n_options = 4;
-	const char * options[n_options] = {
+	const char * options[SET_MPO_PROP_N_OPTIONS] = {
 		"Edit Coordinate",
 		"Set Name",
 		"Set Type",
 		"Clear Name"
 	};
 	
-	size_t chosen_option = parse_among_options("Choose which property to edit",options,n_options,&canceled);
+	size_t chosen_option = parse_among_options("Choose which property to edit",options,SET_MPO_PROP_N_OPTIONS,&canceled);
 	if(canceled) return;
 	
 	if(chosen_option == 1){
@@ -763,7 +763,7 @@ void set_mpo_property_command(map_t * map,map_obj_arr_t * arr,command_collection
 	mpo_to_output_stream(mpo,0,stdout,ctx);
 }
 
-
+#define SET_BUILDING_PROP_N_OPTIONS 5
 void set_building_property_command(map_t * map,map_obj_arr_t * arr,command_collection_t collection,err_ctx_t * ctx){
 	bool canceled = false;
 	
@@ -772,8 +772,7 @@ void set_building_property_command(map_t * map,map_obj_arr_t * arr,command_colle
 	
 	building_to_output_stream(building,0,stdout,ctx);
 	
-	const size_t n_options = 5;
-	const char * options[n_options] = {
+	const char * options[SET_BUILDING_PROP_N_OPTIONS] = {
 		"Change Bounding Box",
 		"Add alias name",
 		"Remove alias name",
@@ -781,7 +780,7 @@ void set_building_property_command(map_t * map,map_obj_arr_t * arr,command_colle
 		"Set Floor Count"
 	};
 	
-	size_t chosen_option = parse_among_options("Choose which property to edit",options,n_options,&canceled);
+	size_t chosen_option = parse_among_options("Choose which property to edit",options,SET_BUILDING_PROP_N_OPTIONS,&canceled);
 	if(canceled) return;
 	
 	if(chosen_option == 1){
@@ -815,27 +814,27 @@ void set_building_property_command(map_t * map,map_obj_arr_t * arr,command_colle
 	building_to_output_stream(building,0,stdout,ctx);
 }
 
+#define DELETE_FROM_MAP_N_DEL_OPTIONS 3
+#define DELETE_FROM_MAP_N_NODE_DELETE_OPTIONS 2
 void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_t collection,err_ctx_t * ctx){
 	bool canceled = false;
 	
-	const size_t n_del_options = 3;
-	const char * del_options[n_del_options] = {
+	const char * del_options[DELETE_FROM_MAP_N_DEL_OPTIONS] = {
 		"Remove Node",
 		"Remove MPO",
 		"Remove Building"
 	};
 	
-	size_t chosen_option = parse_among_options("Choose what to delete from the map",del_options,n_del_options,&canceled);
+	size_t chosen_option = parse_among_options("Choose what to delete from the map",del_options,DELETE_FROM_MAP_N_DEL_OPTIONS,&canceled);
 	if(canceled) return;
 	
-	size_t n_node_delete_options = 2;
-	const char * node_delete_options[n_node_delete_options] = {
+	const char * node_delete_options[DELETE_FROM_MAP_N_NODE_DELETE_OPTIONS] = {
 		"Remove By Name",
 		"Remove By Index"
 	};
 	
 	if(chosen_option == 1){
-		chosen_option = parse_among_options("Choose How to Delete Node",node_delete_options,n_node_delete_options,&canceled);
+		chosen_option = parse_among_options("Choose How to Delete Node",node_delete_options,DELETE_FROM_MAP_N_NODE_DELETE_OPTIONS,&canceled);
 		if(canceled) return;
 		
 		if(chosen_option == 1){
@@ -849,7 +848,7 @@ void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_
 			remove_node_from_map_by_index(map,node_index,ctx);
 		}
 	}else if(chosen_option == 2){
-		chosen_option = parse_among_options("Choose How to Delete MPO",node_delete_options,n_node_delete_options,&canceled);
+		chosen_option = parse_among_options("Choose How to Delete MPO",node_delete_options,DELETE_FROM_MAP_N_NODE_DELETE_OPTIONS,&canceled);
 		if(canceled) return;
 		
 		if(chosen_option == 1){
@@ -863,7 +862,7 @@ void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_
 			remove_mpo_from_map_by_index(map,mpo_index,ctx);
 		}
 	}else if(chosen_option == 3){
-		chosen_option = parse_among_options("Choose How to Delete Building",node_delete_options,n_node_delete_options,&canceled);
+		chosen_option = parse_among_options("Choose How to Delete Building",node_delete_options,DELETE_FROM_MAP_N_NODE_DELETE_OPTIONS,&canceled);
 		if(canceled) return;
 		
 		if(chosen_option == 1){
@@ -881,6 +880,7 @@ void delete_from_map_command(map_t * map,map_obj_arr_t * arr,command_collection_
 
 #define CONNECT true
 #define DISCONNECT false
+#define N_CONNECT_DISCONNECT_OPTIONS 2
 void connect_disconnect_nodes_command(map_t * map,err_ctx_t * ctx,bool connect_mode){
 	bool canceled = false;
 	
@@ -892,19 +892,18 @@ void connect_disconnect_nodes_command(map_t * map,err_ctx_t * ctx,bool connect_m
 	
 	size_t chosen_connection_option = 0;
 	
-	const size_t n_connect_options = 2;
 	if(connect_mode == CONNECT){
-		const char * connect_options[n_connect_options] = {
+		const char * connect_options[N_CONNECT_DISCONNECT_OPTIONS] = {
 			"Connect By Index",
 			"Connect By Names"
 		};
-		chosen_connection_option = parse_among_options("Choose how to connect nodes",connect_options,n_connect_options,&canceled);
+		chosen_connection_option = parse_among_options("Choose how to connect nodes",connect_options,N_CONNECT_DISCONNECT_OPTIONS,&canceled);
 	}else if(connect_mode == DISCONNECT){
-		const char * connect_options[n_connect_options] = {
+		const char * connect_options[N_CONNECT_DISCONNECT_OPTIONS] = {
 			"Disconnect By Index",
 			"Disconnect By Names"
 		};
-		chosen_connection_option = parse_among_options("Choose how to connect nodes",connect_options,n_connect_options,&canceled);
+		chosen_connection_option = parse_among_options("Choose how to connect nodes",connect_options,N_CONNECT_DISCONNECT_OPTIONS,&canceled);
 	}
 	if(canceled) return;
 	
@@ -939,16 +938,16 @@ void disconnect_nodes_command(map_t * map,map_obj_arr_t * arr,command_collection
 	connect_disconnect_nodes_command(map,ctx,false);
 }
 
+#define SET_EDGE_TYPE_N_OPTIONS 2
 void set_edge_type_command(map_t * map,map_obj_arr_t * arr,command_collection_t collection,err_ctx_t * ctx){
 	bool canceled = false;
 	
-	const size_t n_options = 2;
-	const char * options[n_options] = {
+	const char * options[SET_EDGE_TYPE_N_OPTIONS] = {
 		"Seach By Node Index Pair",
 		"Seach By Node Name Pair"
 	};
 	
-	size_t chosen_option = parse_among_options("Chooose how to edit a connection type",options,n_options,&canceled);
+	size_t chosen_option = parse_among_options("Chooose how to edit a connection type",options,SET_EDGE_TYPE_N_OPTIONS,&canceled);
 	if(canceled) return;
 	
 	uint8_t chosen_edge_type = parse_edge_type(&canceled);
