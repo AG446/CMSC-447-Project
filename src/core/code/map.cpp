@@ -540,6 +540,15 @@ void set_map_node_building(map_node_t * node,building_t * building,err_ctx_t * c
 	node->associated_building = building;
 }
 
+building_t * get_map_node_building(map_node_t * node,err_ctx_t * ctx){
+	if(node == NULL){
+		ctx->flags |= ERROR_INVALID_PARAM;
+		return NULL;
+	}
+	
+	return node->associated_building;
+}
+
 void clear_map_node_building(map_node_t * node,err_ctx_t * ctx){
 	if(node == NULL){
 		ctx->flags |= ERROR_INVALID_PARAM;
@@ -2140,4 +2149,98 @@ map_rect_t get_map_bounding_rect(const map_t map){
 	}
 	
 	return create_map_rect(create_cord(min_x,min_y),create_cord(max_x,max_y));
+}
+
+void deinit_search_results(search_results_t * search_results){
+	if(search_results == NULL) return;
+	
+	if(search_results->results != NULL) free(search_results->results);
+}
+
+struct Node_Score{
+	float score;
+	map_node_t * node;
+};
+
+static int node_score_comp(const void * a, const void * b) {
+	struct Node_Score * a_si = (struct Node_Score *) a;
+	struct Node_Score * b_si = (struct Node_Score *) b;
+	
+	if(a_si->score > b_si->score) return -1;
+	else if(a_si->score < b_si->score) return 1;
+	else return 0;
+}
+
+char get_first_nonzero_digit(const char *str) {
+	if (str == NULL) {
+		return '\0';
+	}
+	while (*str != '\0') {
+		if (isdigit((unsigned char)*str) && *str != '0') {
+			return *str;
+		}
+		str++;
+	}
+	return '\0';
+}
+
+search_results_t get_nodes_with_closest_match(map_t map,const char * query){
+	struct Node_Score top_matches[MAX_SEARCH_RESPONSES];
+	
+	for(size_t i = 0;i < MAX_SEARCH_RESPONSES;i++){
+		top_matches[i] = {0.0f,NULL};
+	}
+	
+	for(size_t i = 0;i < get_map_node_count(map);i++){
+		map_node_t * current_node = get_node_by_index_from_map(map,i,NULL);//TODO add err_ctx_t
+		const char * current_node_name = get_map_node_name(current_node,NULL);//TODO add err_ctx_t
+		
+		if(current_node_name == NULL) continue;
+		
+		float similarity_score = 0.0;
+		similarity_score += phrase_similarity_score(query,current_node_name);
+		
+		building_t * building = get_map_node_building(current_node,NULL);//TODO add err_ctx_t
+		if(building != NULL){
+			for(size_t j = 0;j < building->n_possible_names;j++){
+				similarity_score += phrase_similarity_score(query,building->possible_names[j]);
+			}
+		}
+		
+		char * floor_number_name = get_map_node_floor_number_name(current_node,NULL);//TODO add err_ctx_t
+		similarity_score += phrase_similarity_score(query,floor_number_name);
+		
+		char digit = get_first_nonzero_digit(query);
+		if(digit == floor_number_name[0]) similarity_score+=2;
+		
+		free(floor_number_name);
+		
+		for(size_t j = 0;j < MAX_SEARCH_RESPONSES;j++){
+			if(similarity_score > top_matches[j].score){
+				top_matches[j] = {similarity_score,current_node};
+				break;
+			}
+		}
+	}
+	
+	qsort(top_matches, MAX_SEARCH_RESPONSES, sizeof(struct Node_Score), node_score_comp);
+	
+	size_t n_results_found = 0;
+	
+	for(size_t i = 0;i < MAX_SEARCH_RESPONSES;i++) if(top_matches[i].node != NULL) n_results_found++;
+	
+	search_results_t out;
+	
+	out.n_results = n_results_found;
+	
+	if(n_results_found == 0){
+		out.results = NULL;
+	}else{
+		out.results = (map_node_t**) malloc(sizeof(map_node_t*) * out.n_results);
+		for(size_t i = 0;i < n_results_found;i++){
+			out.results[i] = top_matches[i].node;
+		}
+	}
+	
+	return out;
 }

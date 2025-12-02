@@ -364,6 +364,14 @@ void on_screen_map_set_hide_non_auto_doors(on_screen_map_t * screen_map,bool hid
 //set whether building names are visible
 void on_screen_map_set_show_building_names(on_screen_map_t * screen_map,bool show);
 
+//notify that a start node was selected
+void on_screen_map_notify_start(on_screen_map_t * screen_map,map_node_t * start);
+
+//notify that an end node was selected
+void on_screen_map_notify_end(on_screen_map_t * screen_map,map_node_t * end);
+
+void on_screen_map_update_focus(on_screen_map_t * screen_map,map_node_t * node);
+
 //looping idle function to continously render the map
 gboolean idle_draw_function(on_screen_map_t * screen_map);
 

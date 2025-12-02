@@ -1,5 +1,6 @@
 #include "ui.h"
 #include "map_render.h"
+#include "text_proc.h"
 
 static void map_pointer_motion_event (GtkEventController *gesture,gdouble x,gdouble y,screen_data_state_t * sds){
 	set_mouse_position(&(sds->on_screen_map.mouse_state),x,y);
@@ -16,9 +17,6 @@ static void map_mouse_released (GtkGestureClick * gesture,gint n_press,gdouble x
 screen_data_state_t init_screen_data_state(void){
 	screen_data_state_t out;
 	
-	out.start_location_text = NULL;
-	out.end_location_text = NULL;
-	
 	out.path_finder_strategy_index = 0;
 	
 	out.on_screen_map = init_on_screen_map("assets/maps/campus.map");
@@ -30,13 +28,6 @@ screen_data_state_t init_screen_data_state(void){
 
 void screen_data_state_to_output_stream(screen_data_state_t state,FILE * stream){
 	fputs("\n\n",stream);
-	fputs("Start Location Text: ",stream);
-	if(state.start_location_text != NULL) fputs(state.start_location_text,stream);
-	fputc('\n',stream);
-	
-	fputs("End Location Text: ",stream);
-	if(state.end_location_text != NULL) fputs(state.end_location_text,stream);
-	fputc('\n',stream);
 	
 	fprintf(stream,"Hide Non Auto Doors: %d\n",state.on_screen_map.hide_non_auto_doors);
 	fprintf(stream,"Show Building Names: %d\n",state.on_screen_map.show_building_names);
@@ -46,34 +37,90 @@ void screen_data_state_to_output_stream(screen_data_state_t state,FILE * stream)
 	fputc('\n',stream);
 }
 
-static void start_location_activate (GtkWidget *widget,screen_data_state_t * sds){
-	GtkEntryBuffer * buffer = gtk_entry_get_buffer (GTK_ENTRY(widget));
-	char * text = strdup(gtk_entry_buffer_get_text(buffer));
-	if(sds->start_location_text != NULL) free(sds->start_location_text);
-	sds->start_location_text = text;
+static void populate_search_results_into_text_view(GtkWidget * text_view,search_results_t results){
+	char * results_str = NULL;
 	
-	screen_data_state_to_output_stream(*sds,stdout);
+	if(results.n_results > 0){
+		size_t total_length = 0;
+		const char ** results_name = (const char**) malloc(sizeof(const char*) * results.n_results);
+		for(size_t i = 0;i < results.n_results;i++){
+			map_node_t * current_node = results.results[i];
+			const char * current_node_name = get_map_node_name(current_node,NULL);//TODO add err_ctx_t
+			
+			results_name[i] = current_node_name;
+			total_length += strlen(current_node_name);
+		}
+		
+		const char * node_selected_str = "Node Selected: ";
+		total_length += strlen(node_selected_str) + results.n_results + 1;
+		
+		results_str = (char*) malloc(total_length+1);
+		
+		size_t at = 0;
+		strcpy(results_str+at,node_selected_str);
+		at += strlen(node_selected_str);
+		
+		for(size_t i = 0;i < results.n_results;i++){
+			strcpy(results_str+at,results_name[i]);
+			at += strlen(results_name[i]);
+			if(i == 0){
+				results_str[at] = '\n';
+				at++;
+			}
+			
+			results_str[at] = '\n';
+			at++;
+		}
+		results_str[at] = '\0';
+		free(results_name);
+	}else{
+		results_str = strdup("No results found");
+	}
+	
+	GtkTextBuffer * text_buffer = gtk_text_buffer_new (NULL);
+	gtk_text_buffer_set_text (text_buffer,results_str,-1);
+	gtk_text_view_set_buffer (GTK_TEXT_VIEW(text_view),text_buffer);
 }
 
-static void end_location_activate (GtkWidget *widget,screen_data_state_t * sds){
+static void start_location_activate (GtkWidget * widget,screen_data_state_t * sds){
 	GtkEntryBuffer * buffer = gtk_entry_get_buffer (GTK_ENTRY(widget));
 	char * text = strdup(gtk_entry_buffer_get_text(buffer));
-	if(sds->end_location_text != NULL) free(sds->end_location_text);
-	sds->end_location_text = text;
 	
-	screen_data_state_to_output_stream(*sds,stdout);
+	search_results_t results = get_nodes_with_closest_match(sds->on_screen_map.map_sys.map,text);
+	populate_search_results_into_text_view(sds->text_view,results);
+	if(results.n_results > 0){
+		on_screen_map_notify_start(&(sds->on_screen_map),results.results[0]);
+	}
+	deinit_search_results(&results);
+	
+	free(text);
+}
+
+static void end_location_activate (GtkWidget * widget,screen_data_state_t * sds){
+	GtkEntryBuffer * buffer = gtk_entry_get_buffer (GTK_ENTRY(widget));
+	char * text = strdup(gtk_entry_buffer_get_text(buffer));
+	
+	search_results_t results = get_nodes_with_closest_match(sds->on_screen_map.map_sys.map,text);
+	populate_search_results_into_text_view(sds->text_view,results);
+	if(results.n_results > 0){
+		on_screen_map_notify_end(&(sds->on_screen_map),results.results[0]);
+	}
+	deinit_search_results(&results);
+	
+	free(text);
 }
 
 
-static void create_location_label_and_entry(const char * label_name,GtkWidget * grid,size_t row,GCallback entry_callback,screen_data_state_t * sds){
+static void create_location_label_and_entry(const char * label_name,GtkWidget ** entry_assign,GtkWidget * grid,size_t row,GCallback entry_callback,GCallback clear_callback,screen_data_state_t * sds){
 	GtkWidget * label = gtk_label_new(label_name);
 	{
 		gtk_widget_add_css_class(label,"location-labels");
 	}
 	
-	GtkWidget * find_location = gtk_button_new_with_label("Find");
+	GtkWidget * find_location = gtk_button_new_with_label("Clear");
 	{
-		gtk_widget_add_css_class(find_location,"find-buttons");
+		gtk_widget_add_css_class(find_location,"clear-buttons");
+		if(clear_callback != NULL) g_signal_connect(find_location, "clicked", G_CALLBACK (clear_callback), sds);
 	}
 	
 	GtkWidget * entry = gtk_entry_new();
@@ -81,11 +128,22 @@ static void create_location_label_and_entry(const char * label_name,GtkWidget * 
 		gtk_widget_add_css_class(entry,"location-entries");
 		if(entry_callback != NULL) g_signal_connect(entry, "activate", G_CALLBACK (entry_callback), sds);
 		gtk_widget_set_hexpand(entry, TRUE);
+		*entry_assign = entry;
 	}
 	
 	gtk_grid_attach (GTK_GRID (grid), label,0,row,1,1);
 	gtk_grid_attach (GTK_GRID (grid), entry,1,row,1,1);
 	gtk_grid_attach (GTK_GRID (grid), find_location,2,row,1,1);
+}
+
+static void start_location_clear_callback(GtkButton * self,screen_data_state_t * sds){
+	GtkEntryBuffer * entry_buffer = gtk_entry_buffer_new ("",-1);
+	gtk_entry_set_buffer (GTK_ENTRY(sds->start_location_entry),entry_buffer);
+}
+
+static void end_location_clear_callback(GtkButton * self,screen_data_state_t * sds){
+	GtkEntryBuffer * entry_buffer = gtk_entry_buffer_new ("",-1);
+	gtk_entry_set_buffer (GTK_ENTRY(sds->end_location_entry),entry_buffer);
 }
 
 static GtkWidget * create_location_frame(screen_data_state_t * sds){
@@ -98,8 +156,8 @@ static GtkWidget * create_location_frame(screen_data_state_t * sds){
 	
 	GtkWidget * location_grid = gtk_grid_new ();
 	{
-		create_location_label_and_entry("Start Location:",location_grid,0,G_CALLBACK (start_location_activate),sds);
-		create_location_label_and_entry("End Location:",location_grid,1,G_CALLBACK (end_location_activate),sds);
+		create_location_label_and_entry("Start Location:",&(sds->start_location_entry),location_grid,0,G_CALLBACK (start_location_activate),G_CALLBACK(start_location_clear_callback),sds);
+		create_location_label_and_entry("End Location:",&(sds->end_location_entry),location_grid,1,G_CALLBACK (end_location_activate),G_CALLBACK(end_location_clear_callback),sds);
 		gtk_grid_attach(GTK_GRID(location_grid), umbc_logo_image, 3, 0, 1, 2);
 	}
 	

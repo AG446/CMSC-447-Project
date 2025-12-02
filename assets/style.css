@@ -84,17 +84,22 @@ button{
 	background-color:black;
 }
 
-.find-buttons{
+textview{
+	background-color:rgb(64,64,64);
+	color:white;
+}
+
+.clear-buttons{
 	color: black;
-	background-color:rgb(128,255,128);
+	background-color:rgb(255,200,64);
 	margin:5px;
 	box-shadow: 0px 2px 7px 3px rgba(0,0,0,0.4);
 	font-size:20px;
 }
-.find-buttons:hover{
+.clear-buttons:hover{
 	transform: scale(1.05);
 }
-.find-buttons:active{
+.clear-buttons:active{
 	color: white;
 	background-color:black;
 }

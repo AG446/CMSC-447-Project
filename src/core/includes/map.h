@@ -29,6 +29,7 @@ typedef struct Building building_t;
 typedef struct Priority_Queue prior_q_t;
 typedef struct Map_System map_sys_t;
 typedef struct Path_Strategy path_strategy_t;
+typedef struct Search_Results search_results_t;
 
 typedef double (*edge_cost_function_f)(const map_edge_t * edge_ref,double scaling_y_factor,err_ctx_t * ctx);
 
@@ -296,6 +297,9 @@ bool get_map_node_selectable(const map_node_t * node,err_ctx_t * ctx);
 
 //Set the building in which the node resides.
 void set_map_node_building(map_node_t * node,building_t * building,err_ctx_t * ctx);
+
+//Get the building that the node resides in if it exists, otherwise return NULL
+building_t * get_map_node_building(map_node_t * node,err_ctx_t * ctx);//TODO add tests
 
 //If you accidently assigned a building to a node you can clear it.
 void clear_map_node_building(map_node_t * node,err_ctx_t * ctx);
@@ -567,18 +571,16 @@ struct Saved_Paths{
 
 //---------------------------------------------------------- SYSTEM BEGIN -------------------------------------------------------------
 
-struct Search_Filter_Options{
-	char * fuzzy_name;
-	uint8_t floor_number;
-	bool exclude_stairs;
-	bool hide_non_auto_doors;
-	bool exclude_interiors;
-};
-
 struct Search_Results{
 	map_node_t ** results;
 	size_t n_results;
 };
+
+#define MAX_SEARCH_RESPONSES 10
+
+search_results_t get_nodes_with_closest_match(map_t map,const char * query);
+
+void deinit_search_results(search_results_t * search_results);
 
 struct Priority_Queue{
 	map_node_t ** queue;

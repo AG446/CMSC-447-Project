@@ -19,15 +19,14 @@
 typedef struct Screen_Data_State screen_data_state_t;
 
 struct Screen_Data_State{
-	char * start_location_text;
-	char * end_location_text;
-	
 	unsigned int path_finder_strategy_index;
 	
 	on_screen_map_t on_screen_map;
 	
 	GtkWidget * window;
 	GtkWidget * text_view;
+	GtkWidget * start_location_entry;
+	GtkWidget * end_location_entry;
 };
 
 screen_data_state_t init_screen_data_state(void);

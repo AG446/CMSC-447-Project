@@ -1262,6 +1262,29 @@ void on_screen_map_set_show_building_names(on_screen_map_t * screen_map,bool sho
 	screen_map->show_building_names = show;
 }
 
+void on_screen_map_notify_start(on_screen_map_t * screen_map,map_node_t * start){
+	notify_map_pin(&(screen_map->start_pin),start);
+	notify_node_popup(&(screen_map->node_popup),start);
+	on_screen_map_update_focus(screen_map,start);
+}
+
+void on_screen_map_notify_end(on_screen_map_t * screen_map,map_node_t * end){
+	notify_map_pin(&(screen_map->end_pin),end);
+	notify_node_popup(&(screen_map->node_popup),end);
+	on_screen_map_update_focus(screen_map,end);
+}
+
+void on_screen_map_update_focus(on_screen_map_t * screen_map,map_node_t * node){
+	double x = 0.0,y = 0.0;
+	calculate_on_screen_pos(node->coordinate,&x,&y,screen_map->surface,screen_map->screen_pan,screen_map->map_bounding_box,screen_map->map_sys.map.scaling_y_factor);
+	
+	double surface_width = cairo_image_surface_get_width(screen_map->surface);
+	double surface_height = cairo_image_surface_get_height(screen_map->surface);
+	
+	screen_map->screen_pan.pan_x_final += (surface_width/2.0-x)/(screen_map->screen_pan.zoom_current * surface_width);
+	screen_map->screen_pan.pan_y_final += (surface_height/2.0-y)/(screen_map->screen_pan.zoom_current * surface_height);
+}
+
 gboolean idle_draw_function(on_screen_map_t * screen_map) {
 	gint64 frame_time = 1000000/120;
 	gint64 update_time = 4000;//4 milliseconds per update (DONT CHANGE)
@@ -1274,6 +1297,9 @@ gboolean idle_draw_function(on_screen_map_t * screen_map) {
 	screen_map->last_micros = current_micros;
 	
 	gint64 time_debt = delta_micros + screen_map->micros_debt;
+	if(time_debt > 10*update_time){
+		time_debt = 0;
+	}
 	
 	while(time_debt > update_time){
 		on_screen_map_update(screen_map);
