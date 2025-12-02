@@ -16,9 +16,9 @@ EXE_BUILD_PATH := $(BUILD_PATH)/bin
 CORE_PATH := $(SRC_PATH)/core
 CORE_INCLUDES := -I$(CORE_PATH)/includes
 CORE_CODE := $(CORE_PATH)/code
-CORE_CXX_FILES := $(wildcard $(CORE_CODE)/*.c)
+CORE_C_FILES := $(wildcard $(CORE_CODE)/*.c)
 CORE_OBJS_BUILD_PATH := $(OBJS_BUILD_PATH)/core
-CORE_OBJS := $(addprefix $(CORE_OBJS_BUILD_PATH)/,$(patsubst %.c,%.o,$(notdir $(CORE_CXX_FILES))))
+CORE_OBJS := $(addprefix $(CORE_OBJS_BUILD_PATH)/,$(patsubst %.c,%.o,$(notdir $(CORE_C_FILES))))
 $(CORE_OBJS_BUILD_PATH)/%.o: $(CORE_CODE)/%.c
 	@mkdir -p $(CORE_OBJS_BUILD_PATH)
 	$(CC) $(SHARED_CFLAGS) $(WARNING_FLAGS) -MMD -MP $(CORE_INCLUDES) -c $< -o $@
@@ -28,9 +28,9 @@ $(CORE_OBJS_BUILD_PATH)/%.o: $(CORE_CODE)/%.c
 UI_PATH := $(SRC_PATH)/ui
 UI_INCLUDES := -I$(UI_PATH)/includes $(shell pkg-config --cflags $(EXTERNAL_LIBRARIES)) $(CORE_INCLUDES)
 UI_CODE := $(UI_PATH)/code
-UI_CXX_FILES := $(wildcard $(UI_CODE)/*.c)
+UI_C_FILES := $(wildcard $(UI_CODE)/*.c)
 UI_OBJS_BUILD_PATH := $(OBJS_BUILD_PATH)/ui
-UI_OBJS := $(addprefix $(UI_OBJS_BUILD_PATH)/,$(patsubst %.c,%.o,$(notdir $(UI_CXX_FILES))))
+UI_OBJS := $(addprefix $(UI_OBJS_BUILD_PATH)/,$(patsubst %.c,%.o,$(notdir $(UI_C_FILES))))
 $(UI_OBJS_BUILD_PATH)/%.o: $(UI_CODE)/%.c
 	@mkdir -p $(UI_OBJS_BUILD_PATH)
 	$(CC) $(SHARED_CFLAGS) $(WARNING_FLAGS) -MMD -MP $(UI_INCLUDES) -c $< -o $@
@@ -39,9 +39,9 @@ $(UI_OBJS_BUILD_PATH)/%.o: $(UI_CODE)/%.c
 TESTS_PATH := $(SRC_PATH)/tests
 TESTS_INCLUDES := -I$(TESTS_PATH)/includes $(CORE_INCLUDES)
 TESTS_CODE := $(TESTS_PATH)/code
-TESTS_CXX_FILES := $(wildcard $(TESTS_CODE)/*.c)
+TESTS_C_FILES := $(wildcard $(TESTS_CODE)/*.c)
 TESTS_OBJS_BUILD_PATH := $(OBJS_BUILD_PATH)/tests
-TESTS_OBJS := $(addprefix $(TESTS_OBJS_BUILD_PATH)/,$(patsubst %.c,%.o,$(notdir $(TESTS_CXX_FILES))))
+TESTS_OBJS := $(addprefix $(TESTS_OBJS_BUILD_PATH)/,$(patsubst %.c,%.o,$(notdir $(TESTS_C_FILES))))
 $(TESTS_OBJS_BUILD_PATH)/%.o: $(TESTS_CODE)/%.c
 	@mkdir -p $(TESTS_OBJS_BUILD_PATH)
 	$(CC) $(SHARED_CFLAGS) $(WARNING_FLAGS) -MMD -MP $(TESTS_INCLUDES) -c $< -o $@
@@ -50,9 +50,9 @@ $(TESTS_OBJS_BUILD_PATH)/%.o: $(TESTS_CODE)/%.c
 CLI_PATH := $(SRC_PATH)/cli
 CLI_INCLUDES := -I$(CLI_PATH)/includes $(CORE_INCLUDES)
 CLI_CODE := $(CLI_PATH)/code
-CLI_CXX_FILES := $(wildcard $(CLI_CODE)/*.c)
+CLI_C_FILES := $(wildcard $(CLI_CODE)/*.c)
 CLI_OBJS_BUILD_PATH := $(OBJS_BUILD_PATH)/cli
-CLI_OBJS := $(addprefix $(CLI_OBJS_BUILD_PATH)/,$(patsubst %.c,%.o,$(notdir $(CLI_CXX_FILES))))
+CLI_OBJS := $(addprefix $(CLI_OBJS_BUILD_PATH)/,$(patsubst %.c,%.o,$(notdir $(CLI_C_FILES))))
 $(CLI_OBJS_BUILD_PATH)/%.o: $(CLI_CODE)/%.c
 	@mkdir -p $(CLI_OBJS_BUILD_PATH)
 	$(CC) $(SHARED_CFLAGS) $(WARNING_FLAGS) -MMD -MP $(CLI_INCLUDES) -c $< -o $@
